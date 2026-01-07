@@ -99,8 +99,14 @@
             letter-spacing: 1px;
         }
 
-        /* Lower Third Ticker */
-        .lower-third {
+        /* Ticker Container - Two Tickers */
+        .ticker-container {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* News Ticker (Top) */
+        .news-ticker {
             background: linear-gradient(90deg, rgba(0, 255, 136, 0.1) 0%, transparent 100%);
             border-left: 3px solid var(--accent-green);
             padding: 0.75rem 2rem;
@@ -109,16 +115,17 @@
             height: 50px;
             display: flex;
             align-items: center;
+            border-bottom: 1px solid var(--border);
         }
 
-        .ticker-content {
+        .news-ticker-content {
             display: flex;
             gap: 4rem;
-            animation: scroll 60s linear infinite;
+            animation: scroll-slow 120s linear infinite;
             white-space: nowrap;
         }
 
-        @keyframes scroll {
+        @keyframes scroll-slow {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }
         }
@@ -155,13 +162,65 @@
             background: var(--accent-yellow);
         }
 
-        .ticker-assets {
-            color: var(--text-secondary);
+        /* Market Ticker (Bottom) */
+        .market-ticker {
+            background: linear-gradient(90deg, rgba(51, 153, 255, 0.1) 0%, transparent 100%);
+            border-left: 3px solid var(--accent-blue);
+            padding: 0.6rem 2rem;
+            overflow: hidden;
+            position: relative;
+            height: 45px;
+            display: flex;
+            align-items: center;
+        }
+
+        .market-ticker-content {
+            display: flex;
+            gap: 3rem;
+            animation: scroll-fast 45s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes scroll-fast {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .market-ticker-item {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
             font-size: 0.75rem;
         }
 
-        .asset-up { color: var(--accent-green); }
-        .asset-down { color: var(--accent-red); }
+        .market-ticker-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            min-width: 80px;
+        }
+
+        .market-ticker-value {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        .market-ticker-change {
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .market-ticker-up {
+            color: var(--accent-green);
+        }
+
+        .market-ticker-down {
+            color: var(--accent-red);
+        }
+
+        .market-ticker-neutral {
+            color: var(--text-dim);
+        }
 
         /* Main Grid */
         .main-grid {
@@ -438,10 +497,20 @@
         <div class="time-display" id="currentTime">00:00:00 UTC</div>
     </div>
 
-    <!-- Lower Third Ticker -->
-    <div class="lower-third">
-        <div class="ticker-content" id="tickerContent">
-            <!-- Ticker items populated by JS -->
+    <!-- Dual Ticker System -->
+    <div class="ticker-container">
+        <!-- News Ticker (Top) -->
+        <div class="news-ticker">
+            <div class="news-ticker-content" id="newsTickerContent">
+                <!-- News ticker items populated by JS -->
+            </div>
+        </div>
+        
+        <!-- Market Ticker (Bottom) -->
+        <div class="market-ticker">
+            <div class="market-ticker-content" id="marketTickerContent">
+                <!-- Market ticker items populated by JS -->
+            </div>
         </div>
     </div>
 
@@ -502,14 +571,16 @@
         updateTime();
 
         // ========================================================================
-        // TICKER DATA
+        // DUAL TICKER SYSTEM
         // ========================================================================
         
-        let tickerItems = [];
+        let newsTickerItems = [];
+        let marketTickerData = [];
 
-        function addToTicker(headline, impact, assets) {
+        // News Ticker (Top - Slower)
+        function addToNewsTicker(headline, impact, assets) {
             const time = new Date().toISOString().substr(11, 5);
-            tickerItems.unshift({
+            newsTickerItems.unshift({
                 time: time,
                 text: headline.substring(0, 100),
                 impact: impact,
@@ -517,16 +588,16 @@
             });
             
             // Keep only last 20 items
-            if (tickerItems.length > 20) {
-                tickerItems = tickerItems.slice(0, 20);
+            if (newsTickerItems.length > 20) {
+                newsTickerItems = newsTickerItems.slice(0, 20);
             }
             
-            updateTicker();
+            updateNewsTicker();
         }
 
-        function updateTicker() {
-            const ticker = document.getElementById('tickerContent');
-            const doubled = [...tickerItems, ...tickerItems];
+        function updateNewsTicker() {
+            const ticker = document.getElementById('newsTickerContent');
+            const doubled = [...newsTickerItems, ...newsTickerItems];
             
             ticker.innerHTML = doubled.map(item => `
                 <div class="ticker-item">
@@ -537,9 +608,31 @@
                             `<div class="impact-dot ${i < item.impact ? 'active' : ''}"></div>`
                         ).join('')}
                     </div>
-                    <span class="ticker-assets">${item.assets || ''}</span>
                 </div>
             `).join('');
+        }
+
+        // Market Ticker (Bottom - Faster)
+        function updateMarketTicker(marketData) {
+            marketTickerData = marketData;
+            const ticker = document.getElementById('marketTickerContent');
+            const doubled = [...marketData, ...marketData];
+            
+            ticker.innerHTML = doubled.map(item => `
+                <div class="market-ticker-item">
+                    <span class="market-ticker-label">${item.label}</span>
+                    <span class="market-ticker-value">${item.value}</span>
+                    <span class="market-ticker-change ${getMarketTickerClass(item.dir)}">
+                        ${item.change}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function getMarketTickerClass(dir) {
+            return dir === 'up' ? 'market-ticker-up' : 
+                   dir === 'down' ? 'market-ticker-down' : 
+                   'market-ticker-neutral';
         }
 
         // ========================================================================
@@ -628,8 +721,8 @@
             const cardHtml = createCardHtml(message.data);
             column.insertAdjacentHTML('afterbegin', cardHtml);
 
-            // Add to ticker
-            addToTicker(
+            // Add to news ticker (top)
+            addToNewsTicker(
                 message.data.headline, 
                 message.data.impact || 2,
                 formatAssets(message.data)
@@ -736,6 +829,9 @@
                     </div>
                 </div>
             `).join('');
+            
+            // Also update market ticker (bottom ticker)
+            updateMarketTicker(marketData);
         }
 
         function updateMacroData(macroData) {
