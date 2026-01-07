@@ -188,7 +188,7 @@
 
         .market-ticker-item {
             display: flex;
-            gap: 0.75rem;
+            gap: 0.35rem;
             align-items: center;
             font-size: 0.75rem;
         }
@@ -196,18 +196,20 @@
         .market-ticker-label {
             color: var(--text-secondary);
             font-weight: 600;
-            min-width: 80px;
+            min-width: 70px;
         }
 
         .market-ticker-value {
             color: var(--text-primary);
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
+            margin-left: -0.2rem;
         }
 
         .market-ticker-change {
             font-size: 0.7rem;
             font-weight: 600;
+            margin-left: -0.1rem;
         }
 
         .market-ticker-up {
@@ -222,10 +224,10 @@
             color: var(--text-dim);
         }
 
-        /* Main Grid */
+        /* Main Grid - 4 Columns */
         .main-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 1px;
             background: var(--border);
             padding: 1px;
@@ -469,17 +471,11 @@
         /* Responsive */
         @media (max-width: 1400px) {
             .main-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        @media (max-width: 900px) {
-            .main-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 900px) {
             .main-grid {
                 grid-template-columns: 1fr;
             }
@@ -514,7 +510,7 @@
         </div>
     </div>
 
-    <!-- Main Grid -->
+    <!-- Main Grid - 4 Columns -->
     <div class="main-grid">
         <div class="column col-breaking">
             <div class="column-header">
@@ -546,14 +542,6 @@
                 <div class="column-subtitle">Oil • Metals • Shipping</div>
             </div>
             <div class="column-content" id="commodityColumn"></div>
-        </div>
-
-        <div class="column col-market">
-            <div class="column-header">
-                <div class="column-title">MARKET MAP</div>
-                <div class="column-subtitle">Real-time snapshot</div>
-            </div>
-            <div class="column-content" id="marketColumn"></div>
         </div>
     </div>
 
@@ -814,23 +802,7 @@
         }
 
         function updateMarketData(marketData) {
-            const marketColumn = document.getElementById('marketColumn');
-            
-            marketColumn.innerHTML = marketData.map(item => `
-                <div class="market-card">
-                    <div>
-                        <div class="market-label">${item.label}</div>
-                        <div class="market-value ${getMarketClass(item.dir)}">
-                            ${item.value}
-                        </div>
-                        <div class="market-change ${getMarketClass(item.dir)}">
-                            ${item.change}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            
-            // Also update market ticker (bottom ticker)
+            // Update market ticker (bottom ticker) only
             updateMarketTicker(marketData);
         }
 
