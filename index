@@ -396,6 +396,94 @@
             line-height: 1.4;
         }
 
+        /* Macro Plumbing Grid - 2x4 Layout */
+        .macro-grid-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .macro-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .macro-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .macro-grid-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.6rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .macro-grid-item:hover {
+            border-color: var(--accent-green);
+            background: rgba(42, 48, 64, 0.5);
+        }
+
+        .macro-grid-item.tripwire-hit {
+            border-left: 3px solid var(--accent-red);
+            background: rgba(255, 68, 102, 0.05);
+        }
+
+        .macro-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .macro-item-label {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .macro-item-value {
+            font-size: 0.95rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .macro-item-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            align-items: flex-end;
+        }
+
+        .macro-item-change {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .macro-up {
+            color: var(--accent-green);
+        }
+
+        .macro-down {
+            color: var(--accent-red);
+        }
+
+        .macro-neutral {
+            color: var(--text-dim);
+        }
+
         /* Probability Nudge */
         .probability-nudge {
             display: flex;
@@ -809,24 +897,56 @@
         function updateMacroData(macroData) {
             const macroColumn = document.getElementById('macroColumn');
             
-            const macroHtml = macroData.map(item => `
-                <div class="market-card" style="border-left: 3px solid ${item.tripwireHit ? 'var(--accent-red)' : 'var(--border)'}">
-                    <div>
-                        <div class="market-label">${item.label}</div>
-                        <div class="market-value ${getMarketClass(item.dir)}">
-                            ${item.value}
+            // Create 2x4 grid HTML
+            const gridHtml = `
+                <div class="macro-grid-container">
+                    <div class="macro-grid">
+                        <!-- Left Column: Yields -->
+                        <div class="macro-grid-column">
+                            ${macroData.yields ? macroData.yields.map(item => `
+                                <div class="macro-grid-item">
+                                    <div class="macro-item-left">
+                                        <div class="macro-item-label">${item.label}</div>
+                                        <div class="macro-item-value">${item.value}</div>
+                                    </div>
+                                    <div class="macro-item-right">
+                                        <div class="macro-item-change macro-${item.dir}">
+                                            ${item.dir === 'up' ? '▲' : item.dir === 'down' ? '▼' : '→'}
+                                        </div>
+                                        <div class="macro-item-change macro-${item.dir}">
+                                            ${item.change}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('') : ''}
                         </div>
-                        <div class="market-change ${getMarketClass(item.dir)}">
-                            ${item.change}
+                        
+                        <!-- Right Column: Indicators -->
+                        <div class="macro-grid-column">
+                            ${macroData.indicators ? macroData.indicators.map(item => `
+                                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                                    <div class="macro-item-left">
+                                        <div class="macro-item-label">${item.label}</div>
+                                        <div class="macro-item-value">${item.value}</div>
+                                    </div>
+                                    <div class="macro-item-right">
+                                        <div class="macro-item-change macro-${item.dir}">
+                                            ${item.dir === 'up' ? '▲' : item.dir === 'down' ? '▼' : '→'}
+                                        </div>
+                                        <div class="macro-item-change macro-${item.dir}">
+                                            ${item.change}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('') : ''}
                         </div>
-                        ${item.tripwireHit ? '<div style="font-size:0.65rem;color:var(--accent-red);margin-top:0.25rem;">⚠ TRIPWIRE</div>' : ''}
                     </div>
                 </div>
-            `).join('');
+            `;
 
-            // Keep existing cards below macro indicators
+            // Keep existing news cards below macro grid
             const existingCards = Array.from(macroColumn.querySelectorAll('.card')).map(c => c.outerHTML).join('');
-            macroColumn.innerHTML = macroHtml + existingCards;
+            macroColumn.innerHTML = gridHtml + existingCards;
         }
 
         function getMarketClass(dir) {
