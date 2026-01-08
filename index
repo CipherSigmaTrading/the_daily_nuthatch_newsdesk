@@ -586,14 +586,12 @@
         <!-- News Ticker (Top) -->
         <div class="news-ticker">
             <div class="news-ticker-content" id="newsTickerContent">
-                <!-- News ticker items populated by JS -->
             </div>
         </div>
         
         <!-- Market Ticker (Bottom) -->
         <div class="market-ticker">
             <div class="market-ticker-content" id="marketTickerContent">
-                <!-- Market ticker items populated by JS -->
             </div>
         </div>
     </div>
@@ -653,7 +651,6 @@
         let newsTickerItems = [];
         let marketTickerData = [];
 
-        // News Ticker (Top - Slower)
         function addToNewsTicker(headline, impact, assets) {
             const time = new Date().toISOString().substr(11, 5);
             newsTickerItems.unshift({
@@ -663,7 +660,6 @@
                 assets: assets
             });
             
-            // Keep only last 20 items
             if (newsTickerItems.length > 20) {
                 newsTickerItems = newsTickerItems.slice(0, 20);
             }
@@ -688,7 +684,6 @@
             `).join('');
         }
 
-        // Market Ticker (Bottom - Faster)
         function updateMarketTicker(marketData) {
             marketTickerData = marketData;
             const ticker = document.getElementById('marketTickerContent');
@@ -758,6 +753,8 @@
             };
         }
 
+        connectWebSocket();
+
         // ========================================================================
         // MESSAGE HANDLERS
         // ========================================================================
@@ -795,16 +792,25 @@
             if (!column) return;
 
             const cardHtml = createCardHtml(message.data);
-            column.insertAdjacentHTML('afterbegin', cardHtml);
+            
+            // For macro column, insert AFTER the macro grid (keep indicators on top)
+            if (columnId === 'macroColumn') {
+                const macroGrid = column.querySelector('.macro-grid-container');
+                if (macroGrid) {
+                    macroGrid.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else {
+                column.insertAdjacentHTML('afterbegin', cardHtml);
+            }
 
-            // Add to news ticker (top)
             addToNewsTicker(
                 message.data.headline, 
                 message.data.impact || 2,
                 formatAssets(message.data)
             );
 
-            // Limit cards per column
             const cards = column.querySelectorAll('.card');
             if (cards.length > 12) {
                 cards[cards.length - 1].remove();
@@ -814,7 +820,6 @@
         }
 
         function formatAssets(data) {
-            // Simple asset formatter for ticker
             if (data.probNudge && data.probNudge.length > 0) {
                 return data.probNudge.map(p => 
                     `${p.label.toUpperCase()}${p.dir === 'up' ? '↑' : '↓'}`
@@ -829,7 +834,7 @@
                 'macro': 'macroColumn',
                 'geo': 'geoColumn',
                 'commodity': 'commodityColumn',
-                'market': 'marketColumn'
+                'market': 'breakingColumn'
             };
             return mapping[category] || 'breakingColumn';
         }
@@ -890,63 +895,63 @@
         }
 
         function updateMarketData(marketData) {
-            // Update market ticker (bottom ticker) only
             updateMarketTicker(marketData);
         }
 
         function updateMacroData(macroData) {
             const macroColumn = document.getElementById('macroColumn');
             
-            // Create 2x4 grid HTML
+            if (!macroData.yields && !macroData.indicators) return;
+
+            const yieldsHtml = macroData.yields ? macroData.yields.map(item => `
+                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                    <div class="macro-item-left">
+                        <div class="macro-item-label">${item.label}</div>
+                        <div class="macro-item-value">${item.value}</div>
+                    </div>
+                    <div class="macro-item-right">
+                        <div class="macro-item-change ${getMacroClass(item.dir)}">${item.change}</div>
+                    </div>
+                </div>
+            `).join('') : '';
+
+            const indicatorsHtml = macroData.indicators ? macroData.indicators.map(item => `
+                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                    <div class="macro-item-left">
+                        <div class="macro-item-label">${item.label}</div>
+                        <div class="macro-item-value">${item.value}</div>
+                    </div>
+                    <div class="macro-item-right">
+                        <div class="macro-item-change ${getMacroClass(item.dir)}">${item.change}</div>
+                    </div>
+                </div>
+            `).join('') : '';
+
+            const existingGrid = macroColumn.querySelector('.macro-grid-container');
             const gridHtml = `
                 <div class="macro-grid-container">
                     <div class="macro-grid">
-                        <!-- Left Column: Yields -->
                         <div class="macro-grid-column">
-                            ${macroData.yields ? macroData.yields.map(item => `
-                                <div class="macro-grid-item">
-                                    <div class="macro-item-left">
-                                        <div class="macro-item-label">${item.label}</div>
-                                        <div class="macro-item-value">${item.value}</div>
-                                    </div>
-                                    <div class="macro-item-right">
-                                        <div class="macro-item-change macro-${item.dir}">
-                                            ${item.dir === 'up' ? '▲' : item.dir === 'down' ? '▼' : '→'}
-                                        </div>
-                                        <div class="macro-item-change macro-${item.dir}">
-                                            ${item.change}
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('') : ''}
+                            ${yieldsHtml}
                         </div>
-                        
-                        <!-- Right Column: Indicators -->
                         <div class="macro-grid-column">
-                            ${macroData.indicators ? macroData.indicators.map(item => `
-                                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
-                                    <div class="macro-item-left">
-                                        <div class="macro-item-label">${item.label}</div>
-                                        <div class="macro-item-value">${item.value}</div>
-                                    </div>
-                                    <div class="macro-item-right">
-                                        <div class="macro-item-change macro-${item.dir}">
-                                            ${item.dir === 'up' ? '▲' : item.dir === 'down' ? '▼' : '→'}
-                                        </div>
-                                        <div class="macro-item-change macro-${item.dir}">
-                                            ${item.change}
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('') : ''}
+                            ${indicatorsHtml}
                         </div>
                     </div>
                 </div>
             `;
 
-            // Keep existing news cards below macro grid
-            const existingCards = Array.from(macroColumn.querySelectorAll('.card')).map(c => c.outerHTML).join('');
-            macroColumn.innerHTML = gridHtml + existingCards;
+            if (existingGrid) {
+                existingGrid.outerHTML = gridHtml;
+            } else {
+                macroColumn.insertAdjacentHTML('afterbegin', gridHtml);
+            }
+        }
+
+        function getMacroClass(dir) {
+            return dir === 'up' ? 'macro-up' : 
+                   dir === 'down' ? 'macro-down' : 
+                   'macro-neutral';
         }
 
         function getMarketClass(dir) {
@@ -954,12 +959,6 @@
                    dir === 'down' ? 'market-down' : 
                    'market-neutral';
         }
-
-        // ========================================================================
-        // INITIALIZATION
-        // ========================================================================
-
-        connectWebSocket();
     </script>
 </body>
 </html>
