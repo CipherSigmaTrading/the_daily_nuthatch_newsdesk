@@ -450,51 +450,103 @@ function formatChange(symbol, change, changePercent) {
 // ============================================================================
 
 async function fetchMacroData() {
-  if (!CONFIG.FRED_API_KEY) {
-    return [];
-  }
+  const macroData = {
+    yields: [],
+    indicators: []
+  };
 
-  const indicators = [
-    { id: 'SOFR', label: 'SOFR', tripwire: 5.50 },
-    { id: 'RRPONTSYD', label: 'Fed RRP', tripwire: 200 }
+  // Fetch US Yields from Yahoo Finance (faster updates)
+  const yieldSymbols = [
+    { symbol: '2YY=F', label: 'US 2Y' },
+    { symbol: '^FVX', label: 'US 5Y' },
+    { symbol: '^TNX', label: 'US 10Y' },
+    { symbol: '^TYX', label: 'US 30Y' }
   ];
 
-  const macroData = [];
-
-  for (const indicator of indicators) {
+  for (const item of yieldSymbols) {
     try {
       const response = await axios.get(
-        'https://api.stlouisfed.org/fred/series/observations',
-        {
-          params: {
-            series_id: indicator.id,
-            api_key: CONFIG.FRED_API_KEY,
-            file_type: 'json',
-            sort_order: 'desc',
-            limit: 2
-          },
-          timeout: 5000
-        }
+        `https://query1.finance.yahoo.com/v8/finance/chart/${item.symbol}`,
+        { params: { interval: '1m', range: '1d' }, timeout: 5000 }
       );
 
-      const observations = response.data.observations;
-      if (observations && observations.length >= 2) {
-        const latest = parseFloat(observations[0].value);
-        const previous = parseFloat(observations[1].value);
-        const change = latest - previous;
+      const result = response.data.chart.result[0];
+      const quote = result.meta;
+      const current = quote.regularMarketPrice;
+      const previous = quote.previousClose;
+      const change = current - previous;
+      const bps = change * 100;
 
-        macroData.push({
-          label: indicator.label,
-          value: latest.toFixed(2),
-          change: (change > 0 ? '+' : '') + change.toFixed(2),
-          dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-          tripwireHit: latest > indicator.tripwire,
-          date: observations[0].date
-        });
-      }
+      macroData.yields.push({
+        label: item.label,
+        value: current.toFixed(3) + '%',
+        change: (bps > 0 ? '+' : '') + bps.toFixed(1) + 'bp',
+        dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
+        rawValue: current,
+        rawChange: change
+      });
     } catch (error) {
-      // Skip
+      // Skip failed yield
     }
+  }
+
+  // Fetch FRED indicators
+  if (CONFIG.FRED_API_KEY) {
+    const fredIndicators = [
+      { id: 'U6RATE', label: 'U6 RATE', format: '%', tripwire: 8.0 },
+      { id: 'SOFR', label: 'SOFR', format: '%', tripwire: 5.50 },
+      { id: 'RRPONTSYD', label: 'FED RRP', format: 'B', tripwire: 200 }
+    ];
+
+    for (const indicator of fredIndicators) {
+      try {
+        const response = await axios.get(
+          'https://api.stlouisfed.org/fred/series/observations',
+          {
+            params: {
+              series_id: indicator.id,
+              api_key: CONFIG.FRED_API_KEY,
+              file_type: 'json',
+              sort_order: 'desc',
+              limit: 2
+            },
+            timeout: 5000
+          }
+        );
+
+        const observations = response.data.observations;
+        if (observations && observations.length >= 2) {
+          const latest = parseFloat(observations[0].value);
+          const previous = parseFloat(observations[1].value);
+          const change = latest - previous;
+
+          macroData.indicators.push({
+            label: indicator.label,
+            value: latest.toFixed(indicator.format === 'B' ? 0 : 2) + indicator.format,
+            change: (change > 0 ? '+' : '') + change.toFixed(indicator.format === 'B' ? 0 : 2) + indicator.format,
+            dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
+            tripwireHit: latest > indicator.tripwire,
+            date: observations[0].date
+          });
+        }
+      } catch (error) {
+        // Skip
+      }
+    }
+  }
+
+  // Fetch Truflation (placeholder - sign up at truflation.com for real API)
+  try {
+    macroData.indicators.unshift({
+      label: 'TRUFLATION',
+      value: '2.84%',
+      change: '+0.12%',
+      dir: 'up',
+      tripwireHit: false,
+      date: new Date().toISOString().split('T')[0]
+    });
+  } catch (error) {
+    // Skip
   }
 
   return macroData;
