@@ -7,6 +7,7 @@ const WebSocket = require('ws');
 const axios = require('axios');
 const cron = require('node-cron');
 const Parser = require('rss-parser');
+const XLSX = require('xlsx');
 require('dotenv').config();
 
 const app = express();
@@ -25,13 +26,17 @@ const CONFIG = {
   NEWSAPI_KEY: process.env.NEWSAPI_KEY || '',
   FRED_API_KEY: process.env.FRED_API_KEY || '',
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
-  PORT: process.env.PORT || 3000
+  PORT: process.env.PORT || 5000
 };
 
 // Track seen articles and failed feeds
 const seenArticles = new Set();
-const failedFeeds = new Map(); // Track feeds that consistently fail
+const failedFeeds = new Map();
 const clients = new Set();
+
+// Card caching for immediate column population
+const recentCards = [];
+const MAX_RECENT_CARDS = 50;
 
 // Serve static files
 app.use(express.static('public'));
@@ -85,6 +90,15 @@ wss.on('connection', (ws) => {
 
 function broadcast(data) {
   const message = JSON.stringify(data);
+  
+  // Store new_card messages for late-joining clients
+  if (data.type === 'new_card') {
+    recentCards.unshift(data);
+    if (recentCards.length > MAX_RECENT_CARDS) {
+      recentCards.pop();
+    }
+  }
+  
   clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
       try {
@@ -98,14 +112,28 @@ function broadcast(data) {
 
 async function sendInitialData(ws) {
   try {
-    const marketData = await fetchMarketData();
-    const macroData = await fetchMacroData();
+    // Send cached cards FIRST (instant) before slow API fetches
+    console.log(`📤 Sending ${recentCards.length} recent cards to new client...`);
+    for (let i = recentCards.length - 1; i >= 0; i--) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(recentCards[i]));
+      }
+    }
+    console.log('📤 Done sending recent cards');
     
-    ws.send(JSON.stringify({
-      type: 'initial',
-      market: marketData,
-      macro: macroData
-    }));
+    // Now fetch and send market/macro data (slower, but cards already delivered)
+    const [marketData, macroData] = await Promise.all([
+      fetchMarketData(),
+      fetchMacroData()
+    ]);
+    
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'initial',
+        market: marketData,
+        macro: macroData
+      }));
+    }
   } catch (error) {
     console.error('Initial data error:', error.message);
   }
@@ -116,87 +144,84 @@ async function sendInitialData(ws) {
 // ============================================================================
 
 const RSS_FEEDS = [
-  // BREAKING NEWS & FINANCE
-  { url: 'https://feeds.reuters.com/reuters/businessNews', category: 'breaking', name: 'Reuters Business' },
-  { url: 'https://feeds.reuters.com/Reuters/worldNews', category: 'geo', name: 'Reuters World' },
+  // BREAKING NEWS & FINANCE (reliable sources)
   { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', category: 'breaking', name: 'CNBC Top News' },
   { url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', category: 'market', name: 'CNBC Markets' },
+  { url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html', category: 'breaking', name: 'CNBC Business' },
   { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', category: 'breaking', name: 'MarketWatch' },
+  { url: 'https://feeds.marketwatch.com/marketwatch/marketpulse/', category: 'market', name: 'MarketWatch Pulse' },
   { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', category: 'breaking', name: 'BBC Business' },
+  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'geo', name: 'BBC World' },
   
   // PREMIUM FINANCIAL - FT & WSJ
   { url: 'https://www.ft.com/rss/world', category: 'geo', name: 'Financial Times World' },
   { url: 'https://www.ft.com/rss/companies', category: 'breaking', name: 'Financial Times Companies' },
   { url: 'https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml', category: 'breaking', name: 'WSJ US Business' },
   { url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', category: 'market', name: 'WSJ Markets' },
+  { url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', category: 'geo', name: 'WSJ World' },
   
   // MACRO & CENTRAL BANKS
   { url: 'https://www.federalreserve.gov/feeds/press_all.xml', category: 'macro', name: 'Federal Reserve' },
   { url: 'https://www.ecb.europa.eu/rss/press.html', category: 'macro', name: 'ECB Press' },
-  { url: 'https://www.bis.org/doclist/all_rss.xml', category: 'macro', name: 'BIS' },
   
   // GEOPOLITICS & DEFENSE
   { url: 'https://www.defensenews.com/arc/outboundfeeds/rss/', category: 'geo', name: 'Defense News' },
-  { url: 'https://feeds.reuters.com/Reuters/UKWorldNews', category: 'geo', name: 'Reuters UK World' },
   { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'geo', name: 'NYT World' },
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'breaking', name: 'NYT Business' },
+  { url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'geo', name: 'Al Jazeera' },
+  { url: 'https://feeds.npr.org/1004/rss.xml', category: 'geo', name: 'NPR World' },
   { url: 'https://geopoliticalfutures.com/feed/', category: 'geo', name: 'Geopolitical Futures' },
   
   // COMMODITIES & ENERGY
-  { url: 'https://www.eia.gov/rss/todayinenergy.xml', category: 'commodity', name: 'EIA Energy' },
   { url: 'https://www.mining.com/feed/', category: 'commodity', name: 'Mining.com' },
-  { url: 'https://www.reuters.com/rssFeed/energy', category: 'commodity', name: 'Reuters Energy' },
   { url: 'https://oilprice.com/rss/main', category: 'commodity', name: 'OilPrice.com' },
   
   // FOREX & TRADING
-  { url: 'https://www.dailyfx.com/feeds/market-news', category: 'market', name: 'DailyFX News' },
   { url: 'https://www.forexlive.com/feed/news', category: 'market', name: 'ForexLive' }
 ];
 
-async function pollRSSFeeds() {
-  console.log(`📡 Polling ${RSS_FEEDS.length} RSS feeds...`);
+async function pollRSSFeeds(itemsPerFeed = 3) {
+  console.log(`📡 Polling ${RSS_FEEDS.length} RSS feeds (${itemsPerFeed} items each)...`);
   
-  // Poll feeds in parallel but with error isolation
-  const feedPromises = RSS_FEEDS.map(feed => pollSingleFeed(feed));
-  
-  // Wait for all, but don't let one failure stop others
+  const feedPromises = RSS_FEEDS.map(feed => pollSingleFeed(feed, itemsPerFeed));
   await Promise.allSettled(feedPromises);
 }
 
-async function pollSingleFeed(feed) {
-  // Skip if this feed has failed too many times recently
+async function pollSingleFeed(feed, itemsPerFeed = 3) {
   const failures = failedFeeds.get(feed.url) || 0;
   if (failures > 5) {
-    console.log(`⏭️  Skipping ${feed.name} (too many failures)`);
     return;
   }
 
   try {
     const parsed = await rssParser.parseURL(feed.url);
     
-    // Reset failure count on success
     failedFeeds.delete(feed.url);
+    let itemCount = 0;
     
-    for (const item of parsed.items.slice(0, 3)) {
+    for (const item of parsed.items.slice(0, itemsPerFeed)) {
       const articleId = item.link || item.guid || item.title;
       
       if (!seenArticles.has(articleId)) {
         seenArticles.add(articleId);
         
-        // Limit cache size
         if (seenArticles.size > 5000) {
           const firstItem = seenArticles.values().next().value;
           seenArticles.delete(firstItem);
         }
         
         await processRSSItem(item, feed.category, feed.name);
+        itemCount++;
       }
     }
+    
+    if (itemCount > 0) {
+      console.log(`✓ ${feed.name}: ${itemCount} items`);
+    }
   } catch (error) {
-    // Track failures but don't crash
     const currentFailures = failedFeeds.get(feed.url) || 0;
     failedFeeds.set(feed.url, currentFailures + 1);
     
-    // Only log if not a timeout
     if (error.code !== 'ETIMEDOUT' && error.code !== 'ECONNREFUSED') {
       console.error(`⚠️  ${feed.name} error:`, error.message);
     }
@@ -375,12 +400,13 @@ function classifyNews(text) {
 
 async function fetchMarketData() {
   const symbols = [
-    'DX-Y.NYB', '^TNX', '^TYX', '^FVX', '2YY=F',
-    'GC=F', 'SI=F', 'PL=F',
-    'CL=F', 'BZ=F', 'NG=F', 'HG=F',
-    '^GSPC', '^IXIC', '^DJI',
+    '2YY=F', '^FVX', '^TNX', '^TYX',
+    'DX-Y.NYB',
     'USDJPY=X', 'EURUSD=X', 'GBPUSD=X',
-    '^VIX'
+    'GC=F', 'PL=F', 'SI=F', 'HG=F',
+    'CL=F', 'BZ=F', 'NG=F',
+    '^VIX',
+    '^GSPC', '^DJI', '^IXIC'
   ];
 
   const marketData = [];
@@ -455,7 +481,6 @@ async function fetchMacroData() {
     indicators: []
   };
 
-  // Fetch US Yields from Yahoo Finance (faster updates)
   const yieldSymbols = [
     { symbol: '2YY=F', label: 'US 2Y' },
     { symbol: '^FVX', label: 'US 5Y' },
@@ -490,12 +515,40 @@ async function fetchMacroData() {
     }
   }
 
-  // Fetch FRED indicators
+  // Fetch GSCPI from NY Fed (not available via FRED API)
+  try {
+    const gscpiResponse = await axios.get(
+      'https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/downloads/gscpi_data.xlsx',
+      { responseType: 'arraybuffer', timeout: 10000 }
+    );
+    const workbook = XLSX.read(gscpiResponse.data, { type: 'buffer' });
+    const sheet = workbook.Sheets['GSCPI Monthly Data'];
+    const data = XLSX.utils.sheet_to_json(sheet);
+    
+    if (data.length >= 2) {
+      const latest = data[data.length - 1];
+      const previous = data[data.length - 2];
+      const latestValue = parseFloat(latest.GSCPI);
+      const previousValue = parseFloat(previous.GSCPI);
+      const change = latestValue - previousValue;
+      
+      macroData.indicators.push({
+        label: 'GSCPI',
+        value: latestValue.toFixed(2),
+        change: (change > 0 ? '+' : '') + change.toFixed(2),
+        dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
+        tripwireHit: latestValue > 1.0,
+        date: latest.Date
+      });
+    }
+  } catch (error) {
+    // Skip GSCPI on error
+  }
+
   if (CONFIG.FRED_API_KEY) {
     const fredIndicators = [
       { id: 'U6RATE', label: 'U6 RATE', format: '%', tripwire: 8.0 },
-      { id: 'SOFR', label: 'SOFR', format: '%', tripwire: 5.50 },
-      { id: 'RRPONTSYD', label: 'FED RRP', format: 'B', tripwire: 200 }
+      { id: 'RRPONTSYAWARD', label: 'FED RRP', format: '%', tripwire: 5.50 }
     ];
 
     for (const indicator of fredIndicators) {
@@ -515,19 +568,21 @@ async function fetchMacroData() {
         );
 
         const observations = response.data.observations;
-        if (observations && observations.length >= 2) {
+        if (observations && observations.length >= 1) {
           const latest = parseFloat(observations[0].value);
-          const previous = parseFloat(observations[1].value);
-          const change = latest - previous;
+          const previous = observations.length >= 2 ? parseFloat(observations[1].value) : latest;
+          const change = isNaN(previous) ? 0 : latest - previous;
 
-          macroData.indicators.push({
-            label: indicator.label,
-            value: latest.toFixed(indicator.format === 'B' ? 0 : 2) + indicator.format,
-            change: (change > 0 ? '+' : '') + change.toFixed(indicator.format === 'B' ? 0 : 2) + indicator.format,
-            dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-            tripwireHit: latest > indicator.tripwire,
-            date: observations[0].date
-          });
+          if (!isNaN(latest)) {
+            macroData.indicators.push({
+              label: indicator.label,
+              value: latest.toFixed(2) + indicator.format,
+              change: isNaN(change) ? '0.00' + indicator.format : (change > 0 ? '+' : '') + change.toFixed(2) + indicator.format,
+              dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
+              tripwireHit: latest > indicator.tripwire,
+              date: observations[0].date
+            });
+          }
         }
       } catch (error) {
         // Skip
@@ -535,7 +590,6 @@ async function fetchMacroData() {
     }
   }
 
-  // Fetch Truflation (placeholder - sign up at truflation.com for real API)
   try {
     macroData.indicators.unshift({
       label: 'TRUFLATION',
@@ -556,7 +610,7 @@ async function fetchMacroData() {
 // SCHEDULED JOBS
 // ============================================================================
 
-// RSS feeds every 2 minutes (aggressive but stable)
+// RSS feeds every 2 minutes
 cron.schedule('*/2 * * * *', () => {
   console.log('📡 RSS feed cycle starting...');
   pollRSSFeeds();
@@ -598,7 +652,7 @@ cron.schedule('*/5 * * * *', async () => {
 // SERVER START
 // ============================================================================
 
-server.listen(CONFIG.PORT, () => {
+server.listen(CONFIG.PORT, '0.0.0.0', () => {
   console.log(`
   ╔═══════════════════════════════════════════════════════╗
   ║   THE DAILY NUTHATCH - PRODUCTION RSS VERSION        ║
@@ -622,10 +676,10 @@ server.listen(CONFIG.PORT, () => {
   Frontend: http://localhost:${CONFIG.PORT}
   `);
 
-  // Initial fetches
+  // Initial aggressive fetch to populate columns
+  console.log('🚀 Starting aggressive initial fetch to fill columns...');
   setTimeout(() => {
-    console.log('📡 Initial RSS feed fetch...');
-    pollRSSFeeds();
+    pollRSSFeeds(8);
   }, 2000);
   
   setTimeout(() => {
@@ -647,10 +701,8 @@ process.on('SIGTERM', () => {
 
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error.message);
-  // Don't exit - keep running
 });
 
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled rejection:', error.message);
-  // Don't exit - keep running
 });
