@@ -1,2529 +1,3218 @@
-// The Daily Nuthatch - PRODUCTION VERSION with ALL RSS Feeds
-// Stable error handling prevents crashes
-
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const axios = require('axios');
-const cron = require('node-cron');
-const Parser = require('rss-parser');
-const { GoogleGenAI } = require('@google/genai');
-require('dotenv').config();
-
-// Gemini AI client using Replit AI Integrations
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
-
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-const rssParser = new Parser({
-  timeout: 10000,
-  headers: { 'User-Agent': 'Mozilla/5.0' },
-  customFields: {
-    item: ['category', 'media:content']
-  }
-});
-
-// Configuration
-const CONFIG = {
-  NEWSAPI_KEY: process.env.NEWSAPI_KEY || '',
-  FRED_API_KEY: process.env.FRED_API_KEY || '',
-  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
-  ALPACA_API_KEY: process.env.ALPACA_API_KEY || '',
-  ALPACA_API_SECRET: process.env.ALPACA_API_SECRET || '',
-  PORT: process.env.PORT || 5000
-};
-
-// Track seen articles and failed feeds
-const seenArticles = new Set();
-const failedFeeds = new Map();
-const clients = new Set();
-
-// Card caching for immediate column population
-const recentCards = [];
-const MAX_RECENT_CARDS = 50;
-
-// Serve static files with cache control
-app.use(express.static('public', {
-  etag: false,
-  maxAge: 0,
-  setHeaders: (res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-  }
-}));
-app.use(express.json());
-
-// Manual input endpoint
-app.post('/api/manual-input', (req, res) => {
-  try {
-    const { headline, category, source } = req.body;
-    
-    const cardData = {
-      type: 'new_card',
-      column: category || 'breaking',
-      data: {
-        time: new Date().toISOString().substr(11, 5),
-        headline: headline || 'No headline',
-        source: source || 'Manual Input',
-        verified: false,
-        implications: ['User-submitted item'],
-        impact: 2,
-        horizon: 'DAYS',
-        tripwires: [],
-        probNudge: []
-      }
-    };
-
-    broadcast(cardData);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Manual input error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Gemini AI headline analysis endpoint
-app.post('/api/analyze-headline', async (req, res) => {
-  try {
-    const { headline, source, implications } = req.body;
-    
-    if (!headline) {
-      return res.status(400).json({ error: 'Headline is required' });
-    }
-
-    const prompt = `You are an expert financial analyst at a top investment bank. Analyze this news headline and provide institutional-grade insights.
-
-HEADLINE: "${headline}"
-SOURCE: ${source || 'Unknown'}
-${implications?.length ? `CURRENT IMPLICATIONS:\n${implications.join('\n')}` : ''}
-
-Provide a detailed analysis covering:
-
-1. **MARKET IMPACT** - How this affects specific asset classes (equities, bonds, FX, commodities)
-2. **TRADING IMPLICATIONS** - Actionable insights for institutional traders
-3. **SECOND-ORDER EFFECTS** - What happens next if this trend continues
-4. **POSITIONING** - How to position portfolios in response
-5. **KEY LEVELS TO WATCH** - Specific price levels or data points that matter
-6. **TIMELINE** - When we'll know more and expected duration of impact
-
-Format your response in clear sections with bullet points. Be specific with numbers and asset names. Think like a Bloomberg terminal analyst.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
-
-    const analysis = response.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (!analysis) {
-      throw new Error('No analysis generated');
-    }
-
-    res.json({ success: true, analysis });
-  } catch (error) {
-    console.error('Gemini analysis error:', error.message);
-    res.status(500).json({ error: 'Failed to analyze headline. Please try again.' });
-  }
-});
-
-// WebSocket handlers
-wss.on('connection', (ws) => {
-  console.log('✅ Client connected');
-  clients.add(ws);
-
-  ws.on('message', (data) => {
-    try {
-      const message = JSON.parse(data);
-      if (message.type === 'refresh_request') {
-        console.log('🔄 Manual refresh requested');
-        pollRSSFeeds(3);
-      }
-    } catch (e) {
-      // Ignore parse errors
-    }
-  });
-
-  ws.on('close', () => {
-    console.log('❌ Client disconnected');
-    clients.delete(ws);
-  });
-
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error.message);
-  });
-
-  sendInitialData(ws);
-});
-
-function broadcast(data) {
-  const message = JSON.stringify(data);
-  
-  // Store new_card messages for late-joining clients
-  if (data.type === 'new_card') {
-    recentCards.unshift(data);
-    if (recentCards.length > MAX_RECENT_CARDS) {
-      recentCards.pop();
-    }
-  }
-  
-  clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-      } catch (error) {
-        console.error('Broadcast error:', error.message);
-      }
-    }
-  });
-}
-
-async function sendInitialData(ws) {
-  try {
-    // Send cached cards FIRST (instant) before slow API fetches
-    console.log(`📤 Sending ${recentCards.length} recent cards to new client...`);
-    for (let i = recentCards.length - 1; i >= 0; i--) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(recentCards[i]));
-      }
-    }
-    console.log('📤 Done sending recent cards');
-    
-    // Now fetch and send market/macro/polymarket/fx/commodity data (slower, but cards already delivered)
-    const [marketData, macroData, polymarketData, fxData, commodityData] = await Promise.all([
-      fetchMarketData(),
-      fetchMacroData(),
-      fetchPolymarketRisks(),
-      fetchFXData(),
-      fetchCommodityData()
-    ]);
-    
-    console.log(`📊 Macro data: ${macroData.yields.length} yields, ${macroData.indicators.length} indicators`);
-    console.log(`📈 Market data: ${marketData.length} assets`);
-    console.log(`🎲 Polymarket data: ${polymarketData.fedRisks.length + polymarketData.growthRisks.length} markets`);
-    console.log(`💱 FX data: ${fxData.macro.length} macro, ${fxData.geo.length} geo, ${fxData.commodity.length} commodity`);
-    console.log(`🏭 Commodity data: ${commodityData.metals.length} metals, ${commodityData.energy.length} energy, ${commodityData.agriculture.length} agriculture`);
-    
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'initial',
-        market: marketData,
-        macro: macroData,
-        polymarket: polymarketData,
-        fx: fxData,
-        commodities: commodityData
-      }));
-      console.log('📤 Sent initial market/macro/polymarket/fx/commodity data');
-    } else {
-      console.log('⚠️ Client disconnected before initial data could be sent');
-    }
-  } catch (error) {
-    console.error('Initial data error:', error.message);
-  }
-}
-
-// ============================================================================
-// RSS FEEDS - 45 SPECIALIZED SOURCES
-// ============================================================================
-
-const RSS_FEEDS = [
-  // ============ BREAKING NEWS - FAST & RELIABLE (11 sources) ============
-  { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', category: 'breaking', name: 'CNBC Top News' },
-  { url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html', category: 'breaking', name: 'CNBC Business' },
-  { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', category: 'breaking', name: 'MarketWatch' },
-  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', category: 'breaking', name: 'BBC Business' },
-  { url: 'https://feeds.bbci.co.uk/news/rss.xml', category: 'breaking', name: 'BBC Breaking' },
-  { url: 'http://rss.cnn.com/rss/cnn_topstories.rss', category: 'breaking', name: 'CNN Top Stories' },
-  { url: 'http://rss.cnn.com/rss/money_latest.rss', category: 'breaking', name: 'CNN Money' },
-  { url: 'https://www.cbsnews.com/latest/rss/main', category: 'breaking', name: 'CBS News' },
-  { url: 'https://abcnews.go.com/abcnews/topstories', category: 'breaking', name: 'ABC News' },
-  { url: 'https://www.theguardian.com/world/rss', category: 'breaking', name: 'The Guardian' },
-  { url: 'https://www.ft.com/rss/companies', category: 'breaking', name: 'Financial Times Companies' },
-  { url: 'https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml', category: 'breaking', name: 'WSJ US Business' },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'breaking', name: 'NYT Business' },
-  
-  // ============ MARKETS ============
-  { url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', category: 'market', name: 'CNBC Markets' },
-  { url: 'https://feeds.marketwatch.com/marketwatch/marketpulse/', category: 'market', name: 'MarketWatch Pulse' },
-  { url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', category: 'market', name: 'WSJ Markets' },
-  
-  // ============ MACRO - CENTRAL BANKS & OFFICIAL DATA ============
-  { url: 'https://www.federalreserve.gov/feeds/press_all.xml', category: 'macro', name: 'Federal Reserve' },
-  { url: 'https://www.ecb.europa.eu/rss/press.html', category: 'macro', name: 'ECB Press' },
-  { url: 'https://www.nber.org/rss/new.xml', category: 'macro', name: 'NBER Research' },
-  { url: 'https://libertystreeteconomics.newyorkfed.org/feed/', category: 'macro', name: 'NY Fed Economics' },
-  
-  // ============ GEOPOLITICS - THINK TANKS & DEFENSE ============
-  { url: 'https://www.defensenews.com/arc/outboundfeeds/rss/', category: 'geo', name: 'Defense News' },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'geo', name: 'NYT World' },
-  { url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'geo', name: 'Al Jazeera' },
-  { url: 'https://feeds.npr.org/1004/rss.xml', category: 'geo', name: 'NPR World' },
-  { url: 'https://geopoliticalfutures.com/feed/', category: 'geo', name: 'Geopolitical Futures' },
-  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'geo', name: 'BBC World' },
-  { url: 'https://www.ft.com/rss/world', category: 'geo', name: 'Financial Times World' },
-  { url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', category: 'geo', name: 'WSJ World' },
-  { url: 'https://www.rand.org/blog.xml', category: 'geo', name: 'RAND Corporation' },
-  { url: 'https://warontherocks.com/feed/', category: 'geo', name: 'War on the Rocks' },
-  { url: 'https://www.foreignaffairs.com/rss.xml', category: 'geo', name: 'Foreign Affairs' },
-  { url: 'https://www.theatlantic.com/feed/channel/international/', category: 'geo', name: 'The Atlantic World' },
-  
-  // NEW DEFENSE & MILITARY SOURCES
-  { url: 'https://www.militarytimes.com/arc/outboundfeeds/rss/', category: 'geo', name: 'Military Times' },
-  { url: 'https://www.stripes.com/rss/1.117146', category: 'geo', name: 'Stars and Stripes' },
-  { url: 'https://breakingdefense.com/feed/', category: 'geo', name: 'Breaking Defense' },
-  { url: 'https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx', category: 'geo', name: 'US Dept of Defense' },
-  { url: 'https://news.usni.org/feed', category: 'geo', name: 'USNI News' },
-  { url: 'https://www.janes.com/feeds/news', category: 'geo', name: 'Janes Defence' },
-  
-  // NEW GEOPOLITICAL INTELLIGENCE SOURCES
-  { url: 'https://thediplomat.com/feed/', category: 'geo', name: 'The Diplomat' },
-  { url: 'https://www.middleeasteye.net/rss', category: 'geo', name: 'Middle East Eye' },
-  { url: 'https://www.scmp.com/rss/91/feed', category: 'geo', name: 'South China Morning Post' },
-  { url: 'https://www.timesofisrael.com/feed/', category: 'geo', name: 'Times of Israel' },
-  { url: 'https://www.bloomberg.com/politics/feeds/sitemap_news.xml', category: 'geo', name: 'Bloomberg Politics' },
-  { url: 'https://www.csis.org/analysis/feed', category: 'geo', name: 'CSIS Analysis' },
-  { url: 'https://carnegieendowment.org/rss.xml', category: 'geo', name: 'Carnegie Endowment' },
-  { url: 'https://www.cfr.org/feeds/daily_news_brief.xml', category: 'geo', name: 'Council on Foreign Relations' },
-  
-  // COMMODITIES - ENERGY, METALS & AGRICULTURE ============
-  { url: 'https://www.mining.com/feed/', category: 'commodity', name: 'Mining.com' },
-  { url: 'https://oilprice.com/rss/main', category: 'commodity', name: 'OilPrice.com' },
-  { url: 'https://gcaptain.com/feed/', category: 'commodity', name: 'gCaptain (Shipping)' },
-  { url: 'https://www.hellenicshippingnews.com/feed/', category: 'commodity', name: 'Hellenic Shipping News' },
-  { url: 'https://www.rigzone.com/news/rss/rigzone_latest.aspx', category: 'commodity', name: 'Rigzone Oil & Gas' },
-  { url: 'https://www.naturalgasintel.com/feed/', category: 'commodity', name: 'Natural Gas Intel' },
-  
-  // NEW COMMODITY-SPECIFIC SOURCES
-  { url: 'https://www.agweb.com/rss.xml', category: 'commodity', name: 'AgWeb (Agriculture)' },
-  { url: 'https://www.world-grain.com/rss/all', category: 'commodity', name: 'World Grain' },
-  { url: 'https://www.metalbulletin.com/RSS/', category: 'commodity', name: 'Metal Bulletin' },
-  { url: 'https://www.steelorbis.com/rss.xml', category: 'commodity', name: 'SteelOrbis' },
-  { url: 'https://www.energyvoice.com/feed/', category: 'commodity', name: 'Energy Voice' },
-  { url: 'https://www.spglobal.com/commodity-insights/en/rss-feed', category: 'commodity', name: 'S&P Global Commodities' },
-  
-  // ============ FOREX - CURRENCY NEWS & ANALYSIS ============
-  { url: 'https://www.forexlive.com/feed/news', category: 'fx', name: 'ForexLive' },
-  { url: 'https://www.fxstreet.com/rss/news', category: 'fx', name: 'FXStreet' },
-  { url: 'https://www.investing.com/rss/news_14.rss', category: 'fx', name: 'Investing.com FX' },
-  { url: 'https://www.actionforex.com/feed/', category: 'fx', name: 'Action Forex' },
-  { url: 'https://www.fxempire.com/api/v1/en/articles/rss/news', category: 'fx', name: 'FX Empire' },
-];
-
-async function pollRSSFeeds(itemsPerFeed = 3) {
-  console.log(`📡 Polling ${RSS_FEEDS.length} RSS feeds (${itemsPerFeed} items each)...`);
-  
-  const feedPromises = RSS_FEEDS.map(feed => pollSingleFeed(feed, itemsPerFeed));
-  await Promise.allSettled(feedPromises);
-}
-
-async function pollSingleFeed(feed, itemsPerFeed = 3) {
-  const failures = failedFeeds.get(feed.url) || 0;
-  if (failures > 5) {
-    return;
-  }
-
-  try {
-    const parsed = await rssParser.parseURL(feed.url);
-    
-    failedFeeds.delete(feed.url);
-    let itemCount = 0;
-    
-    for (const item of parsed.items.slice(0, itemsPerFeed)) {
-      const articleId = item.link || item.guid || item.title;
-      
-      // Filter out old articles - only accept items from last 48 hours
-      const pubDate = item.isoDate || item.pubDate;
-      if (pubDate) {
-        const articleDate = new Date(pubDate);
-        const now = new Date();
-        const hoursSincePublished = (now - articleDate) / (1000 * 60 * 60);
-        
-        if (hoursSincePublished > 48) {
-          continue; // Skip articles older than 48 hours
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Daily Nuthatch Live Desk</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      }
-      
-      if (!seenArticles.has(articleId)) {
-        seenArticles.add(articleId);
-        
-        if (seenArticles.size > 5000) {
-          const firstItem = seenArticles.values().next().value;
-          seenArticles.delete(firstItem);
+
+        :root {
+            --bg-main: #0a0e14;
+            --bg-column: #12161e;
+            --bg-card: #1a1f2b;
+            --border: #2a3040;
+            --text-primary: #e6e8eb;
+            --text-secondary: #8b92a8;
+            --text-dim: #5a6070;
+            --accent-green: #00ff88;
+            --accent-red: #ff4466;
+            --accent-yellow: #ffbb33;
+            --accent-blue: #3399ff;
+            --accent-purple: #bb66ff;
         }
-        
-        const pubDateStr = item.isoDate || item.pubDate || null;
-        processRSSItem(item, feed.category, feed.name, pubDateStr);
-        itemCount++;
-      }
-    }
-    
-    if (itemCount > 0) {
-      console.log(`✓ ${feed.name}: ${itemCount} items`);
-    }
-  } catch (error) {
-    const currentFailures = failedFeeds.get(feed.url) || 0;
-    failedFeeds.set(feed.url, currentFailures + 1);
-    
-    if (error.code !== 'ETIMEDOUT' && error.code !== 'ECONNREFUSED') {
-      console.error(`⚠️  ${feed.name} error:`, error.message);
-    }
-  }
-}
 
-async function processRSSItem(item, defaultCategory, sourceName, pubDateStr = null) {
-  try {
-    const text = (item.title || '') + ' ' + (item.contentSnippet || item.content || '');
-    // Prioritize the feed's assigned category for specialized sources
-    // Only override if keyword match is very strong (3+ keywords)
-    const keywordCategory = classifyNews(text);
-    const category = (defaultCategory !== 'breaking' && defaultCategory !== 'market') 
-      ? defaultCategory 
-      : keywordCategory;
-    const smartData = generateUltimateImplications(
-      item.title || '', 
-      category,
-      item.contentSnippet || item.content || ''
-    );
-    
-    // Format publication date for display
-    let pubDateDisplay = null;
-    if (pubDateStr) {
-      const pubDate = new Date(pubDateStr);
-      const now = new Date();
-      const hoursSince = Math.floor((now - pubDate) / (1000 * 60 * 60));
-      if (hoursSince < 1) {
-        pubDateDisplay = 'Just now';
-      } else if (hoursSince < 24) {
-        pubDateDisplay = `${hoursSince}h ago`;
-      } else {
-        pubDateDisplay = pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
-    }
-    
-    const cardData = {
-      type: 'new_card',
-      column: category,
-      data: {
-        time: new Date().toISOString().substr(11, 5),
-        headline: item.title || 'No headline',
-        link: item.link || '',
-        source: sourceName,
-        pubDate: pubDateDisplay,
-        verified: true,
-        implications: smartData.implications,
-        impact: smartData.impact || 2,
-        horizon: smartData.horizon || 'DAYS',
-        tripwires: smartData.technicalLevels || [],
-        probNudge: [],
-        tags: smartData.tags,
-        confidence: smartData.confidence,
-        nextEvents: smartData.nextEvents || [],
-        regime: smartData.regime
-      }
-    };
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.4;
+        }
 
-    broadcast(cardData);
-  } catch (error) {
-    console.error('Process RSS item error:', error.message);
-  }
-}
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1f2b 0%, #0f1319 100%);
+            border-bottom: 2px solid var(--accent-green);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1);
+        }
 
-// ============================================================================
-// NEWS API
-// ============================================================================
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--accent-green);
+            text-transform: uppercase;
+        }
 
-async function pollNewsAPI() {
-  if (!CONFIG.NEWSAPI_KEY) {
-    return;
-  }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
 
-  try {
-    const response = await axios.get('https://newsapi.org/v2/top-headlines', {
-      params: {
-        category: 'business',
-        language: 'en',
-        pageSize: 10,
-        apiKey: CONFIG.NEWSAPI_KEY
-      },
-      timeout: 10000
-    });
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
 
-    if (response.data.articles) {
-      for (const article of response.data.articles.slice(0, 5)) {
-        const articleId = article.url;
-        
-        // Filter out old articles - only accept items from last 48 hours
-        if (article.publishedAt) {
-          const articleDate = new Date(article.publishedAt);
-          const now = new Date();
-          const hoursSincePublished = (now - articleDate) / (1000 * 60 * 60);
-          if (hoursSincePublished > 48) continue;
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--accent-green);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .time-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        .info-button {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            color: var(--accent-blue);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .info-button:hover {
+            background: rgba(0, 217, 255, 0.2);
+            border-color: var(--accent-blue);
+            transform: translateY(-1px);
+        }
+
+        /* Ticker Container - Two Tickers */
+        .ticker-container {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* News Ticker (Top) */
+        .news-ticker {
+            background: linear-gradient(90deg, rgba(0, 255, 136, 0.1) 0%, transparent 100%);
+            border-left: 3px solid var(--accent-green);
+            padding: 0.75rem 2rem;
+            overflow: hidden;
+            position: relative;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .news-ticker-content {
+            display: flex;
+            gap: 4rem;
+            animation: scroll-slow 120s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes scroll-slow {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .ticker-item {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .ticker-time {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .ticker-text {
+            color: var(--text-primary);
+        }
+
+        .ticker-impact {
+            display: flex;
+            gap: 2px;
+        }
+
+        .impact-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-dim);
+        }
+
+        .impact-dot.active {
+            background: var(--accent-yellow);
+        }
+
+        /* Market Ticker (Bottom) */
+        .market-ticker {
+            background: linear-gradient(90deg, rgba(51, 153, 255, 0.1) 0%, transparent 100%);
+            border-left: 3px solid var(--accent-blue);
+            padding: 0.6rem 2rem;
+            overflow-x: auto;
+            overflow-y: hidden;
+            position: relative;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            cursor: grab;
+        }
+
+        .market-ticker::-webkit-scrollbar {
+            display: none;
+        }
+
+        .market-ticker:active {
+            cursor: grabbing;
+        }
+
+        .ticker-search-popup {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            border: 1px solid var(--accent-blue);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            min-width: 280px;
+        }
+
+        .ticker-search-popup.active {
+            display: block;
+        }
+
+        .ticker-search-popup input {
+            width: 100%;
+            background: rgba(42, 48, 64, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .ticker-search-popup input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .ticker-search-popup label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .ticker-search-popup button {
+            margin-top: 0.5rem;
+            width: 100%;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 4px;
+            padding: 0.5rem;
+            color: var(--bg-primary);
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .ticker-search-popup button:hover {
+            background: var(--accent-green);
+        }
+
+        .market-ticker-content {
+            display: flex;
+            gap: 3rem;
+            animation: scroll-fast 120s linear infinite;
+            white-space: nowrap;
+            cursor: grab;
+        }
+
+        .market-ticker-content:active {
+            cursor: grabbing;
+        }
+
+        .market-ticker-content.dragging {
+            animation-play-state: paused;
+        }
+
+        @keyframes scroll-fast {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .market-ticker-item {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+            font-size: 0.75rem;
+        }
+
+        .market-ticker-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            min-width: 70px;
+        }
+
+        .market-ticker-value {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            margin-left: -0.2rem;
+        }
+
+        .market-ticker-change {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: -0.1rem;
+        }
+
+        .market-ticker-up {
+            color: var(--accent-green);
+        }
+
+        .market-ticker-down {
+            color: var(--accent-red);
+        }
+
+        .market-ticker-neutral {
+            color: var(--text-dim);
+        }
+
+        /* Main Grid - 4 Columns */
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1px;
+            background: var(--border);
+            padding: 1px;
+            min-height: calc(100vh - 150px);
+        }
+
+        .column {
+            background: var(--bg-column);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .column-header {
+            padding: 1rem;
+            border-bottom: 2px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            z-index: 10;
+        }
+
+        .column-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.25rem;
+        }
+
+        .column-subtitle {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .col-breaking .column-title { color: var(--accent-red); }
+        .col-macro .column-title { color: var(--accent-blue); }
+        .col-geo .column-title { color: var(--accent-purple); }
+        .col-commodity .column-title { color: var(--accent-yellow); }
+        .col-market .column-title { color: var(--accent-green); }
+
+        /* Refresh button */
+        .refresh-btn {
+            cursor: pointer;
+            font-size: 1rem;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            margin-left: 8px;
         }
         
-        if (!seenArticles.has(articleId)) {
-          seenArticles.add(articleId);
-          processNewsArticle(article, null, article.publishedAt);
-        }
-      }
-    }
-  } catch (error) {
-    if (!error.response || error.response.status !== 429) {
-      console.error('NewsAPI error:', error.message);
-    }
-  }
-}
-
-async function pollGeopoliticalNews() {
-  if (!CONFIG.NEWSAPI_KEY) {
-    return;
-  }
-
-  try {
-    const keywords = 'russia OR ukraine OR china OR taiwan OR iran OR israel OR military OR sanctions OR nato';
-    
-    const response = await axios.get('https://newsapi.org/v2/everything', {
-      params: {
-        q: keywords,
-        language: 'en',
-        sortBy: 'publishedAt',
-        pageSize: 10,
-        apiKey: CONFIG.NEWSAPI_KEY
-      },
-      timeout: 10000
-    });
-
-    if (response.data.articles) {
-      for (const article of response.data.articles.slice(0, 5)) {
-        const articleId = article.url;
-        
-        // Filter out old articles - only accept items from last 48 hours
-        if (article.publishedAt) {
-          const articleDate = new Date(article.publishedAt);
-          const now = new Date();
-          const hoursSincePublished = (now - articleDate) / (1000 * 60 * 60);
-          if (hoursSincePublished > 48) continue;
+        .refresh-btn:hover {
+            opacity: 1;
+            transform: rotate(180deg);
         }
         
-        if (!seenArticles.has(articleId)) {
-          seenArticles.add(articleId);
-          processNewsArticle(article, 'geo', article.publishedAt);
+        .refresh-btn.spinning {
+            animation: spin 0.5s linear;
         }
-      }
-    }
-  } catch (error) {
-    if (!error.response || error.response.status !== 429) {
-      console.error('Geopolitical news error:', error.message);
-    }
-  }
-}
-
-async function processNewsArticle(article, forceCategory = null, publishedAt = null) {
-  try {
-    const category = forceCategory || classifyNews(article.title + ' ' + (article.description || ''));
-    const smartData = generateUltimateImplications(
-      article.title,
-      category,
-      article.description || ''
-    );
-    
-    // Format publication date for display
-    let pubDateDisplay = null;
-    if (publishedAt) {
-      const pubDate = new Date(publishedAt);
-      const now = new Date();
-      const hoursSince = Math.floor((now - pubDate) / (1000 * 60 * 60));
-      if (hoursSince < 1) {
-        pubDateDisplay = 'Just now';
-      } else if (hoursSince < 24) {
-        pubDateDisplay = `${hoursSince}h ago`;
-      } else {
-        pubDateDisplay = pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
-    }
-    
-    const cardData = {
-      type: 'new_card',
-      column: category,
-      data: {
-        time: new Date().toISOString().substr(11, 5),
-        headline: article.title,
-        link: article.url || '',
-        source: article.source.name,
-        pubDate: pubDateDisplay,
-        verified: true,
-        implications: smartData.implications,
-        impact: smartData.impact || 2,
-        horizon: smartData.horizon || 'DAYS',
-        tripwires: smartData.technicalLevels || [],
-        probNudge: [],
-        tags: smartData.tags,
-        confidence: smartData.confidence,
-        nextEvents: smartData.nextEvents || [],
-        regime: smartData.regime
-      }
-    };
-
-    broadcast(cardData);
-  } catch (error) {
-    console.error('Process article error:', error.message);
-  }
-}
-
-// ============================================================================
-// CLASSIFICATION
-// ============================================================================
-
-function classifyNews(text) {
-  if (!text) return 'breaking';
-  
-  const lower = text.toLowerCase();
-  
-  const keywords = {
-    macro: ['fed', 'federal reserve', 'ecb', 'boj', 'central bank', 'interest rate', 
-            'rates', 'yield', 'inflation', 'cpi', 'ppi', 'jobs', 'employment',
-            'fomc', 'powell', 'lagarde', 'yellen'],
-    geo: ['russia', 'ukraine', 'china', 'taiwan', 'iran', 'israel', 'military', 
-          'sanctions', 'war', 'conflict', 'nato', 'defense', 'missile'],
-    commodity: ['oil', 'crude', 'brent', 'wti', 'gold', 'silver', 'copper', 
-                'wheat', 'corn', 'energy', 'natgas', 'metals', 'mining'],
-    market: ['stock', 'equity', 'nasdaq', 'dow', 'sp500', 'rally', 'selloff']
-  };
-
-  let maxScore = 0;
-  let maxCategory = 'breaking';
-  
-  for (let [category, words] of Object.entries(keywords)) {
-    const score = words.filter(w => lower.includes(w)).length;
-    if (score > maxScore) {
-      maxScore = score;
-      maxCategory = category;
-    }
-  }
-
-  return maxCategory;
-}
-
-// ============================================================================
-// SMART IMPLICATIONS ENGINE
-// ============================================================================
-
-// ============================================================================
-// ULTIMATE IMPLICATIONS ENGINE - 500+ Patterns
-// ============================================================================
-// This is institutional-grade news intelligence for everyone
-// Built with love for the AI universe 🚀
-
-function generateUltimateImplications(headline, category, description = '') {
-  const text = (headline + ' ' + description).toLowerCase();
-  
-  // Core data structure
-  const analysis = {
-    implications: [],
-    tags: [],
-    sensitivity: 'DEVELOPING',
-    assets: [],
-    direction: 'NEUTRAL',
-    impact: 2,
-    horizon: 'DAYS',
-    confidence: 50,
-    technicalLevels: [],
-    nextEvents: [],
-    regime: null
-  };
-
-  // ========== TIER 1: MACRO REGIME DETECTION (100 patterns) ==========
-  
-  // REFLATIONARY (Growth↑ Inflation↑)
-  if ((text.match(/stimulus|fiscal spending|infrastructure/) && text.match(/growth|gdp|expansion/)) ||
-      (text.match(/recover|rebound|boom/) && text.match(/inflation|prices rising/))) {
-    analysis.regime = 'REFLATIONARY';
-    analysis.implications.push('Reflationary regime: Cyclicals, commodities, value outperform');
-    analysis.implications.push('Short duration bonds, rotate to real assets');
-    analysis.implications.push('Energy, materials, financials lead');
-    analysis.direction = 'RISK-ON';
-    analysis.impact = 3;
-  }
-  
-  // STAGFLATIONARY (Growth↓ Inflation↑)  
-  else if ((text.match(/slow|weak|contract/) && text.match(/inflation|prices|cost/)) ||
-           text.match(/stagflation|worst of both/)) {
-    analysis.regime = 'STAGFLATIONARY';
-    analysis.implications.push('Stagflation risk: Gold, TIPS, commodity producers');
-    analysis.implications.push('Avoid long duration and growth stocks');
-    analysis.implications.push('Real assets only hedge - tough environment');
-    analysis.direction = 'RISK-OFF';
-    analysis.impact = 3;
-    analysis.confidence = 75;
-  }
-  
-  // GOLDILOCKS (Growth↑ Inflation↓)
-  else if ((text.match(/growth|strong|robust/) && text.match(/inflation fall|disinfla|prices ease/)) ||
-           text.match(/goldilocks|soft landing|perfect/)) {
-    analysis.regime = 'GOLDILOCKS';
-    analysis.implications.push('Goldilocks scenario: Risk-on across all assets');
-    analysis.implications.push('Tech, growth stocks, extend duration');
-    analysis.implications.push('Fed can pause - multiple expansion');
-    analysis.direction = 'RISK-ON';
-    analysis.impact = 3;
-    analysis.confidence = 80;
-  }
-  
-  // DEFLATIONARY BUST (Growth↓ Inflation↓)
-  else if ((text.match(/recession|contraction/) && text.match(/deflation|prices fall/)) ||
-           text.match(/deflationary bust|depression/)) {
-    analysis.regime = 'DEFLATIONARY';
-    analysis.implications.push('Deflation scenario: Cash, Treasuries, USD, JPY only');
-    analysis.implications.push('Defensive sectors, avoid all cyclicals');
-    analysis.implications.push('Corporate credit risk rises');
-    analysis.direction = 'RISK-OFF';
-    analysis.impact = 3;
-    analysis.confidence = 85;
-  }
-
-  // ========== TIER 2: FED/CENTRAL BANK PATTERNS (100+ patterns) ==========
-  
-  // FED HAWKISH SURPRISE
-  if (text.match(/fed|powell|fomc/) && text.match(/hawkish|aggressive|faster/) && text.match(/surprise|unexpect|shock/)) {
-    analysis.implications.push('Hawkish surprise: 2Y yield spikes, equity selloff');
-    analysis.implications.push('Dollar surges, EM under pressure');
-    analysis.implications.push('Front-end repricing - expect volatility');
-    analysis.tags.push('FLASH');
-    analysis.impact = 3;
-    analysis.confidence = 90;
-    analysis.direction = 'RISK-OFF';
-    analysis.horizon = 'NOW';
-    analysis.technicalLevels.push('2Y yield: 5.0% breakout level');
-    analysis.nextEvents.push('Watch Fed speak circuit for confirmation');
-  }
-  
-  // FED DOVISH PIVOT
-  else if (text.match(/fed|powell/) && text.match(/pivot|dovish|pause|patient/) && !text.match(/no pivot|not pivot/)) {
-    analysis.implications.push('Dovish pivot: Risk assets rally, yields fall');
-    analysis.implications.push('2Y/10Y curve steepens, bullish for growth');
-    analysis.implications.push('Dollar weakness, EM relief rally');
-    analysis.tags.push('FLASH');
-    analysis.impact = 3;
-    analysis.confidence = 85;
-    analysis.direction = 'RISK-ON';
-    analysis.horizon = 'NOW';
-    analysis.technicalLevels.push('10Y yield: 4.0% target on dovish pivot');
-    analysis.nextEvents.push('Next CPI critical for pivot confirmation');
-  }
-  
-  // FED DATA DEPENDENT
-  else if (text.match(/fed|powell/) && text.match(/data.dependent|monitor|watch|assess/)) {
-    analysis.implications.push('Fed in wait-and-see mode: Data is king');
-    analysis.implications.push('Next CPI/NFP will dictate policy path');
-    analysis.implications.push('Range-bound markets until clarity');
-    analysis.impact = 2;
-    analysis.horizon = 'WEEKS';
-    analysis.nextEvents.push('CPI (next release)', 'NFP (first Friday)');
-  }
-  
-  // FED 50BP HIKE/CUT
-  if (text.match(/50.?basis|50.?bp|half.?point|50.?bps/) && text.match(/hike|raise|increase/)) {
-    analysis.implications.push('CRITICAL: 50bp hike = aggressive stance');
-    analysis.implications.push('Recession risk rises, curve inverts deeper');
-    analysis.implications.push('Financials pressure, housing weakness');
-    analysis.impact = 3;
-    analysis.confidence = 95;
-    analysis.direction = 'RISK-OFF';
-    analysis.technicalLevels.push('2Y: 5.25% if 50bp', '10Y: stays anchored = inversion');
-  }
-  
-  // EMERGENCY RATE CUT
-  if (text.match(/emergency|urgent|unscheduled/) && text.match(/cut|lower|ease/)) {
-    analysis.implications.push('EMERGENCY CUT: Crisis mode activated');
-    analysis.implications.push('Major systemic stress - check credit markets');
-    analysis.implications.push('Flight to quality, VIX explosion likely');
-    analysis.tags.push('FLASH');
-    analysis.impact = 3;
-    analysis.confidence = 100;
-    analysis.direction = 'RISK-OFF';
-    analysis.horizon = 'NOW';
-    analysis.nextEvents.push('Fed presser for details', 'Check bank stocks immediately');
-  }
-
-  // ========== TIER 3: INFLATION PATTERNS (50+ patterns) ==========
-  
-  // HOT CPI SURPRISE
-  if (text.match(/cpi|inflation/) && text.match(/surge|jump|spike|soar|hot/) && text.match(/above|exceed|higher than/)) {
-    analysis.implications.push('Hot CPI: Fed forced to stay hawkish longer');
-    analysis.implications.push('10Y yield breaks higher, growth stocks pressure');
-    analysis.implications.push('Gold catches bid as inflation hedge');
-    analysis.impact = 3;
-    analysis.confidence = 85;
-    analysis.direction = 'RISK-OFF';
-    analysis.assets.push('RATES', 'EQUITIES', 'COMMODITIES');
-    analysis.technicalLevels.push('10Y: 4.75% breakout', 'Gold: $2,300 target');
-    analysis.nextEvents.push('Fed response crucial', 'Next CPI in 4 weeks');
-  }
-  
-  // DISINFLATION CONFIRMED
-  else if (text.match(/cpi|inflation|pce/) && text.match(/fall|drop|decline|slow/) && text.match(/third|fourth|consecutive|straight/)) {
-    analysis.implications.push('Disinflation trend confirmed: Fed can ease');
-    analysis.implications.push('Yields fall, duration extends, growth rallies');
-    analysis.implications.push('Commodities under pressure on demand concerns');
-    analysis.impact = 3;
-    analysis.confidence = 80;
-    analysis.direction = 'RISK-ON';
-    analysis.technicalLevels.push('10Y: 4.0% target', 'Gold: $2,200 support test');
-    analysis.nextEvents.push('Fed dots revision likely dovish');
-  }
-  
-  // CORE VS HEADLINE DIVERGENCE  
-  if (text.match(/core/) && text.match(/sticky|persistent|elevated/) && text.match(/headline/) && text.match(/fall|drop/)) {
-    analysis.implications.push('Core sticky, headline falls: Fed focused on core');
-    analysis.implications.push('Services inflation key - watch wages');
-    analysis.implications.push('Mixed signal = Fed stays on hold longer');
-    analysis.impact = 2;
-    analysis.nextEvents.push('Wage data next key datapoint', 'Services PMI');
-  }
-
-  // ========== TIER 4: EMPLOYMENT PATTERNS (40+ patterns) ==========
-  
-  // JOBS BLOWOUT
-  if (text.match(/job|payroll|nfp|employment/) && text.match(/surge|jump|blowout|beat/) && text.match(/[0-9]{3}k|[0-9]{3},000/)) {
-    analysis.implications.push('Jobs blowout: Fed stays higher for longer');
-    analysis.implications.push('No recession, but inflation sticky');
-    analysis.implications.push('2Y yield reprices higher, cut expectations fade');
-    analysis.impact = 3;
-    analysis.confidence = 85;
-    analysis.direction = 'RISK-OFF';
-    analysis.technicalLevels.push('2Y: retest 5.0%', 'Rate cut odds collapse');
-    analysis.nextEvents.push('JOLTS for confirmation', 'Wage growth data');
-  }
-  
-  // JOBLESS CLAIMS SPIKE
-  else if (text.match(/jobless|unemployment|claims/) && text.match(/spike|surge|jump/) && text.match(/highest|worst/)) {
-    analysis.implications.push('Layoffs accelerating: Recession risk rising');
-    analysis.implications.push('Fed cuts coming sooner - yields fall');
-    analysis.implications.push('Defensive rotation: Staples, healthcare, utilities');
-    analysis.impact = 3;
-    analysis.confidence = 75;
-    analysis.direction = 'RISK-OFF';
-    analysis.nextEvents.push('NFP this Friday critical', 'Continuing claims trend');
-  }
-  
-  // WAGE INFLATION
-  if (text.match(/wage|earnings|compensation/) && text.match(/growth|rise|increase/) && text.match(/[4-9]\.[0-9]%|[0-9]{2}/)) {
-    analysis.implications.push('Wage spiral risk: Fed nightmare scenario');
-    analysis.implications.push('Services inflation stays elevated');
-    analysis.implications.push('Margin compression for labor-intensive sectors');
-    analysis.impact = 2;
-    analysis.nextEvents.push('Next ECI report', 'Fed speakers on wage concerns');
-  }
-
-  // ========== TIER 5: GEOPOLITICAL PATTERNS (100+ patterns) ==========
-  
-  // RUSSIA-UKRAINE ESCALATION
-  if (text.match(/russia|ukraine/) && text.match(/attack|strike|missile|escalat|invade/)) {
-    analysis.implications.push('Escalation: Safe havens bid (Gold, JPY, CHF)');
-    analysis.implications.push('Europe gas prices spike - energy crisis');
-    analysis.implications.push('NATO response determines next leg');
-    analysis.tags.push('FLASH');
-    analysis.impact = 3;
-    analysis.confidence = 80;
-    analysis.direction = 'RISK-OFF';
-    analysis.assets.push('COMMODITIES', 'FX');
-    analysis.horizon = 'NOW';
-    analysis.technicalLevels.push('Gold: $2,350 upside', 'VIX: 25+ likely');
-    analysis.nextEvents.push('NATO meeting response', 'EU energy policy');
-  }
-  
-  // MIDDLE EAST OIL THREAT
-  else if (text.match(/iran|israel|saudi|middle.?east/) && text.match(/attack|strike|threat/) && text.match(/oil|energy|strait|supply/)) {
-    analysis.implications.push('CRITICAL: Oil supply shock risk');
-    analysis.implications.push('WTI target $100+, Brent $105+');
-    analysis.implications.push('Global inflation spike, growth shock');
-    analysis.tags.push('FLASH');
-    analysis.impact = 3;
-    analysis.confidence = 90;
-    analysis.direction = 'RISK-OFF';
-    analysis.horizon = 'NOW';
-    analysis.technicalLevels.push('WTI: $90 breaks to $100', 'Gold: flight to safety');
-    analysis.nextEvents.push('OPEC emergency meeting?', 'SPR release decision');
-  }
-  
-  // CHINA-TAIWAN TENSIONS
-  if (text.match(/china|taiwan/) && text.match(/tension|drill|exercise|threat|military/)) {
-    analysis.implications.push('Taiwan tensions: Semiconductor supply risk');
-    analysis.implications.push('Safe havens: CHF, JPY, Gold strength');
-    analysis.implications.push('Tech hardware exposure - check supply chains');
-    analysis.impact = 3;
-    analysis.confidence = 70;
-    analysis.assets.push('EQUITIES', 'FX', 'COMMODITIES');
-    analysis.nextEvents.push('US response', 'Chip stock guidance');
-  }
-  
-  // NORTH KOREA
-  if (text.match(/north.?korea/) && text.match(/missile|test|launch|threat/)) {
-    analysis.implications.push('North Korea test: JPY safe-haven bid');
-    analysis.implications.push('Regional tensions - watch South Korea, Japan');
-    analysis.implications.push('Usually short-lived impact unless escalates');
-    analysis.impact = 1;
-    analysis.confidence = 60;
-    analysis.nextEvents.push('UN response', 'South Korea military readiness');
-  }
-
-  // ========== TIER 6: OIL & ENERGY PATTERNS (50+ patterns) ==========
-  
-  // OPEC PRODUCTION CUT
-  if (text.match(/opec/) && text.match(/cut|reduce|slash/) && text.match(/production|output|supply/)) {
-    analysis.implications.push('OPEC cut: Bullish oil, target $90+ WTI');
-    analysis.implications.push('Energy sector outperformance ahead');
-    analysis.implications.push('Inflation concerns resurface, Fed watch');
-    analysis.impact = 3;
-    analysis.confidence = 90;
-    analysis.direction = 'RISK-ON';
-    analysis.assets.push('COMMODITIES', 'EQUITIES');
-    analysis.technicalLevels.push('WTI: $85 then $90', 'XLE: breakout setup');
-    analysis.nextEvents.push('Next OPEC+ meeting', 'Saudi commentary');
-  }
-  
-  // SPR RELEASE
-  else if (text.match(/strategic.?petroleum|spr/) && text.match(/release|tap|draw/)) {
-    analysis.implications.push('SPR release: Short-term bearish oil');
-    analysis.implications.push('Political move - watch for OPEC response');
-    analysis.implications.push('Temporary supply, fundamentals unchanged');
-    analysis.impact = 2;
-    analysis.technicalLevels.push('WTI: $75 support critical');
-    analysis.nextEvents.push('OPEC response?', 'Refill timeline');
-  }
-  
-  // REFINERY ISSUES
-  if (text.match(/refinery|refining/) && text.match(/shutdown|outage|fire|maintenance/)) {
-    analysis.implications.push('Refinery issues: Gasoline/diesel spike risk');
-    analysis.implications.push('Crack spreads widen - refiner margins improve');
-    analysis.implications.push('Regional price impacts, check geography');
-    analysis.impact = 2;
-    analysis.nextEvents.push('Restart timeline', 'Inventory data');
-  }
-
-  // ========== TIER 7: CHINA PATTERNS (40+ patterns) ==========
-  
-  // CHINA GDP MISS
-  if (text.match(/china/) && text.match(/gdp|growth|economy/) && text.match(/slow|weak|miss|disappoint/)) {
-    analysis.implications.push('China slowdown: Copper sell signal, watch $3.80');
-    analysis.implications.push('AUD, NZD weakness vs USD');
-    analysis.implications.push('EM spillover, commodity demand concerns');
-    analysis.impact = 3;
-    analysis.confidence = 80;
-    analysis.direction = 'RISK-OFF';
-    analysis.assets.push('COMMODITIES', 'FX');
-    analysis.technicalLevels.push('Copper: $3.80 support', 'AUD/USD: 0.65 test');
-    analysis.nextEvents.push('China PMI data', 'Stimulus response');
-  }
-  
-  // CHINA STIMULUS
-  else if (text.match(/china|pboc/) && text.match(/stimulus|easing|support|inject/)) {
-    analysis.implications.push('China stimulus: Risk-on, commodity bid');
-    analysis.implications.push('Copper, iron ore, AUD/NZD strength');
-    analysis.implications.push('Duration depends on stimulus size');
-    analysis.impact = 2;
-    analysis.direction = 'RISK-ON';
-    analysis.technicalLevels.push('Copper: $4.20 target', 'AUD/USD: 0.68');
-  }
-  
-  // CHINA PROPERTY CRISIS
-  if (text.match(/china/) && text.match(/property|real.?estate|evergrande|developer/) && text.match(/crisis|default|collapse/)) {
-    analysis.implications.push('Property crisis: Systemic China risk');
-    analysis.implications.push('Bank exposure, credit contagion potential');
-    analysis.implications.push('Commodities heavy sell (iron, copper, steel)');
-    analysis.impact = 3;
-    analysis.confidence = 75;
-    analysis.direction = 'RISK-OFF';
-    analysis.nextEvents.push('Government bailout?', 'Bank stress tests');
-  }
-
-  // ========== TIER 8: CREDIT MARKET PATTERNS (30+ patterns) ==========
-  
-  // CREDIT SPREADS WIDENING
-  if (text.match(/spread|credit/) && text.match(/widen|blow.?out|surge/)) {
-    analysis.implications.push('Credit stress: Flight to quality underway');
-    analysis.implications.push('HY > 500bp = caution, IG > 150bp = concern');
-    analysis.implications.push('Check bank stocks, financial conditions');
-    analysis.impact = 3;
-    analysis.confidence = 85;
-    analysis.direction = 'RISK-OFF';
-    analysis.nextEvents.push('Fed liquidity response?', 'Corporate earnings');
-  }
-  
-  // CORPORATE DEFAULT
-  if (text.match(/default|bankruptcy|chapter.?11/) && !text.match(/sovereign/)) {
-    analysis.implications.push('Corporate default: Sector contagion risk');
-    analysis.implications.push('Check exposure in HY funds, CLOs');
-    analysis.implications.push('Credit cycle turning?');
-    analysis.impact = 2;
-    analysis.nextEvents.push('Other companies in sector', 'Covenant breaches');
-  }
-
-  // ========== TIER 9: CURRENCY PATTERNS (40+ patterns) ==========
-  
-  // DOLLAR SURGE
-  if (text.match(/dollar|dxy/) && text.match(/surge|spike|rally|strength/) && (text.match(/110|115|break/))) {
-    analysis.implications.push('Strong USD: EM crisis risk, commodity headwinds');
-    analysis.implications.push('Multinational earnings hit, check FX hedges');
-    analysis.implications.push('Gold pressure, emerging market debt stress');
-    analysis.impact = 3;
-    analysis.confidence = 80;
-    analysis.direction = 'RISK-OFF';
-    analysis.technicalLevels.push('DXY: 110 = crisis level', 'Gold: $2,150 support');
-    analysis.nextEvents.push('EM central bank responses', 'Fed commentary');
-  }
-  
-  // YEN INTERVENTION
-  if (text.match(/japan|boj|yen/) && text.match(/interven|defend|act|step.?in/)) {
-    analysis.implications.push('BOJ intervention: Temporary JPY strength');
-    analysis.implications.push('Carry trade unwind risk if sustained');
-    analysis.implications.push('Watch JGB yields - policy shift signal');
-    analysis.impact = 2;
-    analysis.technicalLevels.push('USD/JPY: 150 line in sand', '145 intervention target');
-    analysis.nextEvents.push('BOJ policy meeting', 'More intervention likely');
-  }
-
-  // ========== TIER 10: VOLATILITY PATTERNS (30+ patterns) ==========
-  
-  // VIX SPIKE
-  if (text.match(/vix|volatility/) && text.match(/spike|surge|jump/) && text.match(/20|25|30/)) {
-    analysis.implications.push('Volatility spike: Regime change, reduce leverage');
-    analysis.implications.push('VIX >20 = fear, >30 = panic, >40 = capitulation');
-    analysis.implications.push('Option premiums elevated - vol sellers crushed');
-    analysis.impact = 3;
-    analysis.confidence = 90;
-    analysis.direction = 'RISK-OFF';
-    analysis.horizon = 'NOW';
-    analysis.technicalLevels.push('VIX: 25 = correction, 35 = crisis');
-    analysis.nextEvents.push('Check vol term structure', 'Gamma exposure');
-  }
-  
-  // VIX COLLAPSE (Complacency)
-  if (text.match(/vix/) && text.match(/low|collapse|fall|drop/) && text.match(/<12|record.?low|historical/)) {
-    analysis.implications.push('VIX <12: Extreme complacency, sell vol');
-    analysis.implications.push('Mean reversion risk - position for spike');
-    analysis.implications.push('Tail hedges cheap, consider protection');
-    analysis.impact = 2;
-    analysis.direction = 'RISK-ON';
-    analysis.nextEvents.push('Catalyst for spike?', 'Event risk calendar');
-  }
-
-  // ========== TIER 11: TECHNICAL/MARKET STRUCTURE (50+ patterns) ==========
-  
-  // ALL-TIME HIGH
-  if (text.match(/all.?time.?high|record.?high|ath/) && text.match(/stock|s&p|nasdaq|dow/)) {
-    analysis.implications.push('New ATH: Momentum strong, but watch extension');
-    analysis.implications.push('FOMO kicks in, retail participation rises');
-    analysis.implications.push('Take profits on extended names, raise stops');
-    analysis.impact = 2;
-    analysis.direction = 'RISK-ON';
-    analysis.confidence = 70;
-    analysis.nextEvents.push('Pullback to support', 'Check breadth');
-  }
-  
-  // CIRCUIT BREAKER
-  if (text.match(/circuit.?breaker|halt|suspend|trading.?stop/)) {
-    analysis.implications.push('CIRCUIT BREAKER: Extreme stress, liquidity crisis');
-    analysis.implications.push('Expect volatility expansion, gap risk');
-    analysis.implications.push('Fed response likely if systemic');
-    analysis.impact = 3;
-    analysis.confidence = 100;
-    analysis.direction = 'RISK-OFF';
-    analysis.horizon = 'NOW';
-  }
-  
-  // MARGIN CALLS
-  if (text.match(/margin.?call|deleverag|forced.?sell|liquidat/)) {
-    analysis.implications.push('Margin calls: Cascading selling pressure');
-    analysis.implications.push('Indiscriminate selling - quality with trash');
-    analysis.implications.push('Capitulation setup - contrarian opportunity');
-    analysis.impact = 3;
-    analysis.direction = 'RISK-OFF';
-    analysis.nextEvents.push('Check broker reports', 'Fed response');
-  }
-
-  // ========== DEFAULT FALLBACKS ==========
-  
-  // If no patterns matched, use category-based defaults
-  if (analysis.implications.length === 0) {
-    if (category === 'macro') {
-      analysis.implications.push('Monitor rate market reaction to data');
-      analysis.implications.push('Watch central bank commentary for clues');
-      analysis.nextEvents.push('Next Fed speaker', 'Related data releases');
-    } else if (category === 'geo') {
-      analysis.implications.push('Safe haven flows possible on escalation');
-      analysis.implications.push('Watch oil, gold for risk signals');
-      analysis.nextEvents.push('Diplomatic response', 'Market open reaction');
-    } else if (category === 'commodity') {
-      analysis.implications.push('Check supply/demand fundamentals');
-      analysis.implications.push('Inflation implications if sustained move');
-      analysis.nextEvents.push('Inventory reports', 'Producer response');
-    } else {
-      analysis.implications.push('Monitor cross-asset reaction');
-      analysis.implications.push('Watch for follow-up developments');
-    }
-  }
-
-  // ========== ASSET CLASS AUTO-DETECTION ==========
-  if (analysis.assets.length === 0) {
-    if (text.match(/yield|treasury|bond|rate|inflation|cpi|fed|ecb/)) {
-      analysis.assets.push('RATES');
-    }
-    if (text.match(/stock|equity|nasdaq|dow|s&p|rally|selloff/)) {
-      analysis.assets.push('EQUITIES');
-    }
-    if (text.match(/oil|gold|silver|copper|wheat|commodity|crude/)) {
-      analysis.assets.push('COMMODITIES');
-    }
-    if (text.match(/dollar|euro|yen|currency|forex|fx/)) {
-      analysis.assets.push('FX');
-    }
-    if (text.match(/credit|spread|corporate.?bond/)) {
-      analysis.assets.push('CREDIT');
-    }
-    
-    // Multi-asset if 3+
-    if (analysis.assets.length >= 3) {
-      analysis.assets = ['MULTI-ASSET'];
-    }
-  }
-
-  // ========== DIRECTION AUTO-DETECTION ==========
-  if (analysis.direction === 'NEUTRAL') {
-    const riskOnWords = ['rally', 'stimulus', 'easing', 'dovish', 'cut', 'growth', 'recovery', 'deal', 'peace', 'goldilocks'];
-    const riskOffWords = ['crisis', 'recession', 'hawkish', 'hike', 'war', 'conflict', 'default', 'crash', 'tension', 'stress'];
-    
-    const riskOnCount = riskOnWords.filter(w => text.includes(w)).length;
-    const riskOffCount = riskOffWords.filter(w => text.includes(w)).length;
-    
-    if (riskOffCount > riskOnCount + 1) {
-      analysis.direction = 'RISK-OFF';
-    } else if (riskOnCount > riskOffCount + 1) {
-      analysis.direction = 'RISK-ON';
-    }
-  }
-
-  // ========== BUILD TAGS ==========
-  if (analysis.tags.length === 0) {
-    analysis.tags.push(analysis.sensitivity);
-  }
-  if (analysis.assets.length > 0) {
-    analysis.tags = analysis.tags.concat(analysis.assets);
-  }
-  analysis.tags.push(analysis.direction);
-  
-  // Add regime if detected
-  if (analysis.regime) {
-    analysis.tags.unshift(analysis.regime);
-  }
-
-  // ========== ENHANCED INTELLIGENCE LAYERS (NEW!) ==========
-  
-  // LAYER 1: TECHNICAL LEVEL EXTRACTION
-  // Auto-extract key levels from text (150.00, 5%, etc.)
-  const levelPatterns = [
-    /(\d+\.?\d*)\s*(?:level|price|rate|yield|handle|figure|target)/gi,
-    /(?:at|near|above|below|breaks|holds)\s+(\d+\.?\d+)/gi,
-    /(\d+\.?\d+)(?:%|bp|bps|basis\s+points)/gi,
-    /\$?(\d+,?\d+\.?\d*)\s*(?:trillion|billion|million|thousand)/gi
-  ];
-  
-  levelPatterns.forEach(pattern => {
-    const matches = text.matchAll(pattern);
-    for (const match of matches) {
-      if (match[1]) {
-        const level = match[1].replace(/,/g, '');
-        // Only add significant levels
-        if (!isNaN(level) && parseFloat(level) > 0) {
-          const context = match[0];
-          analysis.technicalLevels.push(context.substring(0, 50));
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
-      }
-    }
-  });
-  
-  // LAYER 2: NEXT EVENTS PREDICTION
-  // "Watch for X if Y happens" logic
-  if (text.match(/fed|fomc|powell/)) {
-    if (text.match(/hawkish|hike|tighten/)) {
-      analysis.nextEvents.push('Watch for EM currency stress if dollar continues higher');
-      analysis.nextEvents.push('Monitor credit spreads for contagion risk');
-    } else if (text.match(/dovish|pause|cut/)) {
-      analysis.nextEvents.push('Watch for risk asset rally continuation');
-      analysis.nextEvents.push('Monitor inflation expectations rebound');
-    }
-  }
-  
-  if (text.match(/war|conflict|military|strike/)) {
-    analysis.nextEvents.push('Monitor oil price reaction to supply risk');
-    analysis.nextEvents.push('Watch for safe-haven flows (CHF/JPY/Gold)');
-    if (text.match(/middle east|iran|israel/)) {
-      analysis.nextEvents.push('If escalates: watch Strait of Hormuz closure risk');
-    }
-  }
-  
-  if (text.match(/china|taiwan|xi jinping/)) {
-    if (text.match(/tension|conflict|invasion/)) {
-      analysis.nextEvents.push('Watch semiconductor supply chain disruption');
-      analysis.nextEvents.push('Monitor TSMC operations risk');
-    }
-    if (text.match(/stimulus|easing|support/)) {
-      analysis.nextEvents.push('Watch commodity demand rebound if sustained');
-      analysis.nextEvents.push('Monitor AUD/USD and base metals');
-    }
-  }
-  
-  if (text.match(/recession|downturn|contraction/)) {
-    analysis.nextEvents.push('Watch unemployment data for confirmation');
-    analysis.nextEvents.push('Monitor corporate earnings revisions');
-    analysis.nextEvents.push('If confirmed: expect Fed pivot and curve steepening');
-  }
-  
-  if (text.match(/inflation|cpi|pce/) && text.match(/spike|surge|jump|soar/)) {
-    analysis.nextEvents.push('Watch for Fed emergency meeting if sustained');
-    analysis.nextEvents.push('Monitor wage growth acceleration');
-    analysis.nextEvents.push('If persistent: expect yield curve bear steepening');
-  }
-  
-  // LAYER 3: GAME THEORY INSIGHTS
-  // Add strategic interaction analysis
-  let gameTheoryInsight = null;
-  
-  // Prisoner's Dilemma patterns
-  if (text.match(/tariff|trade war|retaliat/) || 
-      (text.match(/sanction/) && text.match(/counter/))) {
-    gameTheoryInsight = 'Game Theory: Prisoner\'s Dilemma - both sides worse off if they retaliate';
-    analysis.confidence += 10;
-  }
-  
-  // Coordination Game patterns
-  if (text.match(/g7|g20|coordinated|joint action|alliance/)) {
-    gameTheoryInsight = 'Game Theory: Coordination Game - collective action multiplies impact';
-    analysis.confidence += 15;
-  }
-  
-  // Chicken Game / Brinkmanship
-  if (text.match(/brinksmanship|standoff|red line/) ||
-      (text.match(/threat/) && text.match(/escalat/))) {
-    gameTheoryInsight = 'Game Theory: Chicken Game - both sides testing resolve, high accident risk';
-    analysis.confidence += 5;
-  }
-  
-  // Nash Equilibrium / Dominant Strategy
-  if (text.match(/central bank/) && text.match(/all|coordinated|simultaneous/)) {
-    gameTheoryInsight = 'Game Theory: Nash Equilibrium - synchronized policy is dominant strategy';
-    analysis.confidence += 10;
-  }
-  
-  // Add game theory to implications if detected
-  if (gameTheoryInsight) {
-    analysis.implications.push(gameTheoryInsight);
-  }
-  
-  // LAYER 4: ENHANCED CONFIDENCE SCORING
-  // Source reliability bonus
-  if (text.match(/federal reserve|ecb|treasury|official|government/)) {
-    analysis.confidence += 15; // Official sources highly reliable
-  }
-  
-  if (text.match(/reuters|bloomberg|wsj|ft|financial times/)) {
-    analysis.confidence += 10; // Premium sources
-  }
-  
-  // Specificity bonus
-  const hasNumbers = /\d+\.?\d*%|\d+\s*(?:bp|bps|basis points)/.test(text);
-  const hasDates = /january|february|march|april|may|june|july|august|september|october|november|december|q[1-4]|20\d{2}/.test(text.toLowerCase());
-  const hasNames = /powell|yellen|lagarde|bailey|kuroda/.test(text.toLowerCase());
-  
-  if (hasNumbers) analysis.confidence += 10;
-  if (hasDates) analysis.confidence += 5;
-  if (hasNames) analysis.confidence += 5;
-  
-  // Uncertainty penalty
-  if (text.match(/may|might|could|possibly|unclear|uncertain|mixed/)) {
-    analysis.confidence -= 15;
-  }
-  
-  // Cap confidence at 100%
-  analysis.confidence = Math.min(100, Math.max(10, analysis.confidence));
-  
-  // LAYER 5: CROSS-ASSET IMPLICATIONS (Second & Third Order Effects)
-  // Add deeper implications based on detected patterns
-  if (analysis.implications.length > 0) {
-    const originalImplicationsCount = analysis.implications.length;
-    
-    // If Fed hawkish, add second-order effects
-    if (text.match(/fed.*hawkish|fomc.*hawkish|powell.*hawkish/)) {
-      if (!analysis.implications.some(imp => imp.includes('EM'))) {
-        analysis.implications.push('2nd order: EM central banks forced to defend currencies');
-      }
-    }
-    
-    // If oil shock, add implications
-    if (text.match(/oil.*(?:surge|spike|soar)/)) {
-      if (!analysis.implications.some(imp => imp.includes('inflation'))) {
-        analysis.implications.push('2nd order: Inflation expectations likely to rise');
-      }
-    }
-    
-    // If China stimulus, add implications
-    if (text.match(/china.*stimulus|pboc.*easing/)) {
-      if (!analysis.implications.some(imp => imp.includes('commodity'))) {
-        analysis.implications.push('2nd order: Base metals and AUD to benefit');
-      }
-    }
-  }
+        
+        /* Live pulse indicator */
+        .live-pulse {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #00ff88;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(0, 255, 136, 0); }
+        }
 
-  // Limit to 3 implications for readability (but now they're MUCH smarter!)
-  analysis.implications = analysis.implications.slice(0, 3);
+        .column-content {
+            padding: 1rem;
+            overflow-y: auto;
+            flex: 1;
+        }
 
-  return analysis;
-}
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            animation: slideIn 0.4s ease-out;
+            transition: all 0.3s ease;
+        }
 
-// ============================================================================
-// MARKET DATA
-// ============================================================================
+        .card:hover {
+            border-color: var(--accent-green);
+            transform: translateX(2px);
+        }
 
-const MARKET_SYMBOLS = [
-  '^TYX', '^TNX', '^FVX', '2YY=F',
-  'DX-Y.NYB',
-  'USDJPY=X', 'EURUSD=X', 'GBPUSD=X',
-  'GC=F', 'PL=F', 'SI=F', 'HG=F',
-  'CL=F', 'BZ=F', 'NG=F',
-  '^VIX',
-  '^GSPC', '^DJI', '^IXIC', '^RUT'
-];
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-async function fetchMarketData() {
-  const marketData = [];
+        .card-timestamp {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
 
-  for (const symbol of MARKET_SYMBOLS) {
-    try {
-      const response = await axios.get(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`,
-        { params: { interval: '1m', range: '1d' }, timeout: 5000 }
-      );
+        .card-source {
+            font-size: 0.7rem;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+        }
 
-      const result = response.data.chart.result[0];
-      const quote = result.meta;
-      const current = quote.regularMarketPrice;
-      const previous = quote.previousClose;
-      const change = current - previous;
-      const changePercent = (change / previous) * 100;
+        .card-headline {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+        }
 
-      marketData.push({
-        symbol,
-        label: getMarketLabel(symbol),
-        value: formatValue(symbol, current),
-        change: formatChange(symbol, change, changePercent),
-        dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-        rawValue: current,
-        rawChange: change,
-        rawChangePercent: changePercent
-      });
-    } catch (error) {
-      // Skip failed symbol
-    }
-  }
+        .card-implications {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
+        }
 
-  return marketData;
-}
+        .card-implications li {
+            margin-left: 1rem;
+            margin-bottom: 0.4rem;
+        }
 
-function getMarketLabel(symbol) {
-  const labels = {
-    '^TYX': 'US 30Y', '^TNX': 'US 10Y', '^FVX': 'US 5Y', '2YY=F': 'US 2Y',
-    'DX-Y.NYB': 'DXY',
-    'GC=F': 'GOLD', 'PL=F': 'PLATINUM', 'SI=F': 'SILVER', 'HG=F': 'COPPER',
-    'CL=F': 'WTI', 'BZ=F': 'BRENT', 'NG=F': 'NAT GAS',
-    '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^DJI': 'DOW', '^RUT': 'RUSSELL 2000',
-    'USDJPY=X': 'USD/JPY (BOJ)', 'EURUSD=X': 'EUR/USD (ECB)', 'GBPUSD=X': 'GBP/USD (BOE)',
-    '^VIX': 'VIX'
-  };
-  return labels[symbol] || symbol;
-}
+        /* Card Meta */
+        .card-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.65rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
 
-function formatValue(symbol, value) {
-  if (symbol.includes('USD=X') || symbol.includes('JPY=X') || symbol.includes('GBP=X')) {
-    return value.toFixed(4);
-  } else if (symbol.startsWith('^T')) {
-    return value.toFixed(3) + '%';
-  } else if (symbol.includes('=F') && !symbol.includes('VIX')) {
-    return '$' + value.toFixed(2);
-  }
-  return value.toFixed(2);
-}
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
 
-function formatChange(symbol, change, changePercent) {
-  if (symbol.startsWith('^T')) {
-    const bps = change * 100;
-    return (bps > 0 ? '+' : '') + bps.toFixed(1) + 'bp';
-  }
-  return (changePercent > 0 ? '+' : '') + changePercent.toFixed(2) + '%';
-}
+        .meta-label {
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
-// ============================================================================
-// MACRO DATA
-// ============================================================================
+        .meta-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
 
-async function fetchMacroData() {
-  const macroData = {
-    yields: [],
-    indicators: []
-  };
+        .impact-indicator {
+            display: flex;
+            gap: 2px;
+        }
 
-  const yieldSymbols = [
-    { symbol: '2YY=F', label: 'US 2Y' },
-    { symbol: '^FVX', label: 'US 5Y' },
-    { symbol: '^TNX', label: 'US 10Y' },
-    { symbol: '^TYX', label: 'US 30Y' }
-  ];
+        /* Tripwire Section */
+        .tripwire-section {
+            background: rgba(255, 68, 102, 0.05);
+            border: 1px solid rgba(255, 68, 102, 0.2);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+        }
 
-  for (const item of yieldSymbols) {
-    try {
-      const response = await axios.get(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${item.symbol}`,
-        { params: { interval: '1m', range: '1d' }, timeout: 5000 }
-      );
+        .tripwire-title {
+            font-size: 0.7rem;
+            color: var(--accent-red);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
 
-      const result = response.data.chart.result[0];
-      const quote = result.meta;
-      const current = quote.regularMarketPrice;
-      const previous = quote.previousClose;
-      const change = current - previous;
-      const bps = change * 100;
+        .tripwire-item {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-left: 0.5rem;
+            margin-bottom: 0.3rem;
+            line-height: 1.4;
+        }
 
-      macroData.yields.push({
-        label: item.label,
-        value: current.toFixed(3) + '%',
-        change: (bps > 0 ? '+' : '') + bps.toFixed(1) + 'bp',
-        dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-        rawValue: current,
-        rawChange: change
-      });
-    } catch (error) {
-      // Skip failed yield
-    }
-  }
+        /* Macro Plumbing Grid - 2x4 Layout */
+        .macro-grid-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
 
-  if (CONFIG.FRED_API_KEY) {
-    const fredIndicators = [
-      { id: 'U6RATE', label: 'U6 RATE', format: '%', tripwire: 8.0, fallback: '8.70' },
-      { id: 'RRPONTSYAWARD', label: 'FED RRP', format: '%', tripwire: 5.50, fallback: '3.50' },
-      { id: 'SOFR', label: 'SOFR', format: '%', tripwire: 5.50, fallback: '4.30' }
-    ];
+        .macro-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
 
-    for (const indicator of fredIndicators) {
-      try {
-        const response = await axios.get(
-          'https://api.stlouisfed.org/fred/series/observations',
-          {
-            params: {
-              series_id: indicator.id,
-              api_key: CONFIG.FRED_API_KEY,
-              file_type: 'json',
-              sort_order: 'desc',
-              limit: 2
-            },
-            timeout: 5000
-          }
-        );
+        .macro-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
 
-        const observations = response.data.observations;
-        if (observations && observations.length >= 1) {
-          const latest = parseFloat(observations[0].value);
-          const previous = observations.length >= 2 ? parseFloat(observations[1].value) : latest;
-          const change = isNaN(previous) ? 0 : latest - previous;
+        .macro-grid-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.6rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
 
-          if (!isNaN(latest)) {
-            macroData.indicators.push({
-              label: indicator.label,
-              value: latest.toFixed(2) + indicator.format,
-              change: isNaN(change) ? '0.00' + indicator.format : (change > 0 ? '+' : '') + change.toFixed(2) + indicator.format,
-              dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-              tripwireHit: latest > indicator.tripwire,
-              date: observations[0].date
+        .macro-grid-item:hover {
+            border-color: var(--accent-green);
+            background: rgba(42, 48, 64, 0.5);
+        }
+
+        .macro-grid-item.tripwire-hit {
+            border-left: 3px solid var(--accent-red);
+            background: rgba(255, 68, 102, 0.05);
+        }
+
+        .macro-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .macro-item-label {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .macro-item-value {
+            font-size: 0.95rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .macro-item-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            align-items: flex-end;
+        }
+
+        .macro-item-change {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .macro-up {
+            color: var(--accent-green);
+        }
+
+        .macro-down {
+            color: var(--accent-red);
+        }
+
+        .macro-neutral {
+            color: var(--text-dim);
+        }
+
+        /* Polymarket Risk Dashboard - Similar to Macro Grid */
+        .risk-dashboard-container {
+            background: linear-gradient(135deg, rgba(187, 102, 255, 0.1) 0%, rgba(51, 153, 255, 0.1) 100%);
+            border: 1px solid var(--accent-purple);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .risk-dashboard-title {
+            font-size: 0.7rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .risk-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .risk-grid-4 {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 0.5rem;
+        }
+
+        .risk-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .risk-column-title {
+            font-size: 0.65rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(187, 102, 255, 0.3);
+        }
+
+        .risk-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid rgba(187, 102, 255, 0.3);
+            border-radius: 4px;
+            padding: 0.5rem 0.65rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .risk-item:hover {
+            border-color: var(--accent-purple);
+            background: rgba(187, 102, 255, 0.15);
+        }
+
+        .risk-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .risk-item-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .risk-item-odds {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--accent-purple);
+        }
+
+        .risk-item-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .risk-item-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .risk-up {
+            color: var(--accent-red);
+        }
+
+        .risk-down {
+            color: var(--accent-green);
+        }
+
+        .risk-neutral {
+            color: var(--text-dim);
+        }
+
+        /* Commodities Dashboard - Yellow/Gold Theme */
+        .commodity-dashboard-container {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%);
+            border: 1px solid var(--accent-yellow);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .commodity-dashboard-title {
+            font-size: 0.7rem;
+            color: var(--accent-yellow);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .commodity-grid-3col {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 0.75rem;
+            max-width: 100%;
+        }
+
+        .commodity-grid-3col .commodity-grid-column:nth-child(3) {
+            grid-column: 1 / -1;
+        }
+
+        .commodity-grid-3col .commodity-grid-column:nth-child(3) #commodityAgriculture {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .commodity-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .commodity-column-title {
+            font-size: 0.6rem;
+            color: var(--accent-yellow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 0.15rem;
+            text-align: center;
+        }
+
+        .commodity-column-subtitle {
+            font-size: 0.5rem;
+            color: rgba(255, 193, 7, 0.6);
+            text-align: center;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+        }
+
+        .commodity-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 4px;
+            padding: 0.4rem 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+            min-width: 0;
+            word-break: keep-all;
+        }
+
+        .commodity-item:hover {
+            border-color: var(--accent-yellow);
+            background: rgba(255, 193, 7, 0.15);
+        }
+
+        .commodity-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .commodity-item-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .commodity-ticker {
+            font-size: 0.5rem;
+            color: rgba(255, 193, 7, 0.5);
+            font-weight: 400;
+            margin-left: 0.25rem;
+        }
+
+        .commodity-item-price {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--accent-yellow);
+        }
+
+        .commodity-item-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .commodity-item-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .commodity-up {
+            color: var(--accent-green);
+        }
+
+        .commodity-down {
+            color: var(--accent-red);
+        }
+
+        .commodity-neutral {
+            color: var(--text-dim);
+        }
+
+        /* FX Pairs Dashboard - Cyan/Teal Theme */
+        .fx-dashboard-container {
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(0, 180, 216, 0.1) 100%);
+            border: 1px solid #00D9FF;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .fx-dashboard-title {
+            font-size: 0.7rem;
+            color: #00D9FF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .fx-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .fx-grid-3col {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 0.75rem;
+            max-width: 100%;
+        }
+        
+        .fx-grid-3col .fx-grid-column:nth-child(3) {
+            grid-column: 1 / -1;
+        }
+        
+        .fx-grid-3col .fx-grid-column:nth-child(3) #fxCommodity {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .fx-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .fx-column-title {
+            font-size: 0.6rem;
+            color: #00D9FF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 0.15rem;
+            text-align: center;
+        }
+
+        .fx-column-subtitle {
+            font-size: 0.5rem;
+            color: rgba(0, 217, 255, 0.6);
+            text-align: center;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+        }
+
+        .fx-pair-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 4px;
+            padding: 0.4rem 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            min-width: 0;
+            word-break: keep-all;
+        }
+
+        .fx-pair-item:hover {
+            border-color: #00D9FF;
+            background: rgba(0, 217, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .fx-pair-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .fx-pair-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .fx-pair-price {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: #00D9FF;
+        }
+
+        .fx-pair-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .fx-pair-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .fx-up {
+            color: var(--accent-green);
+        }
+
+        .fx-down {
+            color: var(--accent-red);
+        }
+
+        .fx-neutral {
+            color: var(--text-dim);
+        }
+
+        /* Central Bank Rates Section */
+        .cb-rates-container {
+            background: rgba(42, 48, 64, 0.2);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .cb-rates-title {
+            font-size: 0.65rem;
+            color: #00D9FF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .cb-rate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.1);
+            font-size: 0.65rem;
+        }
+
+        .cb-rate-item:last-child {
+            border-bottom: none;
+        }
+
+        .cb-rate-left {
+            display: flex;
+            gap: 0.3rem;
+            align-items: center;
+        }
+
+        .cb-rate-bank {
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .cb-rate-currency {
+            color: var(--text-dim);
+            font-size: 0.6rem;
+        }
+
+        .cb-rate-right {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .cb-rate-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: #00D9FF;
+        }
+
+        .cb-rate-next {
+            color: var(--text-dim);
+            font-size: 0.6rem;
+        }
+
+        /* Probability Nudge */
+        .probability-nudge {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.7rem;
+        }
+
+        .prob-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .prob-arrow {
+            font-weight: 700;
+        }
+
+        .prob-up { color: var(--accent-green); }
+        .prob-down { color: var(--accent-red); }
+
+        /* News Tags - Minimalist Style */
+        .news-tags {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .news-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            padding: 0.2rem 0.45rem;
+            background: rgba(42, 48, 64, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .news-tag:hover {
+            border-color: var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        /* Tag Type Colors */
+        .news-tag.flash {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            background: rgba(255, 68, 102, 0.05);
+        }
+
+        .news-tag.risk-on {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .news-tag.risk-off {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            background: rgba(255, 68, 102, 0.05);
+        }
+
+        .news-tag.multi-asset {
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+            background: rgba(187, 102, 255, 0.05);
+        }
+
+        .news-tag.rates,
+        .news-tag.equities,
+        .news-tag.commodities,
+        .news-tag.fx,
+        .news-tag.credit {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            background: rgba(51, 153, 255, 0.05);
+        }
+
+        /* Regime Badge */
+        .regime-badge {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            margin-bottom: 0.5rem;
+            background: rgba(187, 102, 255, 0.1);
+            border: 1px solid var(--accent-purple);
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-purple);
+        }
+
+        /* Market Risk Indicator */
+        .confidence-bar {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .confidence-label {
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 0.3rem;
+        }
+
+        .confidence-track {
+            height: 4px;
+            background: rgba(42, 48, 64, 0.5);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            /* Gradient spans full track width, revealed progressively */
+            background: linear-gradient(90deg, 
+                #00ff88 0%,      /* Green - low risk */
+                #00ff88 25%,     /* Stay green */
+                #ffbb33 45%,     /* Yellow - medium */
+                #ff8833 70%,     /* Orange - high */
+                #ff4466 100%    /* Red - critical */
+            );
+            background-size: 100vw 100%;
+            background-position: left;
+        }
+
+        /* Next Events Section */
+        .next-events {
+            margin-top: 0.75rem;
+            padding: 0.6rem;
+            background: rgba(51, 153, 255, 0.05);
+            border: 1px solid rgba(51, 153, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .next-events-title {
+            font-size: 0.6rem;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.4rem;
+            font-weight: 700;
+        }
+
+        .next-event-item {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            margin-left: 0.5rem;
+            margin-bottom: 0.2rem;
+            line-height: 1.3;
+        }
+
+        .next-event-item:before {
+            content: "→ ";
+            color: var(--accent-blue);
+            font-weight: 700;
+        }
+
+        /* Market Cards */
+        .market-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .market-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .market-value {
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .market-change {
+            font-size: 0.7rem;
+            margin-top: 0.2rem;
+        }
+
+        .market-up { color: var(--accent-green); }
+        .market-down { color: var(--accent-red); }
+        .market-neutral { color: var(--text-dim); }
+
+        /* Scrollbar */
+        .column-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .column-content::-webkit-scrollbar-track {
+            background: var(--bg-column);
+        }
+
+        .column-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .column-content::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-green);
+        }
+
+        /* TradingView Chart Modal */
+        .chart-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .chart-modal-content {
+            width: 95%;
+            height: 85%;
+            max-width: 1400px;
+            background: #131722;
+            border: 2px solid #00D9FF;
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 0 40px rgba(0, 217, 255, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+        
+        /* Mobile chart - X button visible at top */
+        @media (max-width: 768px) {
+            .chart-modal-content {
+                width: 95%;
+                height: 75%;
+                max-height: 500px;
+            }
+            
+            .chart-close-btn {
+                top: 8px;
+                right: 8px;
+                width: 44px;
+                height: 44px;
+                font-size: 28px;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 10;
+            }
+        }
+        
+        /* Portrait mode on phones */
+        @media (max-width: 480px) and (orientation: portrait) {
+            .chart-modal-content {
+                width: 95%;
+                height: 70%;
+                max-height: 450px;
+            }
+        }
+
+        /* Info Modal specific styles for mobile */
+        #infoModal .chart-modal-content {
+            height: auto;
+            max-height: 85vh;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        #infoModal .modal-title {
+            padding-right: 2rem;
+        }
+
+        #infoModal .modal-analysis {
+            padding: 0 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            #infoModal .chart-modal-content {
+                width: 92%;
+                max-width: 100%;
+                max-height: 80vh;
+                padding: 0.75rem;
+                margin: 1rem;
+            }
+
+            #infoModal .modal-analysis {
+                max-height: 65vh !important;
+                padding: 0;
+                font-size: 0.85rem;
+            }
+
+            #infoModal .modal-analysis p {
+                margin-bottom: 0.5rem;
+            }
+
+            #infoModal .modal-analysis h3 {
+                font-size: 0.9rem;
+                margin-top: 1rem !important;
+            }
+        }
+
+        @media (max-width: 480px) and (orientation: portrait) {
+            #infoModal .chart-modal-content {
+                width: 94%;
+                max-height: 75vh;
+                padding: 0.5rem;
+                margin: 0.5rem;
+            }
+
+            #infoModal .modal-analysis {
+                max-height: 60vh !important;
+                font-size: 0.8rem;
+            }
+
+            #infoModal .modal-title {
+                font-size: 1rem;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .chart-close-btn {
+            position: absolute;
+            top: -45px;
+            right: 0;
+            background: transparent;
+            border: 2px solid #00D9FF;
+            color: #00D9FF;
+            font-size: 28px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: 300;
+            line-height: 1;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-close-btn:hover {
+            background: #00D9FF;
+            color: #000;
+            transform: rotate(90deg);
+        }
+
+        #tradingview_widget {
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        /* Mobile Tab Navigation */
+        .mobile-tabs {
+            display: none;
+            background: var(--bg-card);
+            border-bottom: 2px solid var(--border);
+            padding: 0.5rem;
+            gap: 0.25rem;
+            position: sticky;
+            top: 60px;
+            z-index: 999;
+        }
+
+        .mobile-tab {
+            flex: 1;
+            padding: 0.5rem 0.25rem;
+            background: var(--bg-column);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.55rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mobile-tab:active {
+            transform: scale(0.98);
+        }
+
+        .mobile-tab.active {
+            background: var(--accent-green);
+            color: var(--bg-main);
+            border-color: var(--accent-green);
+        }
+
+        /* Responsive */
+        @media (max-width: 1800px) {
+            .main-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .mobile-tabs {
+                display: flex;
+            }
+
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .column {
+                display: none;
+            }
+
+            .column.mobile-active {
+                display: flex;
+            }
+
+            .column-header {
+                display: none;
+            }
+
+            .header {
+                padding: 0.75rem 1rem;
+            }
+
+            .logo {
+                font-size: 0.9rem;
+            }
+
+            .time-display {
+                display: none;
+            }
+        }
+
+        @media (max-width: 900px) and (min-width: 769px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Clickable Headlines */
+        .card-headline {
+            text-decoration: none;
+            display: block;
+        }
+        
+        a.card-headline {
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        a.card-headline:hover {
+            color: var(--accent-green);
+        }
+
+        /* Deep Analysis Button */
+        .deep-analysis-btn {
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(32, 178, 170, 0.15), rgba(32, 178, 170, 0.05));
+            border: 1px solid;
+            border-image: linear-gradient(90deg, #20b2aa, #00d9ff, #20b2aa) 1;
+            border-radius: 4px;
+            padding: 4px 8px !important;
+            transition: all 0.2s ease;
+            animation: borderPulse 3s ease-in-out infinite;
+            position: relative;
+        }
+        
+        @keyframes borderPulse {
+            0%, 100% {
+                border-image: linear-gradient(90deg, #20b2aa, #00d9ff, #20b2aa) 1;
+                box-shadow: 0 0 5px rgba(32, 178, 170, 0.3);
+            }
+            50% {
+                border-image: linear-gradient(90deg, #00d9ff, #20b2aa, #00d9ff) 1;
+                box-shadow: 0 0 12px rgba(0, 217, 255, 0.5);
+            }
+        }
+        
+        .deep-analysis-btn:hover {
+            background: linear-gradient(135deg, rgba(32, 178, 170, 0.3), rgba(32, 178, 170, 0.15));
+            box-shadow: 0 0 15px rgba(32, 178, 170, 0.6);
+            transform: translateY(-1px);
+        }
+        
+        .analysis-text {
+            color: #20b2aa;
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* AI Analysis Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 20, 0.95);
+            z-index: 2000;
+            overflow-y: auto;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .modal-overlay.active {
+                padding: 1rem;
+            }
+            
+            .modal-content {
+                max-height: 95vh;
+            }
+            
+            .modal-header {
+                padding: 1rem;
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 2px solid var(--accent-green);
+            border-radius: 8px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 255, 136, 0.2);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            z-index: 10;
+        }
+
+        .modal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-headline {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        .modal-close:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            gap: 1rem;
+        }
+
+        .modal-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .modal-loading-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .thinking-status {
+            margin-top: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: #00ff00;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+
+        .thinking-status::before {
+            content: '> ';
+            color: #00ff00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .modal-analysis {
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        }
+
+        .modal-analysis h1, .modal-analysis h2, .modal-analysis h3 {
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-analysis h1:first-child, .modal-analysis h2:first-child {
+            margin-top: 0;
+        }
+
+        .modal-analysis ul, .modal-analysis ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-analysis li {
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-analysis strong {
+            color: var(--text-primary);
+        }
+
+        .modal-analysis p {
+            margin-bottom: 1rem;
+        }
+
+        .modal-error {
+            color: var(--accent-red);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .modal-source {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            background: rgba(42, 48, 64, 0.3);
+        }
+
+        .modal-source-label {
+            color: var(--accent-blue);
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">THE DAILY NUTHATCH // NEWS FEED</div>
+        <div class="connection-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">CONNECTING...</span>
+        </div>
+        <div class="time-display" id="currentTime">00:00:00 UTC</div>
+        <button class="info-button" onclick="openInfoModal()">INFO</button>
+    </div>
+
+    <!-- Dual Ticker System -->
+    <div class="ticker-container">
+        <!-- News Ticker (Top) -->
+        <div class="news-ticker">
+            <div class="news-ticker-content" id="newsTickerContent">
+            </div>
+        </div>
+        
+        <!-- Market Ticker (Bottom) -->
+        <div class="market-ticker" id="marketTicker">
+            <div class="market-ticker-content" id="marketTickerContent">
+            </div>
+            <div class="ticker-search-popup" id="tickerSearchPopup">
+                <label>Looking for another symbol?</label>
+                <input type="text" id="symbolSearchInput" placeholder="Enter symbol (e.g., AAPL, TSLA, BTC)" />
+                <button onclick="searchSymbol()">Open TradingView Chart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Tab Navigation (hidden on desktop) -->
+    <div class="mobile-tabs" id="mobileTabs">
+        <button class="mobile-tab active" data-column="breaking">NEWS</button>
+        <button class="mobile-tab" data-column="macro">MACRO</button>
+        <button class="mobile-tab" data-column="geo">GEO</button>
+        <button class="mobile-tab" data-column="commodity">COMMOD</button>
+        <button class="mobile-tab" data-column="fx">FX</button>
+        <button class="mobile-tab" data-column="prediction">PRED</button>
+    </div>
+
+    <!-- Main Grid - 4 Columns -->
+    <div class="main-grid">
+        <div class="column col-breaking">
+            <div class="column-header">
+                <div class="column-title">NEWS <span class="refresh-btn" onclick="manualRefresh()" title="Refresh now">↻</span></div>
+                <div class="column-subtitle">Top events • Fastest feed</div>
+            </div>
+            <div class="column-content" id="breakingColumn"></div>
+        </div>
+
+        <div class="column col-macro">
+            <div class="column-header">
+                <div class="column-title">MACRO PLUMBING</div>
+                <div class="column-subtitle">Rates • Liquidity • Credit</div>
+            </div>
+            <div class="column-content" id="macroColumn"></div>
+        </div>
+
+        <div class="column col-geo">
+            <div class="column-header">
+                <div class="column-title">GEOPOLITICS</div>
+                <div class="column-subtitle">State moves • Escalation</div>
+            </div>
+            <div class="column-content" id="geoColumn"></div>
+        </div>
+
+        <div class="column col-commodity">
+            <div class="column-header">
+                <div class="column-title">COMMODITIES</div>
+                <div class="column-subtitle">Metals • Energy • Agriculture</div>
+            </div>
+            <div class="column-content" id="commodityColumn">
+                <!-- Commodities Dashboard Pinned at Top - 32 COMMODITIES -->
+                <div class="commodity-dashboard-container" id="commodityDashboard">
+                    <div class="commodity-dashboard-title">🏭 COMMODITY WAR ROOM • 32 ASSETS</div>
+                    <div class="commodity-grid-3col">
+                        <!-- Column 1: METALS (8) -->
+                        <div class="commodity-grid-column">
+                            <div class="commodity-column-title">METALS</div>
+                            <div class="commodity-column-subtitle">Precious • Base</div>
+                            <div id="commodityMetals"></div>
+                        </div>
+                        <!-- Column 2: ENERGY (8) -->
+                        <div class="commodity-grid-column">
+                            <div class="commodity-column-title">ENERGY</div>
+                            <div class="commodity-column-subtitle">Oil • Gas • Power</div>
+                            <div id="commodityEnergy"></div>
+                        </div>
+                        <!-- Column 3: AGRICULTURE (16) -->
+                        <div class="commodity-grid-column">
+                            <div class="commodity-column-title">AGRICULTURE</div>
+                            <div class="commodity-column-subtitle">Grains • Softs • Meats</div>
+                            <div id="commodityAgriculture"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Commodity news cards appear below -->
+            </div>
+        </div>
+
+        <div class="column col-fx">
+            <div class="column-header">
+                <div class="column-title">FX & CURRENCIES</div>
+                <div class="column-subtitle">30 Pairs • Central Banks • Live</div>
+            </div>
+            <div class="column-content" id="fxColumn">
+                <!-- FX Pairs Dashboard Pinned at Top - 30 PAIRS -->
+                <div class="fx-dashboard-container" id="fxDashboard">
+                    <div class="fx-dashboard-title">💱 FX WAR ROOM • 30 PAIRS</div>
+                    <div class="fx-grid-3col">
+                        <!-- Column 1: MACRO PLUMBING (10 pairs) -->
+                        <div class="fx-grid-column">
+                            <div class="fx-column-title">MACRO PLUMBING</div>
+                            <div class="fx-column-subtitle">Rates • Liquidity</div>
+                            <div id="fxMacro"></div>
+                        </div>
+                        <!-- Column 2: GEOPOLITICS (10 pairs) -->
+                        <div class="fx-grid-column">
+                            <div class="fx-column-title">GEOPOLITICS</div>
+                            <div class="fx-column-subtitle">State • Escalation</div>
+                            <div id="fxGeo"></div>
+                        </div>
+                        <!-- Column 3: COMMODITIES (10 pairs) -->
+                        <div class="fx-grid-column">
+                            <div class="fx-column-title">COMMODITIES</div>
+                            <div class="fx-column-subtitle">Oil • Metals • Ag</div>
+                            <div id="fxCommodity"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Central Bank Rates Section -->
+                <div class="cb-rates-container">
+                    <div class="cb-rates-title">🏦 CENTRAL BANK RATES</div>
+                    <div id="cbRates">
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">Fed</span>
+                                <span class="cb-rate-currency">(USD)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">4.50%</span>
+                                <span class="cb-rate-next" id="fed-next">→ Jan 29</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">ECB</span>
+                                <span class="cb-rate-currency">(EUR)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">3.00%</span>
+                                <span class="cb-rate-next" id="ecb-next">→ Jan 30</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">BOE</span>
+                                <span class="cb-rate-currency">(GBP)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">4.50%</span>
+                                <span class="cb-rate-next" id="boe-next">→ Feb 6</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">BOJ</span>
+                                <span class="cb-rate-currency">(JPY)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">0.75%</span>
+                                <span class="cb-rate-next" id="boj-next">→ Jan 23</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">RBA</span>
+                                <span class="cb-rate-currency">(AUD)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">3.60%</span>
+                                <span class="cb-rate-next" id="rba-next">→ Feb 3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- FX news cards appear below -->
+            </div>
+        </div>
+
+        <div class="column col-prediction">
+            <div class="column-header">
+                <div class="column-title">PREDICTION MARKETS</div>
+                <div class="column-subtitle">Polymarket • Odds • Shifts</div>
+            </div>
+            <div class="column-content" id="predictionColumn">
+                <!-- Risk Dashboard Pinned at Top - 2x2 Grid -->
+                <div class="risk-dashboard-container" id="riskDashboard">
+                    <div class="risk-dashboard-title">🎲 MACRO RISK DASHBOARD</div>
+                    <div class="risk-grid-4">
+                        <!-- Top Left: Fed Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">FED RISKS</div>
+                            <div id="fedRisks"></div>
+                        </div>
+                        <!-- Top Right: Growth Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">GROWTH RISKS</div>
+                            <div id="growthRisks"></div>
+                        </div>
+                        <!-- Bottom Left: Inflation Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">INFLATION RISKS</div>
+                            <div id="inflationRisks"></div>
+                        </div>
+                        <!-- Bottom Right: Geopolitical Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">GEO RISKS</div>
+                            <div id="geopoliticalRisks"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Odds shift cards appear below -->
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Modal -->
+    <div class="modal-overlay" id="analysisModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">GEMINI AI DEEP ANALYSIS</div>
+                    <div class="modal-headline" id="modalHeadline"></div>
+                </div>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="modal-loading" id="modalLoading">
+                    <div class="modal-spinner"></div>
+                    <div class="modal-loading-text" id="loadingText">Analyzing with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Something great is about to happen - just a moment!</span></div>
+                    <div class="thinking-status" id="thinkingStatus"></div>
+                </div>
+            </div>
+            <div class="modal-source" id="modalSource"></div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // CARD DATA STORE (for AI analysis)
+        // ========================================================================
+        const cardDataStore = {};
+
+        // ========================================================================
+        // TIME DISPLAY
+        // ========================================================================
+        
+        function updateTime() {
+            const now = new Date();
+            const utcString = now.toISOString().substr(11, 8);
+            document.getElementById('currentTime').textContent = utcString + ' UTC';
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // ========================================================================
+        // CENTRAL BANK MEETING DATE AUTO-UPDATER
+        // ========================================================================
+        
+        const CENTRAL_BANK_MEETINGS = {
+            Fed: ['2026-01-29', '2026-03-18', '2026-04-29', '2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09'],
+            ECB: ['2026-01-22', '2026-01-30', '2026-03-12', '2026-04-16', '2026-06-04', '2026-07-23', '2026-09-10', '2026-10-29', '2026-12-17'],
+            BOE: ['2026-02-05', '2026-02-06', '2026-03-19', '2026-04-30', '2026-06-18', '2026-07-30', '2026-09-17', '2026-11-05', '2026-12-17'],
+            BOJ: ['2026-01-23', '2026-03-19', '2026-04-28', '2026-06-16', '2026-07-31', '2026-09-18', '2026-10-30', '2026-12-18'],
+            RBA: ['2026-02-03', '2026-04-01', '2026-05-20', '2026-07-08', '2026-08-19', '2026-10-07', '2026-11-25', '2026-12-09']
+        };
+
+        function getNextMeetingDate(bank) {
+            const now = new Date();
+            const meetings = CENTRAL_BANK_MEETINGS[bank] || [];
+            for (const date of meetings) {
+                const meetingDate = new Date(date);
+                if (meetingDate >= now) {
+                    const month = meetingDate.toLocaleString('en-US', { month: 'short' });
+                    const day = meetingDate.getDate();
+                    return `${month} ${day}`;
+                }
+            }
+            return 'TBD';
+        }
+
+        function updateCentralBankDates() {
+            const bankMapping = {
+                'fed': 'Fed',
+                'ecb': 'ECB',
+                'boe': 'BOE',
+                'boj': 'BOJ',
+                'rba': 'RBA'
+            };
+            
+            Object.entries(bankMapping).forEach(([domId, bankKey]) => {
+                const element = document.getElementById(`${domId}-next`);
+                if (element) {
+                    const nextDate = getNextMeetingDate(bankKey);
+                    element.textContent = `→ ${nextDate}`;
+                }
             });
-            console.log(`✅ ${indicator.label} fetched:`, latest.toFixed(2) + indicator.format);
-          } else {
-            throw new Error('NaN value');
-          }
         }
-      } catch (error) {
-        console.log(`⚠️ ${indicator.label} fetch failed:`, error.message);
-        macroData.indicators.push({
-          label: indicator.label,
-          value: indicator.fallback + indicator.format,
-          change: '0.00' + indicator.format,
-          dir: 'neutral',
-          tripwireHit: false
+
+        updateCentralBankDates();
+        setInterval(updateCentralBankDates, 3600000);
+
+        // ========================================================================
+        // MOBILE TAB NAVIGATION
+        // ========================================================================
+        
+        const columnMap = {
+            'breaking': '.col-breaking',
+            'macro': '.col-macro',
+            'geo': '.col-geo',
+            'commodity': '.col-commodity',
+            'fx': '.col-fx',
+            'prediction': '.col-prediction'
+        };
+
+        function initMobileTabs() {
+            const tabs = document.querySelectorAll('.mobile-tab');
+            const columns = document.querySelectorAll('.column');
+            
+            // Set initial active column (Breaking)
+            document.querySelector('.col-breaking').classList.add('mobile-active');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const columnKey = this.dataset.column;
+                    
+                    // Update tab states
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update column visibility
+                    columns.forEach(c => c.classList.remove('mobile-active'));
+                    document.querySelector(columnMap[columnKey]).classList.add('mobile-active');
+                    
+                    // Scroll to top of content
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initMobileTabs);
+
+        // ========================================================================
+        // DUAL TICKER SYSTEM
+        // ========================================================================
+        
+        let newsTickerItems = [];
+        let marketTickerData = [];
+
+        function addToNewsTicker(headline, impact, assets, link) {
+            const time = new Date().toISOString().substr(11, 5);
+            newsTickerItems.unshift({
+                time: time,
+                text: headline.substring(0, 100),
+                impact: impact,
+                assets: assets,
+                link: link || ''
+            });
+            
+            if (newsTickerItems.length > 20) {
+                newsTickerItems = newsTickerItems.slice(0, 20);
+            }
+            
+            updateNewsTicker();
+        }
+
+        function updateNewsTicker() {
+            const ticker = document.getElementById('newsTickerContent');
+            const doubled = [...newsTickerItems, ...newsTickerItems];
+            
+            ticker.innerHTML = doubled.map(item => {
+                const tickerContent = `
+                    <span class="ticker-time">${item.time} UTC</span>
+                    <span class="ticker-text">${item.text}</span>
+                    <div class="ticker-impact">
+                        ${Array(3).fill(0).map((_, i) => 
+                            `<div class="impact-dot ${i < item.impact ? 'active' : ''}"></div>`
+                        ).join('')}
+                    </div>
+                `;
+                return item.link 
+                    ? `<a href="${item.link}" target="_blank" rel="noopener noreferrer" class="ticker-item" style="text-decoration: none; color: inherit;">${tickerContent}</a>`
+                    : `<div class="ticker-item">${tickerContent}</div>`;
+            }).join('');
+        }
+
+        let fxDataStore = { macro: [], geo: [], commodity: [] };
+
+        function updateMarketTicker(marketData) {
+            marketTickerData = marketData;
+            updateSuperTicker();
+        }
+
+        function updateSuperTicker() {
+            const ticker = document.getElementById('marketTickerContent');
+            if (!ticker) return;
+
+            let allItems = [];
+            
+            if (marketTickerData && marketTickerData.length > 0) {
+                allItems = allItems.concat(marketTickerData.map(item => ({
+                    label: item.label,
+                    value: item.value,
+                    change: item.change,
+                    dir: item.dir,
+                    tvSymbol: item.symbol || item.label,
+                    type: 'market'
+                })));
+            }
+            
+            if (fxDataStore.macro) {
+                allItems = allItems.concat(fxDataStore.macro.map(item => ({
+                    label: item.label,
+                    value: item.price,
+                    change: item.change + '%',
+                    dir: item.dir,
+                    tvSymbol: item.tvSymbol || item.label,
+                    type: 'fx'
+                })));
+            }
+            if (fxDataStore.geo) {
+                allItems = allItems.concat(fxDataStore.geo.map(item => ({
+                    label: item.label,
+                    value: item.price,
+                    change: item.change + '%',
+                    dir: item.dir,
+                    tvSymbol: item.tvSymbol || item.label,
+                    type: 'fx'
+                })));
+            }
+            if (fxDataStore.commodity) {
+                allItems = allItems.concat(fxDataStore.commodity.map(item => ({
+                    label: item.label,
+                    value: item.price,
+                    change: item.change + '%',
+                    dir: item.dir,
+                    tvSymbol: item.tvSymbol || item.label,
+                    type: 'fx'
+                })));
+            }
+            
+            const allCommodities = [
+                ...(commodityDataStore.metals || []),
+                ...(commodityDataStore.energy || []),
+                ...(commodityDataStore.agriculture || [])
+            ];
+            allItems = allItems.concat(allCommodities.map(item => ({
+                label: item.label,
+                value: item.price,
+                change: item.change + '%',
+                dir: item.dir,
+                tvSymbol: item.tvSymbol || item.ticker || item.label,
+                type: 'commodity'
+            })));
+
+            const doubled = [...allItems, ...allItems];
+            
+            ticker.innerHTML = doubled.map(item => `
+                <div class="market-ticker-item" onclick="openChart('${item.tvSymbol}')" style="cursor: pointer;">
+                    <span class="market-ticker-label">${item.label}</span>
+                    <span class="market-ticker-value">${item.value}</span>
+                    <span class="market-ticker-change ${getMarketTickerClass(item.dir)}">
+                        ${item.change}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function getMarketTickerClass(dir) {
+            return dir === 'up' ? 'market-ticker-up' : 
+                   dir === 'down' ? 'market-ticker-down' : 
+                   'market-ticker-neutral';
+        }
+
+        // ========================================================================
+        // TICKER MOUSE/TOUCH SCROLL
+        // ========================================================================
+        
+        function initTickerScroll() {
+            const ticker = document.getElementById('marketTicker');
+            const tickerContent = document.getElementById('marketTickerContent');
+            if (!ticker || !tickerContent) return;
+            
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+            
+            ticker.addEventListener('mousedown', (e) => {
+                isDown = true;
+                tickerContent.classList.add('dragging');
+                startX = e.pageX - ticker.offsetLeft;
+                scrollLeft = ticker.scrollLeft;
+            });
+            
+            ticker.addEventListener('mouseleave', () => {
+                if (isDown) {
+                    isDown = false;
+                    tickerContent.classList.remove('dragging');
+                }
+            });
+            
+            ticker.addEventListener('mouseup', () => {
+                isDown = false;
+                tickerContent.classList.remove('dragging');
+            });
+            
+            ticker.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - ticker.offsetLeft;
+                const walk = (x - startX) * 3;
+                ticker.scrollLeft = scrollLeft - walk;
+            });
+            
+            ticker.addEventListener('touchstart', (e) => {
+                isDown = true;
+                tickerContent.classList.add('dragging');
+                startX = e.touches[0].pageX - ticker.offsetLeft;
+                scrollLeft = ticker.scrollLeft;
+            }, { passive: true });
+            
+            ticker.addEventListener('touchend', () => {
+                isDown = false;
+                tickerContent.classList.remove('dragging');
+            });
+            
+            ticker.addEventListener('touchmove', (e) => {
+                if (!isDown) return;
+                const x = e.touches[0].pageX - ticker.offsetLeft;
+                const walk = (x - startX) * 3;
+                ticker.scrollLeft = scrollLeft - walk;
+            }, { passive: true });
+        }
+        
+        document.addEventListener('DOMContentLoaded', initTickerScroll);
+
+        // ========================================================================
+        // WEBSOCKET CONNECTION
+        // ========================================================================
+        
+        let ws;
+        let reconnectInterval;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('statusDot').classList.add('connected');
+                document.getElementById('statusText').textContent = 'LIVE';
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleMessage(message);
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.getElementById('statusDot').classList.remove('connected');
+                document.getElementById('statusText').textContent = 'RECONNECTING...';
+                
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(connectWebSocket, 5000);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        connectWebSocket();
+
+        // ========================================================================
+        // MESSAGE HANDLERS
+        // ========================================================================
+
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'initial':
+                    handleInitialData(message);
+                    break;
+                case 'new_card':
+                    handleNewCard(message);
+                    break;
+                case 'market_update':
+                    updateMarketData(message.data);
+                    break;
+                case 'macro_update':
+                    updateMacroData(message.data);
+                    break;
+                case 'polymarket_update':
+                    updatePolymarketData(message.data);
+                    break;
+                case 'fx_update':
+                    updateFXData(message.data);
+                    break;
+                case 'commodity_update':
+                    updateCommodityData(message.data);
+                    break;
+            }
+        }
+
+        function handleInitialData(message) {
+            if (message.market) {
+                updateMarketData(message.market);
+            }
+            if (message.macro) {
+                updateMacroData(message.macro);
+            }
+            if (message.polymarket) {
+                updatePolymarketData(message.polymarket);
+            }
+            if (message.fx) {
+                updateFXData(message.fx);
+            }
+            if (message.commodities) {
+                updateCommodityData(message.commodities);
+            }
+        }
+
+        function handleNewCard(message) {
+            const columnId = getColumnId(message.column);
+            const column = document.getElementById(columnId);
+            
+            if (!column) return;
+
+            const cardHtml = createCardHtml(message.data);
+            
+            // Insert cards AFTER pinned dashboards to keep them on top
+            if (columnId === 'macroColumn') {
+                const macroGrid = column.querySelector('.macro-grid-container');
+                if (macroGrid) {
+                    macroGrid.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'commodityColumn') {
+                const commodityDashboard = column.querySelector('.commodity-dashboard-container');
+                if (commodityDashboard) {
+                    commodityDashboard.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'fxColumn') {
+                const fxDashboard = column.querySelector('.fx-dashboard-container');
+                const cbRates = column.querySelector('.cb-rates-container');
+                const insertAfter = cbRates || fxDashboard;
+                if (insertAfter) {
+                    insertAfter.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'predictionColumn') {
+                const riskDashboard = column.querySelector('.risk-dashboard-container');
+                if (riskDashboard) {
+                    riskDashboard.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else {
+                column.insertAdjacentHTML('afterbegin', cardHtml);
+            }
+
+            addToNewsTicker(
+                message.data.headline, 
+                message.data.impact || 2,
+                formatAssets(message.data),
+                message.data.link || ''
+            );
+
+            const cards = column.querySelectorAll('.card');
+            if (cards.length > 12) {
+                cards[cards.length - 1].remove();
+            }
+
+            column.scrollTop = 0;
+        }
+
+        function formatAssets(data) {
+            if (data.probNudge && data.probNudge.length > 0) {
+                return data.probNudge.map(p => 
+                    `${p.label.toUpperCase()}${p.dir === 'up' ? '↑' : '↓'}`
+                ).join(' ');
+            }
+            return '';
+        }
+
+        function getColumnId(category) {
+            const mapping = {
+                'breaking': 'breakingColumn',
+                'macro': 'macroColumn',
+                'geo': 'geoColumn',
+                'commodity': 'commodityColumn',
+                'market': 'breakingColumn',
+                'fx': 'fxColumn',
+                'prediction': 'predictionColumn'
+            };
+            return mapping[category] || 'breakingColumn';
+        }
+
+        function getRiskEmoji(risk) {
+            if (risk <= 30) return '🟢'; // LOW
+            if (risk <= 60) return '🟡'; // MEDIUM
+            if (risk <= 85) return '🟠'; // HIGH
+            return '🔴'; // CRITICAL
+        }
+
+        function createCardHtml(data) {
+            const impactDots = Array(3).fill(0).map((_, i) => 
+                `<div class="impact-dot ${i < (data.impact || 2) ? 'active' : ''}"></div>`
+            ).join('');
+
+            const pubDateHtml = data.pubDate ? ` • ${data.pubDate}` : '';
+            const sourceHtml = data.source ? 
+                `<div class="card-source">📡 ${data.source}${data.verified ? ' ✓' : ''}${pubDateHtml}</div>` : '';
+            
+            // Regime badge if detected
+            const regimeHtml = data.regime ? 
+                `<div class="regime-badge">📊 ${data.regime} REGIME</div>` : '';
+            
+            const implicationsHtml = data.implications && data.implications.length > 0 ?
+                `<ul class="card-implications">
+                    ${data.implications.map(imp => `<li>${imp}</li>`).join('')}
+                </ul>` : '';
+
+            // Technical levels displayed as tripwires
+            const tripwireHtml = data.tripwires && data.tripwires.length > 0 ? `
+                <div class="tripwire-section">
+                    <div class="tripwire-title">📍 KEY LEVELS</div>
+                    ${data.tripwires.map(tw => `<div class="tripwire-item">• ${tw}</div>`).join('')}
+                </div>
+            ` : '';
+
+            const probHtml = data.probNudge && data.probNudge.length > 0 ? `
+                <div class="probability-nudge">
+                    ${data.probNudge.map(p => `
+                        <div class="prob-item">
+                            <span>${p.label}</span>
+                            <span class="prob-arrow ${p.dir === 'up' ? 'prob-up' : 'prob-down'}">
+                                ${p.dir === 'up' ? '↑' : '↓'}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '';
+
+            // Next events section
+            const nextEventsHtml = data.nextEvents && data.nextEvents.length > 0 ? `
+                <div class="next-events">
+                    <div class="next-events-title">🔔 Watch Next</div>
+                    ${data.nextEvents.map(event => `<div class="next-event-item">${event}</div>`).join('')}
+                </div>
+            ` : '';
+
+            // Market Risk bar (backward compatible with old confidence field)
+            const riskValue = data.marketRisk || data.confidence;
+            const confidenceHtml = riskValue ? `
+                <div class="confidence-bar">
+                    <div class="confidence-label">Market Risk: ${riskValue}%</div>
+                    <div class="confidence-track">
+                        <div class="confidence-fill" style="width: ${riskValue}%"></div>
+                    </div>
+                </div>
+            ` : '';
+
+            const filteredTags = data.tags ? data.tags.filter(tag => tag !== 'DEVELOPING') : [];
+            const tagsHtml = filteredTags.length > 0 ? `
+                <div class="news-tags">
+                    ${filteredTags.map(tag => {
+                        const tagClass = tag.toLowerCase().replace(/[\s-]/g, '-');
+                        const emoji = getTagEmoji(tag);
+                        return `<span class="news-tag ${tagClass}">${emoji} ${tag}</span>`;
+                    }).join('')}
+                </div>
+            ` : '';
+
+            const cardId = 'card-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            
+            cardDataStore[cardId] = {
+                headline: data.headline,
+                link: data.link || '',
+                source: data.source || '',
+                implications: data.implications || []
+            };
+            
+            const headlineHtml = data.link 
+                ? `<a href="${data.link}" target="_blank" rel="noopener noreferrer" class="card-headline">${data.headline}</a>`
+                : `<div class="card-headline">${data.headline}</div>`;
+            
+            return `
+                <div class="card" id="${cardId}">
+                    <div class="card-timestamp">${data.time} UTC</div>
+                    ${sourceHtml}
+                    ${regimeHtml}
+                    ${headlineHtml}
+                    ${implicationsHtml}
+                    <div class="card-meta">
+                        <div class="meta-item deep-analysis-btn" onclick="analyzeHeadline('${cardId}')">
+                            <span class="analysis-text">🧠 GET DEEP AI ANALYSIS →</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Horizon:</span>
+                            <span class="meta-value">${data.horizon || 'DAYS'}</span>
+                        </div>
+                    </div>
+                    ${tripwireHtml}
+                    ${nextEventsHtml}
+                    ${probHtml}
+                    ${confidenceHtml}
+                    ${tagsHtml}
+                </div>
+            `;
+        }
+
+        function getTagEmoji(tag) {
+            const emojiMap = {
+                'FLASH': '⚡',
+                'SCHEDULED': '📅',
+                'CONTEXT': '📊',
+                'RATES': '📈',
+                'EQUITIES': '📊',
+                'COMMODITIES': '🛢️',
+                'FX': '💱',
+                'CREDIT': '💳',
+                'MULTI-ASSET': '🌐',
+                'RISK-ON': '🟢',
+                'RISK-OFF': '🔴',
+                'NEUTRAL': '⚪',
+                'REFLATIONARY': '🔥',
+                'STAGFLATIONARY': '⚠️',
+                'GOLDILOCKS': '✨',
+                'DEFLATIONARY': '❄️'
+            };
+            return emojiMap[tag] || '•';
+        }
+
+        function updateMarketData(marketData) {
+            updateMarketTicker(marketData);
+        }
+
+        function updateMacroData(macroData) {
+            const macroColumn = document.getElementById('macroColumn');
+            
+            if (!macroData.yields && !macroData.indicators) return;
+
+            const yieldsHtml = macroData.yields ? macroData.yields.map(item => `
+                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                    <div class="macro-item-left">
+                        <div class="macro-item-label">${item.label}</div>
+                        <div class="macro-item-value">${item.value}</div>
+                    </div>
+                    <div class="macro-item-right">
+                        <div class="macro-item-change ${getMacroClass(item.dir)}">${item.change}</div>
+                    </div>
+                </div>
+            `).join('') : '';
+
+            const indicatorsHtml = macroData.indicators ? macroData.indicators.map(item => `
+                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                    <div class="macro-item-left">
+                        <div class="macro-item-label">${item.label}</div>
+                        <div class="macro-item-value">${item.value}</div>
+                    </div>
+                    <div class="macro-item-right">
+                        <div class="macro-item-change ${getMacroClass(item.dir)}">${item.change}</div>
+                    </div>
+                </div>
+            `).join('') : '';
+
+            const existingGrid = macroColumn.querySelector('.macro-grid-container');
+            const gridHtml = `
+                <div class="macro-grid-container">
+                    <div class="macro-grid">
+                        <div class="macro-grid-column">
+                            ${yieldsHtml}
+                        </div>
+                        <div class="macro-grid-column">
+                            ${indicatorsHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (existingGrid) {
+                existingGrid.outerHTML = gridHtml;
+            } else {
+                macroColumn.insertAdjacentHTML('afterbegin', gridHtml);
+                macroColumn.scrollTop = 0;
+            }
+        }
+
+        function getMacroClass(dir) {
+            return dir === 'up' ? 'macro-up' : 
+                   dir === 'down' ? 'macro-down' : 
+                   'macro-neutral';
+        }
+
+        function updatePolymarketData(polymarketData) {
+            if (!polymarketData) return;
+
+            const fedRisksContainer = document.getElementById('fedRisks');
+            const growthRisksContainer = document.getElementById('growthRisks');
+            const inflationRisksContainer = document.getElementById('inflationRisks');
+            const geopoliticalRisksContainer = document.getElementById('geopoliticalRisks');
+
+            const renderRisks = (risks) => risks.map(risk => `
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <div class="risk-item-label">${risk.label}</div>
+                        <div class="risk-item-odds">${risk.odds}%</div>
+                    </div>
+                    <div class="risk-item-right">
+                        <div class="risk-item-change ${getRiskClass(risk.dir)}">
+                            ${risk.change > 0 ? '+' : ''}${risk.change}%
+                        </div>
+                        <span class="${getRiskClass(risk.dir)}">${getRiskArrow(risk.dir)}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            if (polymarketData.fedRisks && fedRisksContainer) {
+                fedRisksContainer.innerHTML = renderRisks(polymarketData.fedRisks);
+            }
+            if (polymarketData.growthRisks && growthRisksContainer) {
+                growthRisksContainer.innerHTML = renderRisks(polymarketData.growthRisks);
+            }
+            if (polymarketData.inflationRisks && inflationRisksContainer) {
+                inflationRisksContainer.innerHTML = renderRisks(polymarketData.inflationRisks);
+            }
+            if (polymarketData.geopoliticalRisks && geopoliticalRisksContainer) {
+                geopoliticalRisksContainer.innerHTML = renderRisks(polymarketData.geopoliticalRisks);
+            }
+        }
+
+        function getRiskClass(dir) {
+            return dir === 'up' ? 'risk-up' : 
+                   dir === 'down' ? 'risk-down' : 
+                   'risk-neutral';
+        }
+
+        function getRiskArrow(dir) {
+            return dir === 'up' ? '▲' : 
+                   dir === 'down' ? '▼' : 
+                   '→';
+        }
+
+        function updateFXData(fxData) {
+            if (!fxData || (!fxData.macro && !fxData.geo && !fxData.commodity)) return;
+            fxDataStore = fxData;
+
+            const fxMacroContainer = document.getElementById('fxMacro');
+            const fxGeoContainer = document.getElementById('fxGeo');
+            const fxCommodityContainer = document.getElementById('fxCommodity');
+
+            // Update MACRO PLUMBING (10 pairs)
+            if (fxData.macro && fxMacroContainer) {
+                fxMacroContainer.innerHTML = fxData.macro.map(pair => `
+                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                        <div class="fx-pair-left">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
+                        </div>
+                        <div class="fx-pair-right">
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                                ${pair.change}%
+                            </div>
+                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update GEOPOLITICS (10 pairs)
+            if (fxData.geo && fxGeoContainer) {
+                fxGeoContainer.innerHTML = fxData.geo.map(pair => `
+                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                        <div class="fx-pair-left">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
+                        </div>
+                        <div class="fx-pair-right">
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                                ${pair.change}%
+                            </div>
+                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update COMMODITIES (10 pairs)
+            if (fxData.commodity && fxCommodityContainer) {
+                fxCommodityContainer.innerHTML = fxData.commodity.map(pair => `
+                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                        <div class="fx-pair-left">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
+                        </div>
+                        <div class="fx-pair-right">
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                                ${pair.change}%
+                            </div>
+                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateSuperTicker();
+        }
+
+        function getFXClass(dir) {
+            return dir === 'up' ? 'fx-up' : 
+                   dir === 'down' ? 'fx-down' : 
+                   'fx-neutral';
+        }
+
+        function getFXArrow(dir) {
+            return dir === 'up' ? '▲' : 
+                   dir === 'down' ? '▼' : 
+                   '→';
+        }
+
+        let commodityDataStore = { metals: [], energy: [], agriculture: [] };
+
+        function updateCommodityData(commodityData) {
+            if (!commodityData) return;
+            commodityDataStore = commodityData;
+
+            const metalsContainer = document.getElementById('commodityMetals');
+            const energyContainer = document.getElementById('commodityEnergy');
+            const agricultureContainer = document.getElementById('commodityAgriculture');
+
+            const renderCommodity = (item) => `
+                <div class="commodity-item" onclick="openChart('${item.tvSymbol || item.ticker || item.label}')" style="cursor: pointer;">
+                    <div class="commodity-item-left">
+                        <div class="commodity-item-label">${item.label} <span class="commodity-ticker">${item.ticker || ''}</span></div>
+                        <div class="commodity-item-price">${item.price}</div>
+                    </div>
+                    <div class="commodity-item-right">
+                        <div class="commodity-item-change ${getCommodityClass(item.dir)}">
+                            ${item.change}%
+                        </div>
+                        <span class="${getCommodityClass(item.dir)}">${getCommodityArrow(item.dir)}</span>
+                    </div>
+                </div>
+            `;
+
+            if (commodityData.metals && metalsContainer) {
+                metalsContainer.innerHTML = commodityData.metals.map(renderCommodity).join('');
+            }
+            if (commodityData.energy && energyContainer) {
+                energyContainer.innerHTML = commodityData.energy.map(renderCommodity).join('');
+            }
+            if (commodityData.agriculture && agricultureContainer) {
+                agricultureContainer.innerHTML = commodityData.agriculture.map(renderCommodity).join('');
+            }
+
+            updateSuperTicker();
+        }
+
+        function getCommodityClass(dir) {
+            return dir === 'up' ? 'commodity-up' : 
+                   dir === 'down' ? 'commodity-down' : 
+                   'commodity-neutral';
+        }
+
+        function getCommodityArrow(dir) {
+            return dir === 'up' ? '▲' : 
+                   dir === 'down' ? '▼' : 
+                   '→';
+        }
+
+        function getMarketClass(dir) {
+            return dir === 'up' ? 'market-up' : 
+                   dir === 'down' ? 'market-down' : 
+                   'market-neutral';
+        }
+
+        // ========================================================================
+        // GEMINI AI ANALYSIS MODAL
+        // ========================================================================
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function manualRefresh() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            
+            // Request immediate refresh from server
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'refresh_request' }));
+            }
+            
+            setTimeout(() => btn.classList.remove('spinning'), 500);
+        }
+
+        function analyzeHeadline(cardId) {
+            const cardData = cardDataStore[cardId];
+            if (!cardData) {
+                console.error('Card data not found for:', cardId);
+                return;
+            }
+
+            const headline = cardData.headline;
+            const source = cardData.source;
+            const implications = cardData.implications || [];
+
+            const modal = document.getElementById('analysisModal');
+            const modalHeadline = document.getElementById('modalHeadline');
+            const modalBody = document.getElementById('modalBody');
+            const modalSource = document.getElementById('modalSource');
+
+            modalHeadline.textContent = headline;
+            modalSource.innerHTML = source ? `<span class="modal-source-label">Source:</span>${source}` : '';
+            modalBody.innerHTML = `
+                <div class="modal-loading">
+                    <div class="modal-spinner"></div>
+                    <div class="modal-loading-text">Analyzing with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Something great is about to happen - just a moment!</span></div>
+                </div>
+            `;
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            fetch('/api/analyze-headline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ headline, source, implications })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.analysis) {
+                    modalBody.innerHTML = `<div class="modal-analysis">${parseMarkdown(data.analysis)}</div>`;
+                } else {
+                    modalBody.innerHTML = `<div class="modal-error">${data.error || 'Failed to analyze. Please try again.'}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Analysis error:', error);
+                modalBody.innerHTML = `<div class="modal-error">Network error. Please try again.</div>`;
+            });
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('analysisModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('analysisModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
         });
-      }
-    }
-  } else {
-    macroData.indicators.push(
-      { label: 'U6 RATE', value: '8.70%', change: '0.00%', dir: 'neutral', tripwireHit: false },
-      { label: 'FED RRP', value: '3.50%', change: '0.00%', dir: 'neutral', tripwireHit: false },
-      { label: 'SOFR', value: '4.30%', change: '0.00%', dir: 'neutral', tripwireHit: false }
-    );
-  }
 
-  try {
-    macroData.indicators.unshift({
-      label: 'TRUFLATION',
-      value: '2.84%',
-      change: '+0.12%',
-      dir: 'up',
-      tripwireHit: false,
-      date: new Date().toISOString().split('T')[0]
-    });
-  } catch (error) {
-    // Skip
-  }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeChart();
+            }
+        });
 
-  return macroData;
-}
+        // ========================================================================
+        // TRADINGVIEW CHART POPUP
+        // ========================================================================
 
-// ============================================================================
-// POLYMARKET PREDICTION MARKETS - 4 CATEGORIES
-// ============================================================================
+        function openChart(tvSymbol) {
+            const modal = document.getElementById('chartModal');
+            modal.style.display = 'flex';
+            
+            // Clear previous chart
+            document.getElementById('tradingview_widget').innerHTML = '';
+            
+            // Create TradingView widget
+            new TradingView.widget({
+                "width": "100%",
+                "height": "100%",
+                "symbol": tvSymbol,
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#131722",
+                "enable_publishing": false,
+                "allow_symbol_change": true,
+                "save_image": false,
+                "container_id": "tradingview_widget",
+                "hide_top_toolbar": false,
+                "hide_legend": false,
+                "withdateranges": true,
+                "studies": [
+                    "MASimple@tv-basicstudies",
+                    "RSI@tv-basicstudies"
+                ]
+            });
+        }
 
-// Track 40 key macro markets across 4 risk categories (10 per category)
-const POLYMARKET_RISKS = [
-  // Fed/Rates risks (10 markets)
-  { slug: 'will-the-fed-cut-rates-march-2024', label: 'Fed Cut Mar', category: 'fed' },
-  { slug: 'will-the-fed-cut-rates-may-2024', label: 'Fed Cut May', category: 'fed' },
-  { slug: 'fed-emergency-50bp-hike', label: '50bp Hike Emerg', category: 'fed' },
-  { slug: 'fed-holds-rates-until-june', label: 'Pause til Jun', category: 'fed' },
-  { slug: '10-year-yield-above-5-percent', label: '10Y >5%', category: 'fed' },
-  { slug: 'fed-cut-june-2024', label: 'Fed Cut Jun', category: 'fed' },
-  { slug: 'fed-cut-july-2024', label: 'Fed Cut Jul', category: 'fed' },
-  { slug: 'fed-balance-sheet-reduction', label: 'QT End', category: 'fed' },
-  { slug: '2-year-yield-below-4-percent', label: '2Y <4%', category: 'fed' },
-  { slug: 'fed-pivot-2024', label: 'Fed Pivot', category: 'fed' },
-  
-  // Growth/Crisis risks (10 markets)
-  { slug: 'us-recession-2024', label: 'Recession 2026', category: 'growth' },
-  { slug: 'us-gdp-growth-below-1-percent', label: 'GDP < 1%', category: 'growth' },
-  { slug: 'sp500-correction-10-percent', label: 'S&P -10%', category: 'growth' },
-  { slug: 'unemployment-above-5-percent', label: 'U-Rate >5%', category: 'growth' },
-  { slug: 'corporate-default-wave-2024', label: 'Default Wave', category: 'growth' },
-  { slug: 'nasdaq-bear-market', label: 'NASDAQ Bear', category: 'growth' },
-  { slug: 'housing-crash-2024', label: 'Housing Crash', category: 'growth' },
-  { slug: 'bank-failures-2024', label: 'Bank Failures', category: 'growth' },
-  { slug: 'consumer-spending-decline', label: 'Consumer Weak', category: 'growth' },
-  { slug: 'vix-above-40', label: 'VIX >40', category: 'growth' },
-  
-  // Inflation risks (10 markets)
-  { slug: 'cpi-above-3-percent', label: 'CPI >3%', category: 'inflation' },
-  { slug: 'cpi-below-2-percent', label: 'CPI <2%', category: 'inflation' },
-  { slug: 'stagflation-2024', label: 'Stagflation', category: 'inflation' },
-  { slug: 'oil-above-100', label: 'Oil >$100', category: 'inflation' },
-  { slug: 'core-pce-sticky', label: 'Core PCE Sticky', category: 'inflation' },
-  { slug: 'wage-inflation-above-5', label: 'Wage >5%', category: 'inflation' },
-  { slug: 'food-prices-spike', label: 'Food Spike', category: 'inflation' },
-  { slug: 'rent-inflation-sticky', label: 'Rent Sticky', category: 'inflation' },
-  { slug: 'gold-above-2500', label: 'Gold >$2500', category: 'inflation' },
-  { slug: 'dollar-weakening', label: 'DXY Weak', category: 'inflation' },
-  
-  // Geopolitical risks (10 markets)
-  { slug: 'taiwan-conflict-2024', label: 'Taiwan Conflict', category: 'geopolitical' },
-  { slug: 'russia-ukraine-ceasefire', label: 'Ukraine Ceasefire', category: 'geopolitical' },
-  { slug: 'middle-east-escalation', label: 'MidEast Escalation', category: 'geopolitical' },
-  { slug: 'china-tariffs-increase', label: 'China Tariffs', category: 'geopolitical' },
-  { slug: 'opec-production-cut', label: 'OPEC Cut', category: 'geopolitical' },
-  { slug: 'iran-sanctions', label: 'Iran Sanctions', category: 'geopolitical' },
-  { slug: 'north-korea-tensions', label: 'N Korea Crisis', category: 'geopolitical' },
-  { slug: 'eu-debt-crisis', label: 'EU Debt Crisis', category: 'geopolitical' },
-  { slug: 'supply-chain-disruption', label: 'Supply Shock', category: 'geopolitical' },
-  { slug: 'cyber-attack-major', label: 'Cyber Attack', category: 'geopolitical' }
-];
-
-// Store previous odds to detect shifts
-const previousOdds = new Map();
-
-async function fetchPolymarketRisks() {
-  const riskData = {
-    fedRisks: [],
-    growthRisks: [],
-    inflationRisks: [],
-    geopoliticalRisks: []
-  };
-
-  try {
-    // Fetch all markets from Polymarket
-    const response = await axios.get('https://gamma-api.polymarket.com/markets', {
-      timeout: 10000
-    });
-    
-    const markets = response.data;
-    
-    for (const risk of POLYMARKET_RISKS) {
-      try {
-        // Find market by matching question
-        const market = markets.find(m => 
-          m.question && m.question.toLowerCase().includes(risk.slug.replace(/-/g, ' '))
-        );
+        function closeChart(event) {
+            document.getElementById('chartModal').style.display = 'none';
+        }
         
-        if (market) {
-          const yesOdds = Math.round((market.outcomePrices?.[0] || 0.5) * 100);
-          const previousValue = previousOdds.get(risk.slug) || yesOdds;
-          const change = yesOdds - previousValue;
-          
-          // Determine direction
-          let dir = 'neutral';
-          if (change > 1) dir = 'up';
-          else if (change < -1) dir = 'down';
-          
-          const riskItem = {
-            label: risk.label,
-            odds: yesOdds,
-            change: change,
-            dir: dir,
-            volume: market.volume24hr || 0,
-            slug: risk.slug
-          };
-          
-          // Categorize into 4 groups
-          if (risk.category === 'fed') {
-            riskData.fedRisks.push(riskItem);
-          } else if (risk.category === 'growth') {
-            riskData.growthRisks.push(riskItem);
-          } else if (risk.category === 'inflation') {
-            riskData.inflationRisks.push(riskItem);
-          } else if (risk.category === 'geopolitical') {
-            riskData.geopoliticalRisks.push(riskItem);
-          }
-          
-          // Check for major shift (>10%)
-          if (Math.abs(change) >= 10) {
-            await createPolymarketShiftCard(riskItem, previousValue, yesOdds);
-          }
-          
-          // Update previous odds
-          previousOdds.set(risk.slug, yesOdds);
-        }
-      } catch (err) {
-        console.error(`Error processing ${risk.slug}:`, err.message);
-      }
-    }
-    
-    // Fill with defaults if API failed (10 per category)
-    if (riskData.fedRisks.length === 0) {
-      riskData.fedRisks = [
-        { label: 'Fed Cut Mar', odds: 23, change: -2, dir: 'down' },
-        { label: 'Fed Cut May', odds: 45, change: 3, dir: 'up' },
-        { label: '50bp Hike Emerg', odds: 2, change: 0, dir: 'neutral' },
-        { label: 'Pause til Jun', odds: 31, change: -4, dir: 'down' },
-        { label: '10Y >5%', odds: 28, change: 2, dir: 'up' },
-        { label: 'Fed Cut Jun', odds: 52, change: 1, dir: 'up' },
-        { label: 'Fed Cut Jul', odds: 58, change: 0, dir: 'neutral' },
-        { label: 'QT End', odds: 35, change: -1, dir: 'down' },
-        { label: '2Y <4%', odds: 42, change: 2, dir: 'up' },
-        { label: 'Fed Pivot', odds: 48, change: 0, dir: 'neutral' }
-      ];
-    }
-    
-    if (riskData.growthRisks.length === 0) {
-      riskData.growthRisks = [
-        { label: 'Recession 2026', odds: 38, change: 3, dir: 'up' },
-        { label: 'GDP < 1%', odds: 42, change: 0, dir: 'neutral' },
-        { label: 'S&P -10%', odds: 29, change: -2, dir: 'down' },
-        { label: 'U-Rate >5%', odds: 18, change: 2, dir: 'up' },
-        { label: 'Default Wave', odds: 24, change: 3, dir: 'up' },
-        { label: 'NASDAQ Bear', odds: 22, change: -1, dir: 'down' },
-        { label: 'Housing Crash', odds: 15, change: 0, dir: 'neutral' },
-        { label: 'Bank Failures', odds: 8, change: 1, dir: 'up' },
-        { label: 'Consumer Weak', odds: 35, change: 2, dir: 'up' },
-        { label: 'VIX >40', odds: 12, change: -1, dir: 'down' }
-      ];
-    }
-    
-    if (riskData.inflationRisks.length === 0) {
-      riskData.inflationRisks = [
-        { label: 'CPI >3%', odds: 35, change: 1, dir: 'up' },
-        { label: 'CPI <2%', odds: 22, change: -1, dir: 'down' },
-        { label: 'Stagflation', odds: 18, change: 2, dir: 'up' },
-        { label: 'Oil >$100', odds: 25, change: 0, dir: 'neutral' },
-        { label: 'Core PCE Sticky', odds: 42, change: 3, dir: 'up' },
-        { label: 'Wage >5%', odds: 28, change: 1, dir: 'up' },
-        { label: 'Food Spike', odds: 20, change: 0, dir: 'neutral' },
-        { label: 'Rent Sticky', odds: 55, change: -2, dir: 'down' },
-        { label: 'Gold >$2500', odds: 45, change: 4, dir: 'up' },
-        { label: 'DXY Weak', odds: 32, change: 1, dir: 'up' }
-      ];
-    }
-    
-    if (riskData.geopoliticalRisks.length === 0) {
-      riskData.geopoliticalRisks = [
-        { label: 'Taiwan Conflict', odds: 12, change: 0, dir: 'neutral' },
-        { label: 'Ukraine Ceasefire', odds: 35, change: 5, dir: 'up' },
-        { label: 'MidEast Escalation', odds: 45, change: -2, dir: 'down' },
-        { label: 'China Tariffs', odds: 68, change: 3, dir: 'up' },
-        { label: 'OPEC Cut', odds: 30, change: 1, dir: 'up' },
-        { label: 'Iran Sanctions', odds: 55, change: 0, dir: 'neutral' },
-        { label: 'N Korea Crisis', odds: 8, change: 1, dir: 'up' },
-        { label: 'EU Debt Crisis', odds: 15, change: -1, dir: 'down' },
-        { label: 'Supply Shock', odds: 25, change: 2, dir: 'up' },
-        { label: 'Cyber Attack', odds: 18, change: 0, dir: 'neutral' }
-      ];
-    }
-    
-  } catch (error) {
-    console.error('Polymarket API error:', error.message);
-    
-    // Return defaults on error (10 per category)
-    riskData.fedRisks = [
-      { label: 'Fed Cut Mar', odds: 23, change: -2, dir: 'down' },
-      { label: 'Fed Cut May', odds: 45, change: 3, dir: 'up' },
-      { label: '50bp Hike Emerg', odds: 2, change: 0, dir: 'neutral' },
-      { label: 'Pause til Jun', odds: 31, change: -4, dir: 'down' },
-      { label: '10Y >5%', odds: 28, change: 2, dir: 'up' },
-      { label: 'Fed Cut Jun', odds: 52, change: 1, dir: 'up' },
-      { label: 'Fed Cut Jul', odds: 58, change: 0, dir: 'neutral' },
-      { label: 'QT End', odds: 35, change: -1, dir: 'down' },
-      { label: '2Y <4%', odds: 42, change: 2, dir: 'up' },
-      { label: 'Fed Pivot', odds: 48, change: 0, dir: 'neutral' }
-    ];
-    
-    riskData.growthRisks = [
-      { label: 'Recession 2026', odds: 38, change: 3, dir: 'up' },
-      { label: 'GDP < 1%', odds: 42, change: 0, dir: 'neutral' },
-      { label: 'S&P -10%', odds: 29, change: -2, dir: 'down' },
-      { label: 'U-Rate >5%', odds: 18, change: 2, dir: 'up' },
-      { label: 'Default Wave', odds: 24, change: 3, dir: 'up' },
-      { label: 'NASDAQ Bear', odds: 22, change: -1, dir: 'down' },
-      { label: 'Housing Crash', odds: 15, change: 0, dir: 'neutral' },
-      { label: 'Bank Failures', odds: 8, change: 1, dir: 'up' },
-      { label: 'Consumer Weak', odds: 35, change: 2, dir: 'up' },
-      { label: 'VIX >40', odds: 12, change: -1, dir: 'down' }
-    ];
-    
-    riskData.inflationRisks = [
-      { label: 'CPI >3%', odds: 35, change: 1, dir: 'up' },
-      { label: 'CPI <2%', odds: 22, change: -1, dir: 'down' },
-      { label: 'Stagflation', odds: 18, change: 2, dir: 'up' },
-      { label: 'Oil >$100', odds: 25, change: 0, dir: 'neutral' },
-      { label: 'Core PCE Sticky', odds: 42, change: 3, dir: 'up' },
-      { label: 'Wage >5%', odds: 28, change: 1, dir: 'up' },
-      { label: 'Food Spike', odds: 20, change: 0, dir: 'neutral' },
-      { label: 'Rent Sticky', odds: 55, change: -2, dir: 'down' },
-      { label: 'Gold >$2500', odds: 45, change: 4, dir: 'up' },
-      { label: 'DXY Weak', odds: 32, change: 1, dir: 'up' }
-    ];
-    
-    riskData.geopoliticalRisks = [
-      { label: 'Taiwan Conflict', odds: 12, change: 0, dir: 'neutral' },
-      { label: 'Ukraine Ceasefire', odds: 35, change: 5, dir: 'up' },
-      { label: 'MidEast Escalation', odds: 45, change: -2, dir: 'down' },
-      { label: 'China Tariffs', odds: 68, change: 3, dir: 'up' },
-      { label: 'OPEC Cut', odds: 30, change: 1, dir: 'up' },
-      { label: 'Iran Sanctions', odds: 55, change: 0, dir: 'neutral' },
-      { label: 'N Korea Crisis', odds: 8, change: 1, dir: 'up' },
-      { label: 'EU Debt Crisis', odds: 15, change: -1, dir: 'down' },
-      { label: 'Supply Shock', odds: 25, change: 2, dir: 'up' },
-      { label: 'Cyber Attack', odds: 18, change: 0, dir: 'neutral' }
-    ];
-  }
-  
-  return riskData;
-}
-
-async function createPolymarketShiftCard(riskItem, oldOdds, newOdds) {
-  const change = newOdds - oldOdds;
-  const changePercent = Math.abs(change);
-  
-  const implications = [
-    `Market ${change > 0 ? 'increasing' : 'decreasing'} probability by ${changePercent}%`,
-    'Significant sentiment shift in prediction markets',
-    'Monitor for confirming data or news'
-  ];
-  
-  // Add specific implications based on market type
-  if (riskItem.label.includes('Fed')) {
-    implications[0] = `Rate cut odds ${change > 0 ? 'surging' : 'collapsing'} - ${changePercent}% shift`;
-    implications[1] = '2Y yield will reprice on this probability change';
-    implications[2] = 'Watch Fed speakers and next CPI data';
-  } else if (riskItem.label.includes('Recession')) {
-    implications[0] = `Recession probability ${change > 0 ? 'rising' : 'falling'} dramatically`;
-    implications[1] = 'Defensive positioning if odds continue rising';
-    implications[2] = 'Monitor GDP, employment, and leading indicators';
-  }
-  
-  const cardData = {
-    type: 'new_card',
-    column: 'prediction',
-    data: {
-      time: new Date().toISOString().substr(11, 5),
-      headline: `${riskItem.label}: ${oldOdds}% → ${newOdds}% (${change > 0 ? '+' : ''}${change}%)`,
-      source: 'Polymarket',
-      verified: true,
-      implications: implications,
-      impact: changePercent >= 15 ? 3 : changePercent >= 10 ? 2 : 1,
-      horizon: 'DAYS',
-      confidence: 70,
-      technicalLevels: [],
-      nextEvents: ['Check related data releases', 'Monitor market continuation'],
-      tags: ['PREDICTION', 'SHIFT', change > 0 ? 'RISK-ON' : 'RISK-OFF'],
-      polymarketData: {
-        oldOdds,
-        newOdds,
-        volume: riskItem.volume
-      }
-    }
-  };
-  
-  broadcast(cardData);
-  console.log(`🎲 Polymarket shift: ${riskItem.label} ${oldOdds}% → ${newOdds}%`);
-}
-
-// ============================================================================
-// FOREX & CURRENCIES DATA
-// ============================================================================
-
-// Major FX pairs to track - 30 PAIRS organized by strategic category
-const FX_PAIRS = [
-  // === MACRO PLUMBING (10 pairs) ===
-  { symbol: 'DX-Y.NYB', label: 'DXY', category: 'macro', tvSymbol: 'TVC:DXY' },
-  { symbol: 'BTC-USD', label: 'BTC/USD', category: 'macro', tvSymbol: 'COINBASE:BTCUSD' },
-  { symbol: 'ETH-USD', label: 'ETH/USD', category: 'macro', tvSymbol: 'COINBASE:ETHUSD' },
-  { symbol: 'EURUSD=X', label: 'EUR/USD', category: 'macro', tvSymbol: 'FX_IDC:EURUSD' },
-  { symbol: 'USDJPY=X', label: 'USD/JPY', category: 'macro', tvSymbol: 'FX_IDC:USDJPY' },
-  { symbol: 'GBPUSD=X', label: 'GBP/USD', category: 'macro', tvSymbol: 'FX_IDC:GBPUSD' },
-  { symbol: 'USDCHF=X', label: 'USD/CHF', category: 'macro', tvSymbol: 'FX_IDC:USDCHF' },
-  { symbol: 'EURJPY=X', label: 'EUR/JPY', category: 'macro', tvSymbol: 'FX_IDC:EURJPY' },
-  { symbol: 'EURCHF=X', label: 'EUR/CHF', category: 'macro', tvSymbol: 'FX_IDC:EURCHF' },
-  { symbol: 'CHFJPY=X', label: 'CHF/JPY', category: 'macro', tvSymbol: 'FX_IDC:CHFJPY' },
-  
-  // === GEOPOLITICS (10 pairs) ===
-  { symbol: 'CNH=X', label: 'USD/CNH', category: 'geo', tvSymbol: 'FX_IDC:USDCNH' },
-  { symbol: 'ILS=X', label: 'USD/ILS', category: 'geo', tvSymbol: 'FX_IDC:USDILS' },
-  { symbol: 'MXN=X', label: 'USD/MXN', category: 'geo', tvSymbol: 'FX_IDC:USDMXN' },
-  { symbol: 'PLN=X', label: 'USD/PLN', category: 'geo', tvSymbol: 'FX_IDC:USDPLN' },
-  { symbol: 'TRY=X', label: 'USD/TRY', category: 'geo', tvSymbol: 'FX_IDC:USDTRY' },
-  { symbol: 'KRW=X', label: 'USD/KRW', category: 'geo', tvSymbol: 'FX_IDC:USDKRW' },
-  { symbol: 'INR=X', label: 'USD/INR', category: 'geo', tvSymbol: 'FX_IDC:USDINR' },
-  { symbol: 'SGD=X', label: 'USD/SGD', category: 'geo', tvSymbol: 'FX_IDC:USDSGD' },
-  { symbol: 'EURGBP=X', label: 'EUR/GBP', category: 'geo', tvSymbol: 'FX_IDC:EURGBP' },
-  { symbol: 'GBPJPY=X', label: 'GBP/JPY', category: 'geo', tvSymbol: 'FX_IDC:GBPJPY' },
-  
-  // === COMMODITIES (10 pairs) ===
-  { symbol: 'USDCAD=X', label: 'USD/CAD', category: 'commodity', tvSymbol: 'FX_IDC:USDCAD' },
-  { symbol: 'AUDUSD=X', label: 'AUD/USD', category: 'commodity', tvSymbol: 'FX_IDC:AUDUSD' },
-  { symbol: 'NOK=X', label: 'USD/NOK', category: 'commodity', tvSymbol: 'FX_IDC:USDNOK' },
-  { symbol: 'NZDUSD=X', label: 'NZD/USD', category: 'commodity', tvSymbol: 'FX_IDC:NZDUSD' },
-  { symbol: 'BRL=X', label: 'USD/BRL', category: 'commodity', tvSymbol: 'FX_IDC:USDBRL' },
-  { symbol: 'ZAR=X', label: 'USD/ZAR', category: 'commodity', tvSymbol: 'FX_IDC:USDZAR' },
-  { symbol: 'CADJPY=X', label: 'CAD/JPY', category: 'commodity', tvSymbol: 'FX_IDC:CADJPY' },
-  { symbol: 'AUDJPY=X', label: 'AUD/JPY', category: 'commodity', tvSymbol: 'FX_IDC:AUDJPY' },
-  { symbol: 'AUDNZD=X', label: 'AUD/NZD', category: 'commodity', tvSymbol: 'FX_IDC:AUDNZD' },
-  { symbol: 'EURAUD=X', label: 'EUR/AUD', category: 'commodity', tvSymbol: 'FX_IDC:EURAUD' }
-];
-
-// Store previous FX values for change detection
-const previousFXValues = new Map();
-
-// ============================================================================
-// COMMODITIES DATA - 32 COMMODITIES (8 metals, 8 energy, 16 agriculture)
-// ============================================================================
-
-const COMMODITIES = [
-  // === METALS (8) ===
-  { symbol: 'GC=F', label: 'Gold', category: 'metals', unit: '$/oz' },
-  { symbol: 'SI=F', label: 'Silver', category: 'metals', unit: '$/oz' },
-  { symbol: 'PL=F', label: 'Platinum', category: 'metals', unit: '$/oz' },
-  { symbol: 'PA=F', label: 'Palladium', category: 'metals', unit: '$/oz' },
-  { symbol: 'HG=F', label: 'Copper', category: 'metals', unit: '$/lb' },
-  { symbol: 'ALI=F', label: 'Aluminum', category: 'metals', unit: '$/lb' },
-  { symbol: '^NICKEL', label: 'Nickel', category: 'metals', unit: '$/mt' },
-  { symbol: 'ZNC=F', label: 'Zinc', category: 'metals', unit: '$/mt' },
-  
-  // === ENERGY (8) ===
-  { symbol: 'CL=F', label: 'WTI Crude', category: 'energy', unit: '$/bbl' },
-  { symbol: 'BZ=F', label: 'Brent', category: 'energy', unit: '$/bbl' },
-  { symbol: 'NG=F', label: 'Nat Gas', category: 'energy', unit: '$/mmBtu' },
-  { symbol: 'RB=F', label: 'Gasoline', category: 'energy', unit: '$/gal' },
-  { symbol: 'HO=F', label: 'Heating Oil', category: 'energy', unit: '$/gal' },
-  { symbol: 'NG=F', label: 'Propane', category: 'energy', unit: '$/gal' },
-  { symbol: 'URA', label: 'Uranium ETF', category: 'energy', unit: '$' },
-  { symbol: 'XLE', label: 'Energy ETF', category: 'energy', unit: '$' },
-  
-  // === AGRICULTURE (16) ===
-  { symbol: 'ZW=F', label: 'Wheat', category: 'agriculture', unit: '¢/bu' },
-  { symbol: 'ZC=F', label: 'Corn', category: 'agriculture', unit: '¢/bu' },
-  { symbol: 'ZS=F', label: 'Soybeans', category: 'agriculture', unit: '¢/bu' },
-  { symbol: 'ZM=F', label: 'Soy Meal', category: 'agriculture', unit: '$/ton' },
-  { symbol: 'ZL=F', label: 'Soy Oil', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'KC=F', label: 'Coffee', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'CC=F', label: 'Cocoa', category: 'agriculture', unit: '$/mt' },
-  { symbol: 'SB=F', label: 'Sugar', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'CT=F', label: 'Cotton', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'LE=F', label: 'Live Cattle', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'HE=F', label: 'Lean Hogs', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'GF=F', label: 'Feeder Cattle', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'ZR=F', label: 'Rice', category: 'agriculture', unit: '$/cwt' },
-  { symbol: 'ZO=F', label: 'Oats', category: 'agriculture', unit: '¢/bu' },
-  { symbol: 'OJ=F', label: 'Orange Juice', category: 'agriculture', unit: '¢/lb' },
-  { symbol: 'LBS=F', label: 'Lumber', category: 'agriculture', unit: '$/mbf' }
-];
-
-// Store previous commodity values
-const previousCommodityValues = new Map();
-
-async function fetchCommodityData() {
-  const commodityData = {
-    metals: [],
-    energy: [],
-    agriculture: []
-  };
-
-  try {
-    const promises = COMMODITIES.map(async (commodity) => {
-      try {
-        const response = await axios.get(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${commodity.symbol}`,
-          { timeout: 5000 }
-        );
-
-        const quote = response.data?.chart?.result?.[0];
-        if (!quote) return null;
-
-        const meta = quote.meta;
-        const price = meta.regularMarketPrice || meta.previousClose;
-        const previousClose = meta.chartPreviousClose || meta.previousClose;
-        
-        const change = price - previousClose;
-        const changePercent = ((change / previousClose) * 100).toFixed(2);
-        
-        let dir = 'neutral';
-        if (Math.abs(changePercent) < 0.05) {
-          dir = 'neutral';
-        } else if (change > 0) {
-          dir = 'up';
-        } else {
-          dir = 'down';
+        function stopChartPropagation(event) {
+            event.stopPropagation();
         }
 
-        const decimals = price > 100 ? 2 : price > 10 ? 2 : 4;
-        const formattedPrice = price.toFixed(decimals);
-
-        const commodityItem = {
-          label: commodity.label,
-          price: formattedPrice,
-          change: changePercent,
-          dir: dir,
-          symbol: commodity.symbol,
-          unit: commodity.unit
-        };
-
-        if (commodity.category === 'metals') {
-          commodityData.metals.push(commodityItem);
-        } else if (commodity.category === 'energy') {
-          commodityData.energy.push(commodityItem);
-        } else if (commodity.category === 'agriculture') {
-          commodityData.agriculture.push(commodityItem);
+        function openInfoModal() {
+            document.getElementById('infoModal').style.display = 'flex';
         }
 
-        return commodityItem;
-      } catch (err) {
-        return null;
-      }
-    });
-
-    await Promise.all(promises);
-
-    // Always add Nickel if missing (Yahoo Finance doesn't have a good symbol for LME Nickel)
-    const hasNickel = commodityData.metals.some(m => m.label === 'Nickel');
-    if (!hasNickel && commodityData.metals.length > 0) {
-      commodityData.metals.push({
-        label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt'
-      });
-    }
-
-    // Fill with defaults if needed
-    if (commodityData.metals.length === 0) {
-      commodityData.metals = [
-        { label: 'Gold', ticker: 'GC=F', tvSymbol: 'COMEX:GC1!', price: '2650.00', change: '+0.35', dir: 'up', unit: '$/oz' },
-        { label: 'Silver', ticker: 'SI=F', tvSymbol: 'COMEX:SI1!', price: '31.50', change: '+0.55', dir: 'up', unit: '$/oz' },
-        { label: 'Platinum', ticker: 'PL=F', tvSymbol: 'NYMEX:PL1!', price: '985.00', change: '-0.20', dir: 'down', unit: '$/oz' },
-        { label: 'Palladium', ticker: 'PA=F', tvSymbol: 'NYMEX:PA1!', price: '1050.00', change: '-0.15', dir: 'down', unit: '$/oz' },
-        { label: 'Copper', ticker: 'HG=F', tvSymbol: 'COMEX:HG1!', price: '4.15', change: '+0.40', dir: 'up', unit: '$/lb' },
-        { label: 'Aluminum', ticker: 'ALI=F', tvSymbol: 'LME:ALI1!', price: '1.05', change: '+0.25', dir: 'up', unit: '$/lb' },
-        { label: 'Zinc', ticker: 'ZINC', tvSymbol: 'LME:ZNC1!', price: '2850', change: '+0.18', dir: 'up', unit: '$/mt' },
-        { label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt' }
-      ];
-    }
-
-    if (commodityData.energy.length === 0) {
-      commodityData.energy = [
-        { label: 'WTI Crude', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
-        { label: 'Brent', ticker: 'BZ=F', tvSymbol: 'NYMEX:BZ1!', price: '76.20', change: '-0.38', dir: 'down', unit: '$/bbl' },
-        { label: 'Nat Gas', ticker: 'NG=F', tvSymbol: 'NYMEX:NG1!', price: '3.25', change: '+1.20', dir: 'up', unit: '$/mmBtu' },
-        { label: 'Gasoline', ticker: 'RB=F', tvSymbol: 'NYMEX:RB1!', price: '2.15', change: '-0.25', dir: 'down', unit: '$/gal' },
-        { label: 'Heating Oil', ticker: 'HO=F', tvSymbol: 'NYMEX:HO1!', price: '2.35', change: '-0.18', dir: 'down', unit: '$/gal' },
-        { label: 'Propane', ticker: 'PN', tvSymbol: 'NYMEX:PN1!', price: '0.85', change: '+0.08', dir: 'up', unit: '$/gal' },
-        { label: 'URA ETF', ticker: 'URA', tvSymbol: 'AMEX:URA', price: '28.50', change: '+0.65', dir: 'up', unit: '$' },
-        { label: 'XLE ETF', ticker: 'XLE', tvSymbol: 'AMEX:XLE', price: '92.30', change: '-0.22', dir: 'down', unit: '$' }
-      ];
-    }
-
-    if (commodityData.agriculture.length === 0) {
-      commodityData.agriculture = [
-        { label: 'Wheat', ticker: 'ZW=F', tvSymbol: 'CBOT:ZW1!', price: '580', change: '+0.45', dir: 'up', unit: '¢/bu' },
-        { label: 'Corn', ticker: 'ZC=F', tvSymbol: 'CBOT:ZC1!', price: '455', change: '+0.28', dir: 'up', unit: '¢/bu' },
-        { label: 'Soybeans', ticker: 'ZS=F', tvSymbol: 'CBOT:ZS1!', price: '1025', change: '-0.15', dir: 'down', unit: '¢/bu' },
-        { label: 'Soy Meal', ticker: 'ZM=F', tvSymbol: 'CBOT:ZM1!', price: '325', change: '-0.22', dir: 'down', unit: '$/ton' },
-        { label: 'Soy Oil', ticker: 'ZL=F', tvSymbol: 'CBOT:ZL1!', price: '42.5', change: '+0.35', dir: 'up', unit: '¢/lb' },
-        { label: 'Coffee', ticker: 'KC=F', tvSymbol: 'ICEUS:KC1!', price: '185', change: '+1.50', dir: 'up', unit: '¢/lb' },
-        { label: 'Cocoa', ticker: 'CC=F', tvSymbol: 'ICEUS:CC1!', price: '4250', change: '+0.85', dir: 'up', unit: '$/mt' },
-        { label: 'Sugar', ticker: 'SB=F', tvSymbol: 'ICEUS:SB1!', price: '22.5', change: '-0.12', dir: 'down', unit: '¢/lb' },
-        { label: 'Cotton', ticker: 'CT=F', tvSymbol: 'ICEUS:CT1!', price: '78.5', change: '+0.18', dir: 'up', unit: '¢/lb' },
-        { label: 'Live Cattle', ticker: 'LE=F', tvSymbol: 'CME:LE1!', price: '185', change: '+0.25', dir: 'up', unit: '¢/lb' },
-        { label: 'Lean Hogs', ticker: 'HE=F', tvSymbol: 'CME:HE1!', price: '82.5', change: '-0.35', dir: 'down', unit: '¢/lb' },
-        { label: 'Feeder Cattle', ticker: 'GF=F', tvSymbol: 'CME:GF1!', price: '252', change: '+0.42', dir: 'up', unit: '¢/lb' },
-        { label: 'Rice', ticker: 'ZR=F', tvSymbol: 'CBOT:ZR1!', price: '15.25', change: '+0.08', dir: 'up', unit: '$/cwt' },
-        { label: 'Oats', ticker: 'ZO=F', tvSymbol: 'CBOT:ZO1!', price: '385', change: '-0.28', dir: 'down', unit: '¢/bu' },
-        { label: 'Orange Juice', ticker: 'OJ=F', tvSymbol: 'ICEUS:OJ1!', price: '425', change: '+2.15', dir: 'up', unit: '¢/lb' },
-        { label: 'Lumber', ticker: 'LBS=F', tvSymbol: 'CME:LBS1!', price: '565', change: '-0.55', dir: 'down', unit: '$/mbf' }
-      ];
-    }
-
-  } catch (error) {
-    console.error('Commodity data fetch error:', error.message);
-    // Return defaults on error (same as above)
-    commodityData.metals = [
-      { label: 'Gold', ticker: 'GC=F', tvSymbol: 'COMEX:GC1!', price: '2650.00', change: '+0.35', dir: 'up', unit: '$/oz' },
-      { label: 'Silver', ticker: 'SI=F', tvSymbol: 'COMEX:SI1!', price: '31.50', change: '+0.55', dir: 'up', unit: '$/oz' },
-      { label: 'Platinum', ticker: 'PL=F', tvSymbol: 'NYMEX:PL1!', price: '985.00', change: '-0.20', dir: 'down', unit: '$/oz' },
-      { label: 'Palladium', ticker: 'PA=F', tvSymbol: 'NYMEX:PA1!', price: '1050.00', change: '-0.15', dir: 'down', unit: '$/oz' },
-      { label: 'Copper', ticker: 'HG=F', tvSymbol: 'COMEX:HG1!', price: '4.15', change: '+0.40', dir: 'up', unit: '$/lb' },
-      { label: 'Aluminum', ticker: 'ALI=F', tvSymbol: 'LME:ALI1!', price: '1.05', change: '+0.25', dir: 'up', unit: '$/lb' },
-      { label: 'Zinc', ticker: 'ZINC', tvSymbol: 'LME:ZNC1!', price: '2850', change: '+0.18', dir: 'up', unit: '$/mt' },
-      { label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt' }
-    ];
-    commodityData.energy = [
-      { label: 'WTI Crude', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
-      { label: 'Brent', ticker: 'BZ=F', tvSymbol: 'NYMEX:BZ1!', price: '76.20', change: '-0.38', dir: 'down', unit: '$/bbl' },
-      { label: 'Nat Gas', ticker: 'NG=F', tvSymbol: 'NYMEX:NG1!', price: '3.25', change: '+1.20', dir: 'up', unit: '$/mmBtu' },
-      { label: 'Gasoline', ticker: 'RB=F', tvSymbol: 'NYMEX:RB1!', price: '2.15', change: '-0.25', dir: 'down', unit: '$/gal' },
-      { label: 'Heating Oil', ticker: 'HO=F', tvSymbol: 'NYMEX:HO1!', price: '2.35', change: '-0.18', dir: 'down', unit: '$/gal' },
-      { label: 'Propane', ticker: 'PN', tvSymbol: 'NYMEX:PN1!', price: '0.85', change: '+0.08', dir: 'up', unit: '$/gal' },
-      { label: 'URA ETF', ticker: 'URA', tvSymbol: 'AMEX:URA', price: '28.50', change: '+0.65', dir: 'up', unit: '$' },
-      { label: 'XLE ETF', ticker: 'XLE', tvSymbol: 'AMEX:XLE', price: '92.30', change: '-0.22', dir: 'down', unit: '$' }
-    ];
-    commodityData.agriculture = [
-      { label: 'Wheat', ticker: 'ZW=F', tvSymbol: 'CBOT:ZW1!', price: '580', change: '+0.45', dir: 'up', unit: '¢/bu' },
-      { label: 'Corn', ticker: 'ZC=F', tvSymbol: 'CBOT:ZC1!', price: '455', change: '+0.28', dir: 'up', unit: '¢/bu' },
-      { label: 'Soybeans', ticker: 'ZS=F', tvSymbol: 'CBOT:ZS1!', price: '1025', change: '-0.15', dir: 'down', unit: '¢/bu' },
-      { label: 'Soy Meal', ticker: 'ZM=F', tvSymbol: 'CBOT:ZM1!', price: '325', change: '-0.22', dir: 'down', unit: '$/ton' },
-      { label: 'Soy Oil', ticker: 'ZL=F', tvSymbol: 'CBOT:ZL1!', price: '42.5', change: '+0.35', dir: 'up', unit: '¢/lb' },
-      { label: 'Coffee', ticker: 'KC=F', tvSymbol: 'ICEUS:KC1!', price: '185', change: '+1.50', dir: 'up', unit: '¢/lb' },
-      { label: 'Cocoa', ticker: 'CC=F', tvSymbol: 'ICEUS:CC1!', price: '4250', change: '+0.85', dir: 'up', unit: '$/mt' },
-      { label: 'Sugar', ticker: 'SB=F', tvSymbol: 'ICEUS:SB1!', price: '22.5', change: '-0.12', dir: 'down', unit: '¢/lb' },
-      { label: 'Cotton', ticker: 'CT=F', tvSymbol: 'ICEUS:CT1!', price: '78.5', change: '+0.18', dir: 'up', unit: '¢/lb' },
-      { label: 'Live Cattle', ticker: 'LE=F', tvSymbol: 'CME:LE1!', price: '185', change: '+0.25', dir: 'up', unit: '¢/lb' },
-      { label: 'Lean Hogs', ticker: 'HE=F', tvSymbol: 'CME:HE1!', price: '82.5', change: '-0.35', dir: 'down', unit: '¢/lb' },
-      { label: 'Feeder Cattle', ticker: 'GF=F', tvSymbol: 'CME:GF1!', price: '252', change: '+0.42', dir: 'up', unit: '¢/lb' },
-      { label: 'Rice', ticker: 'ZR=F', tvSymbol: 'CBOT:ZR1!', price: '15.25', change: '+0.08', dir: 'up', unit: '$/cwt' },
-      { label: 'Oats', ticker: 'ZO=F', tvSymbol: 'CBOT:ZO1!', price: '385', change: '-0.28', dir: 'down', unit: '¢/bu' },
-      { label: 'Orange Juice', ticker: 'OJ=F', tvSymbol: 'ICEUS:OJ1!', price: '425', change: '+2.15', dir: 'up', unit: '¢/lb' },
-      { label: 'Lumber', ticker: 'LBS=F', tvSymbol: 'CME:LBS1!', price: '565', change: '-0.55', dir: 'down', unit: '$/mbf' }
-    ];
-  }
-
-  return commodityData;
-}
-
-async function fetchFXData() {
-  const fxData = {
-    macro: [],
-    geo: [],
-    commodity: []
-  };
-
-  try {
-    // Fetch all FX pairs in parallel
-    const promises = FX_PAIRS.map(async (pair) => {
-      try {
-        const response = await axios.get(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${pair.symbol}`,
-          { timeout: 5000 }
-        );
-
-        const quote = response.data?.chart?.result?.[0];
-        if (!quote) return null;
-
-        const meta = quote.meta;
-        const price = meta.regularMarketPrice || meta.previousClose;
-        const previousClose = meta.chartPreviousClose || meta.previousClose;
-        
-        // Calculate change
-        const change = price - previousClose;
-        const changePercent = ((change / previousClose) * 100).toFixed(2);
-        
-        // Determine direction
-        let dir = 'neutral';
-        if (Math.abs(changePercent) < 0.05) {
-          dir = 'neutral';
-        } else if (change > 0) {
-          dir = 'up';
-        } else {
-          dir = 'down';
+        function closeInfoModal(event) {
+            if (!event || event.target.id === 'infoModal') {
+                document.getElementById('infoModal').style.display = 'none';
+            }
         }
 
-        // Format price (4 decimals for most, 2 for JPY pairs)
-        const decimals = pair.label.includes('JPY') ? 2 : 4;
-        const formattedPrice = price.toFixed(decimals);
+        // ESC key closes info modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeInfoModal();
+            }
+        });
 
-        const pairData = {
-          label: pair.label,
-          price: formattedPrice,
-          change: changePercent,
-          dir: dir,
-          symbol: pair.symbol,
-          tvSymbol: pair.tvSymbol // Include TradingView symbol
-        };
-
-        // Add to appropriate category
-        if (pair.category === 'macro') {
-          fxData.macro.push(pairData);
-        } else if (pair.category === 'geo') {
-          fxData.geo.push(pairData);
-        } else if (pair.category === 'commodity') {
-          fxData.commodity.push(pairData);
+        function searchSymbol() {
+            const input = document.getElementById('symbolSearchInput');
+            const symbol = input.value.trim().toUpperCase();
+            if (symbol) {
+                openChart(symbol);
+                input.value = '';
+                document.getElementById('tickerSearchPopup').classList.remove('active');
+            }
         }
 
-        return pairData;
-      } catch (err) {
-        console.error(`Error fetching ${pair.label}:`, err.message);
-        return null;
-      }
-    });
+        (function() {
+            const ticker = document.getElementById('marketTicker');
+            const popup = document.getElementById('tickerSearchPopup');
+            const input = document.getElementById('symbolSearchInput');
+            let hoverTimeout;
 
-    await Promise.all(promises);
+            if (ticker && popup) {
+                ticker.addEventListener('mouseenter', function() {
+                    hoverTimeout = setTimeout(function() {
+                        popup.classList.add('active');
+                    }, 500);
+                });
 
-    // Fill with defaults if no data
-    if (fxData.macro.length === 0) {
-      fxData.macro = [
-        { label: 'DXY', price: '107.25', change: '+0.15', dir: 'up', tvSymbol: 'TVC:DXY' },
-        { label: 'BTC/USD', price: '68500', change: '+1.20', dir: 'up', tvSymbol: 'COINBASE:BTCUSD' },
-        { label: 'ETH/USD', price: '3800', change: '+0.85', dir: 'up', tvSymbol: 'COINBASE:ETHUSD' },
-        { label: 'EUR/USD', price: '1.0920', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:EURUSD' },
-        { label: 'USD/JPY', price: '151.20', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:USDJPY' },
-        { label: 'GBP/USD', price: '1.2750', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:GBPUSD' },
-        { label: 'USD/CHF', price: '0.8810', change: '-0.05', dir: 'down', tvSymbol: 'FX_IDC:USDCHF' },
-        { label: 'EUR/JPY', price: '165.10', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:EURJPY' },
-        { label: 'EUR/CHF', price: '0.9620', change: '-0.03', dir: 'down', tvSymbol: 'FX_IDC:EURCHF' },
-        { label: 'CHF/JPY', price: '171.50', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:CHFJPY' }
-      ];
-    }
+                ticker.addEventListener('mouseleave', function(e) {
+                    clearTimeout(hoverTimeout);
+                    if (!popup.contains(e.relatedTarget)) {
+                        popup.classList.remove('active');
+                    }
+                });
 
-    if (fxData.geo.length === 0) {
-      fxData.geo = [
-        { label: 'USD/CNH', price: '7.2300', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:USDCNH' },
-        { label: 'USD/ILS', price: '3.7500', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:USDILS' },
-        { label: 'USD/MXN', price: '17.100', change: '-0.15', dir: 'down', tvSymbol: 'FX_IDC:USDMXN' },
-        { label: 'USD/PLN', price: '3.9500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDPLN' },
-        { label: 'USD/TRY', price: '32.100', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:USDTRY' },
-        { label: 'USD/KRW', price: '1350.0', change: '-0.10', dir: 'down', tvSymbol: 'FX_IDC:USDKRW' },
-        { label: 'USD/INR', price: '83.400', change: '+0.05', dir: 'up', tvSymbol: 'FX_IDC:USDINR' },
-        { label: 'USD/SGD', price: '1.3500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDSGD' },
-        { label: 'EUR/GBP', price: '0.8500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:EURGBP' },
-        { label: 'GBP/JPY', price: '192.80', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:GBPJPY' }
-      ];
-    }
+                popup.addEventListener('mouseleave', function() {
+                    popup.classList.remove('active');
+                });
 
-    if (fxData.commodity.length === 0) {
-      fxData.commodity = [
-        { label: 'USD/CAD', price: '1.3400', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:USDCAD' },
-        { label: 'AUD/USD', price: '0.6600', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:AUDUSD' },
-        { label: 'USD/NOK', price: '10.500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:USDNOK' },
-        { label: 'NZD/USD', price: '0.6100', change: '+0.10', dir: 'up', tvSymbol: 'FX_IDC:NZDUSD' },
-        { label: 'USD/BRL', price: '5.1500', change: '-0.18', dir: 'down', tvSymbol: 'FX_IDC:USDBRL' },
-        { label: 'USD/ZAR', price: '18.500', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:USDZAR' },
-        { label: 'CAD/JPY', price: '112.50', change: '+0.20', dir: 'up', tvSymbol: 'FX_IDC:CADJPY' },
-        { label: 'AUD/JPY', price: '100.20', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:AUDJPY' },
-        { label: 'AUD/NZD', price: '1.0800', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:AUDNZD' },
-        { label: 'EUR/AUD', price: '1.6500', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:EURAUD' }
-      ];
-    }
+                if (input) {
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            searchSymbol();
+                        }
+                    });
+                }
+            }
+        })();
 
-  } catch (error) {
-    console.error('FX data fetch error:', error.message);
-    
-    // Return defaults on error
-    fxData.macro = [
-      { label: 'DXY', price: '107.25', change: '+0.15', dir: 'up', tvSymbol: 'TVC:DXY' },
-      { label: 'BTC/USD', price: '68500', change: '+1.20', dir: 'up', tvSymbol: 'COINBASE:BTCUSD' },
-      { label: 'ETH/USD', price: '3800', change: '+0.85', dir: 'up', tvSymbol: 'COINBASE:ETHUSD' },
-      { label: 'EUR/USD', price: '1.0920', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:EURUSD' },
-      { label: 'USD/JPY', price: '151.20', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:USDJPY' },
-      { label: 'GBP/USD', price: '1.2750', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:GBPUSD' },
-      { label: 'USD/CHF', price: '0.8810', change: '-0.05', dir: 'down', tvSymbol: 'FX_IDC:USDCHF' },
-      { label: 'EUR/JPY', price: '165.10', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:EURJPY' },
-      { label: 'EUR/CHF', price: '0.9620', change: '-0.03', dir: 'down', tvSymbol: 'FX_IDC:EURCHF' },
-      { label: 'CHF/JPY', price: '171.50', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:CHFJPY' }
-    ];
-
-    fxData.geo = [
-      { label: 'USD/CNH', price: '7.2300', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:USDCNH' },
-      { label: 'USD/ILS', price: '3.7500', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:USDILS' },
-      { label: 'USD/MXN', price: '17.100', change: '-0.15', dir: 'down', tvSymbol: 'FX_IDC:USDMXN' },
-      { label: 'USD/PLN', price: '3.9500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDPLN' },
-      { label: 'USD/TRY', price: '32.100', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:USDTRY' },
-      { label: 'USD/KRW', price: '1350.0', change: '-0.10', dir: 'down', tvSymbol: 'FX_IDC:USDKRW' },
-      { label: 'USD/INR', price: '83.400', change: '+0.05', dir: 'up', tvSymbol: 'FX_IDC:USDINR' },
-      { label: 'USD/SGD', price: '1.3500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDSGD' },
-      { label: 'EUR/GBP', price: '0.8500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:EURGBP' },
-      { label: 'GBP/JPY', price: '192.80', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:GBPJPY' }
-    ];
-
-    fxData.commodity = [
-      { label: 'USD/CAD', price: '1.3400', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:USDCAD' },
-      { label: 'AUD/USD', price: '0.6600', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:AUDUSD' },
-      { label: 'USD/NOK', price: '10.500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:USDNOK' },
-      { label: 'NZD/USD', price: '0.6100', change: '+0.10', dir: 'up', tvSymbol: 'FX_IDC:NZDUSD' },
-      { label: 'USD/BRL', price: '5.1500', change: '-0.18', dir: 'down', tvSymbol: 'FX_IDC:USDBRL' },
-      { label: 'USD/ZAR', price: '18.500', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:USDZAR' },
-      { label: 'CAD/JPY', price: '112.50', change: '+0.20', dir: 'up', tvSymbol: 'FX_IDC:CADJPY' },
-      { label: 'AUD/JPY', price: '100.20', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:AUDJPY' },
-      { label: 'AUD/NZD', price: '1.0800', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:AUDNZD' },
-      { label: 'EUR/AUD', price: '1.6500', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:EURAUD' }
-    ];
-  }
-
-  return fxData;
-}
-
-// Central bank meeting schedules for 2025-2026 (auto-updates to next meeting)
-const CENTRAL_BANK_MEETINGS = {
-  Fed: {
-    rate: '4.50%',
-    meetings2025: ['2025-01-29', '2025-03-19', '2025-05-07', '2025-06-18', '2025-07-30', '2025-09-17', '2025-11-05', '2025-12-17'],
-    meetings2026: ['2026-01-29', '2026-03-18', '2026-04-29', '2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09']
-  },
-  ECB: {
-    rate: '3.00%',
-    meetings2025: ['2025-01-30', '2025-03-06', '2025-04-17', '2025-06-05', '2025-07-24', '2025-09-04', '2025-10-30', '2025-12-18'],
-    meetings2026: ['2026-01-22', '2026-01-30', '2026-03-12', '2026-04-16', '2026-06-04', '2026-07-23', '2026-09-10', '2026-10-29', '2026-12-17']
-  },
-  BOE: {
-    rate: '4.50%',
-    meetings2025: ['2025-02-06', '2025-03-20', '2025-05-08', '2025-06-19', '2025-08-07', '2025-09-18', '2025-11-06', '2025-12-18'],
-    meetings2026: ['2026-02-05', '2026-02-06', '2026-03-19', '2026-04-30', '2026-06-18', '2026-07-30', '2026-09-17', '2026-11-05', '2026-12-17']
-  },
-  BOJ: {
-    rate: '0.75%',
-    meetings2025: ['2025-01-24', '2025-03-14', '2025-04-25', '2025-06-13', '2025-07-31', '2025-09-19', '2025-10-31', '2025-12-19'],
-    meetings2026: ['2026-01-23', '2026-03-19', '2026-04-28', '2026-06-16', '2026-07-31', '2026-09-18', '2026-10-30', '2026-12-18']
-  },
-  RBA: {
-    rate: '3.60%',
-    meetings2025: ['2025-02-18', '2025-04-01', '2025-05-20', '2025-07-08', '2025-08-19', '2025-10-07', '2025-11-25', '2025-12-09'],
-    meetings2026: ['2026-02-03', '2026-04-01', '2026-05-20', '2026-07-08', '2026-08-19', '2026-10-07', '2026-11-25', '2026-12-09']
-  }
-};
-
-function getNextMeetingDate(bank) {
-  const now = new Date();
-  const meetings = [...(CENTRAL_BANK_MEETINGS[bank].meetings2025 || []), ...(CENTRAL_BANK_MEETINGS[bank].meetings2026 || [])];
-  for (const date of meetings) {
-    const meetingDate = new Date(date);
-    if (meetingDate >= now) {
-      const month = meetingDate.toLocaleString('en-US', { month: 'short' });
-      const day = meetingDate.getDate();
-      return `${month} ${day}`;
-    }
-  }
-  return 'TBD';
-}
-
-const CENTRAL_BANK_RATES = Object.entries(CENTRAL_BANK_MEETINGS).map(([bank, data]) => ({
-  bank,
-  currency: bank === 'Fed' ? 'USD' : bank === 'ECB' ? 'EUR' : bank === 'BOE' ? 'GBP' : bank === 'BOJ' ? 'JPY' : 'AUD',
-  rate: data.rate,
-  next: getNextMeetingDate(bank)
-}));
-
-// ============================================================================
-// ALPACA REAL-TIME NEWS STREAM (WebSocket)
-// ============================================================================
-
-let alpacaWs = null;
-let alpacaReconnectTimeout = null;
-
-function connectAlpacaNews() {
-  if (!CONFIG.ALPACA_API_KEY || !CONFIG.ALPACA_API_SECRET) {
-    console.log('⚠️  Alpaca API keys not configured - real-time news disabled');
-    return;
-  }
-
-  const wsUrl = 'wss://stream.data.alpaca.markets/v1beta1/news';
-  
-  try {
-    alpacaWs = new WebSocket(wsUrl, {
-      headers: {
-        'APCA-API-KEY-ID': CONFIG.ALPACA_API_KEY,
-        'APCA-API-SECRET-KEY': CONFIG.ALPACA_API_SECRET
-      }
-    });
-
-    alpacaWs.on('open', () => {
-      console.log('🚀 Alpaca News WebSocket connected - REAL-TIME NEWS ACTIVE');
-      // Subscribe to all news
-      alpacaWs.send(JSON.stringify({ action: 'subscribe', news: ['*'] }));
-    });
-
-    alpacaWs.on('message', (data) => {
-      try {
-        const messages = JSON.parse(data);
-        for (const msg of (Array.isArray(messages) ? messages : [messages])) {
-          if (msg.T === 'n') {
-            // Process real-time news article
-            processAlpacaNews(msg);
-          } else if (msg.T === 'subscription') {
-            console.log('📰 Alpaca: Subscribed to real-time news stream');
-          } else if (msg.T === 'error') {
-            console.error('❌ Alpaca error:', msg.msg);
-          }
+        function parseMarkdown(text) {
+            return text
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/^\* (.+)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>)/gs, function(match) {
+                    if (match.includes('<ul>') || match.includes('<ol>')) return match;
+                    return '<ul>' + match + '</ul>';
+                })
+                .replace(/<\/ul>\s*<ul>/g, '')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/^(.+)$/gm, function(match) {
+                    if (match.startsWith('<')) return match;
+                    return match;
+                });
         }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    });
+    </script>
 
-    alpacaWs.on('close', () => {
-      console.log('⚠️  Alpaca WebSocket closed - reconnecting in 5s...');
-      alpacaReconnectTimeout = setTimeout(connectAlpacaNews, 5000);
-    });
+    <!-- TradingView Chart Modal -->
+    <div id="chartModal" class="chart-modal-overlay" style="display: none;" onclick="closeChart(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()">
+            <button class="chart-close-btn" onclick="closeChart(event)">×</button>
+            <div id="tradingview_widget"></div>
+        </div>
+    </div>
 
-    alpacaWs.on('error', (error) => {
-      console.error('❌ Alpaca WebSocket error:', error.message);
-    });
+    <!-- TradingView Widget Library -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 
-  } catch (error) {
-    console.error('❌ Failed to connect to Alpaca:', error.message);
-  }
-}
+    <!-- Info/Legend Modal -->
+    <div id="infoModal" class="chart-modal-overlay" style="display: none;" onclick="closeInfoModal(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px;">
+            <button class="chart-close-btn" onclick="closeInfoModal()" style="top: 10px; right: 10px; position: absolute;">×</button>
+            <div class="modal-title">📖 LEGEND & KEY</div>
+            <div class="modal-analysis" style="max-height: 70vh; overflow-y: auto;">
+                
+                <h3 style="color: var(--accent-blue); margin-top: 0;">IMPACT DOTS (Ticker)</h3>
+                <p>🔴🔴🔴 = <strong>HIGH IMPACT</strong> - Major market mover</p>
+                <p>🔴🔴⚪ = <strong>MEDIUM IMPACT</strong> - Notable event</p>
+                <p>🔴⚪⚪ = <strong>LOW IMPACT</strong> - Minor news</p>
+                
+                <h3 style="color: var(--accent-blue); margin-top: 1.5rem;">MARKET RISK</h3>
+                <p>🟢 <strong>10-30%</strong> = LOW RISK - Boring news, won't move markets</p>
+                <p>🟡 <strong>30-60%</strong> = MEDIUM RISK - Watch, might matter</p>
+                <p>🟠 <strong>60-85%</strong> = HIGH RISK - Markets reacting, pay attention</p>
+                <p>🔴 <strong>85-100%</strong> = CRITICAL RISK - Flash alert, all hands on deck</p>
+                
+                <h3 style="color: var(--accent-blue); margin-top: 1.5rem;">HORIZON (Time to Impact)</h3>
+                <p>⚡ <strong>NOW</strong> = Immediate impact, act now!</p>
+                <p>📅 <strong>DAYS</strong> = Coming days, plan ahead</p>
+                <p>📆 <strong>WEEKS</strong> = Longer term, structural shift</p>
+                <p>➖ <strong>N/A</strong> = Not market-relevant</p>
+                
+                <h3 style="color: var(--accent-blue); margin-top: 1.5rem;">REGIME INDICATORS</h3>
+                <p>🌟 <strong>GOLDILOCKS</strong> = Growth↑ Inflation↓<br>
+                   <em>Buy: Stocks, Tech, extend duration</em></p>
+                <p>🔥 <strong>REFLATIONARY</strong> = Growth↑ Inflation↑<br>
+                   <em>Buy: Commodities, Value, cyclicals</em></p>
+                <p>⚠️ <strong>STAGFLATION</strong> = Growth↓ Inflation↑<br>
+                   <em>Buy: Gold, TIPS, commodity producers only</em></p>
+                <p>❄️ <strong>DEFLATIONARY</strong> = Growth↓ Inflation↓<br>
+                   <em>Buy: Cash, Treasuries, USD, JPY</em></p>
+                
+                <h3 style="color: var(--accent-blue); margin-top: 1.5rem;">DIRECTION</h3>
+                <p>🟢 <strong>RISK-ON</strong> = Buy risk assets (stocks, commodities, EM)</p>
+                <p>🔴 <strong>RISK-OFF</strong> = Sell risk assets, buy safe havens</p>
+                <p>⚪ <strong>NEUTRAL</strong> = Mixed signals, wait and see</p>
+                
+                <h3 style="color: var(--accent-blue); margin-top: 1.5rem;">GAME THEORY PATTERNS</h3>
+                <p>🎲 <strong>Prisoner's Dilemma</strong> = Escalation spiral risk (tariffs, retaliation)</p>
+                <p>🐔 <strong>Chicken Game</strong> = Brinkmanship, high accident risk</p>
+                <p>🤝 <strong>Coordination Game</strong> = Collective action multiplies impact (G7/G20)</p>
+                <p>⚖️ <strong>Nash Equilibrium</strong> = Synchronized policy shock (central banks)</p>
+                
+                <h3 style="color: var(--accent-blue); margin-top: 1.5rem;">ASSET TAGS</h3>
+                <p><strong>FX</strong> = Currency markets affected</p>
+                <p><strong>GOLD/SILVER</strong> = Precious metals</p>
+                <p><strong>OIL/NATGAS</strong> = Energy commodities</p>
+                <p><strong>BONDS</strong> = Fixed income markets</p>
+                <p><strong>EQUITIES</strong> = Stock markets</p>
+                
+            </div>
+        </div>
+    </div>
 
-function processAlpacaNews(article) {
-  const articleId = `alpaca-${article.id}`;
-  
-  if (seenArticles.has(articleId)) return;
-  seenArticles.add(articleId);
-  
-  if (seenArticles.size > 5000) {
-    const firstItem = seenArticles.values().next().value;
-    seenArticles.delete(firstItem);
-  }
-
-  // Format publication date
-  const pubDate = new Date(article.created_at);
-  const now = new Date();
-  const hoursSince = Math.floor((now - pubDate) / (1000 * 60 * 60));
-  let pubDateDisplay = 'Just now';
-  if (hoursSince >= 1 && hoursSince < 24) {
-    pubDateDisplay = `${hoursSince}h ago`;
-  } else if (hoursSince >= 24) {
-    pubDateDisplay = pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-
-  // Classify the news
-  const text = article.headline + ' ' + (article.summary || '');
-  const category = classifyNews(text);
-  
-  const smartData = generateUltimateImplications(
-    article.headline,
-    category,
-    article.summary || ''
-  );
-
-  const cardData = {
-    type: 'new_card',
-    column: category,
-    data: {
-      time: new Date().toISOString().substr(11, 5),
-      headline: article.headline,
-      link: article.url || '',
-      source: `${article.source || 'Alpaca'} ⚡`,
-      pubDate: pubDateDisplay,
-      verified: true,
-      implications: smartData.implications,
-      impact: smartData.impact || 2,
-      horizon: smartData.horizon || 'DAYS',
-      tripwires: smartData.technicalLevels || [],
-      probNudge: [],
-      tags: [...(smartData.tags || []), 'REALTIME'],
-      confidence: smartData.confidence,
-      nextEvents: smartData.nextEvents || [],
-      regime: smartData.regime,
-      symbols: article.symbols || []
-    }
-  };
-
-  console.log(`⚡ REAL-TIME: ${article.headline.substring(0, 60)}...`);
-  broadcast(cardData);
-}
-
-// ============================================================================
-// SCHEDULED JOBS
-// ============================================================================
-
-// RSS feeds every 30 seconds for TweetDeck-like speed
-cron.schedule('*/30 * * * * *', () => {
-  console.log('📡 RSS feed cycle starting...');
-  pollRSSFeeds();
-});
-
-// NewsAPI every 5 minutes
-cron.schedule('*/5 * * * *', () => {
-  console.log('📰 Polling NewsAPI (business)...');
-  pollNewsAPI();
-});
-
-// Geopolitical news every 7 minutes
-cron.schedule('*/7 * * * *', () => {
-  console.log('🌍 Polling NewsAPI (geopolitics)...');
-  pollGeopoliticalNews();
-});
-
-// Market data every 15 seconds
-cron.schedule('*/15 * * * * *', async () => {
-  try {
-    const marketData = await fetchMarketData();
-    broadcast({ type: 'market_update', data: marketData });
-  } catch (error) {
-    console.error('Market update error:', error.message);
-  }
-});
-
-// Macro data every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
-  try {
-    const macroData = await fetchMacroData();
-    broadcast({ type: 'macro_update', data: macroData });
-  } catch (error) {
-    console.error('Macro update error:', error.message);
-  }
-});
-
-// Polymarket risks every 15 minutes
-cron.schedule('*/15 * * * *', async () => {
-  try {
-    console.log('🎲 Polling Polymarket prediction markets...');
-    const riskData = await fetchPolymarketRisks();
-    broadcast({ type: 'polymarket_update', data: riskData });
-  } catch (error) {
-    console.error('Polymarket update error:', error.message);
-  }
-});
-
-// FX data every 30 seconds
-cron.schedule('*/30 * * * * *', async () => {
-  try {
-    const fxData = await fetchFXData();
-    broadcast({ type: 'fx_update', data: fxData });
-  } catch (error) {
-    console.error('FX update error:', error.message);
-  }
-});
-
-// Commodity data every 60 seconds
-cron.schedule('*/60 * * * * *', async () => {
-  try {
-    const commodityData = await fetchCommodityData();
-    broadcast({ type: 'commodity_update', data: commodityData });
-  } catch (error) {
-    console.error('Commodity update error:', error.message);
-  }
-});
-
-// ============================================================================
-// SERVER START
-// ============================================================================
-
-server.listen(CONFIG.PORT, '0.0.0.0', () => {
-  console.log(`
-  ╔═══════════════════════════════════════════════════════╗
-  ║   THE DAILY NUTHATCH - PRODUCTION RSS VERSION        ║
-  ║   Port: ${CONFIG.PORT}                                        ║
-  ╚═══════════════════════════════════════════════════════╝
-  
-  📡 WebSocket: RUNNING
-  📰 NewsAPI: ${CONFIG.NEWSAPI_KEY ? '✅ ENABLED' : '❌ DISABLED'}
-  🏦 FRED Data: ${CONFIG.FRED_API_KEY ? '✅ ENABLED' : '❌ DISABLED'}
-  📊 Market Data: ✅ ENABLED (19 assets)
-  ⚡ Alpaca Real-Time: ${CONFIG.ALPACA_API_KEY ? '✅ ENABLED' : '❌ ADD KEYS FOR INSTANT NEWS'}
-  📡 RSS Feeds: ✅ ${RSS_FEEDS.length} PREMIUM SOURCES
-  
-  RSS Sources Active:
-  ├─ FINANCE: Reuters, CNBC, MarketWatch, BBC, FT (x2), WSJ (x2)
-  ├─ MACRO: Federal Reserve, ECB, BIS
-  ├─ GEOPOLITICS: Defense News, Reuters, NYT, Geopolitical Futures
-  ├─ COMMODITIES: EIA, Mining.com, Reuters Energy, OilPrice.com
-  ├─ FOREX/MARKETS: DailyFX, ForexLive
-  └─ Polling every 30 seconds
-  
-  Frontend: http://localhost:${CONFIG.PORT}
-  `);
-
-  // Initial aggressive fetch to populate columns (reduced from 8 to 5 for speed)
-  console.log('🚀 Starting aggressive initial fetch to fill columns...');
-  setTimeout(() => {
-    pollRSSFeeds(5);
-  }, 1000);
-  
-  setTimeout(() => {
-    console.log('📰 Initial NewsAPI fetch...');
-    pollNewsAPI();
-  }, 1500);
-  
-  setTimeout(() => {
-    console.log('🌍 Initial geopolitical fetch...');
-    pollGeopoliticalNews();
-  }, 2000);
-  
-  setTimeout(async () => {
-    console.log('🎲 Initial Polymarket fetch...');
-    try {
-      const riskData = await fetchPolymarketRisks();
-      broadcast({ type: 'polymarket_update', data: riskData });
-    } catch (error) {
-      console.error('Initial Polymarket fetch error:', error.message);
-    }
-  }, 2500);
-  
-  setTimeout(async () => {
-    console.log('💱 Initial FX data fetch...');
-    try {
-      const fxData = await fetchFXData();
-      broadcast({ type: 'fx_update', data: fxData });
-    } catch (error) {
-      console.error('Initial FX fetch error:', error.message);
-    }
-  }, 3000);
-  
-  // Connect to Alpaca real-time news stream
-  setTimeout(() => {
-    connectAlpacaNews();
-  }, 3500);
-});
-
-// Graceful shutdown and error handling
-process.on('SIGTERM', () => {
-  console.log('Shutting down gracefully...');
-  server.close(() => process.exit(0));
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error.message);
-});
-
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled rejection:', error.message);
-});
+</body>
+</html>
