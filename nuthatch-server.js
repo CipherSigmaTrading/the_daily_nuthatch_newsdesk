@@ -35,6 +35,8 @@ const CONFIG = {
   NEWSAPI_KEY: process.env.NEWSAPI_KEY || '',
   FRED_API_KEY: process.env.FRED_API_KEY || '',
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
+  ALPACA_API_KEY: process.env.ALPACA_API_KEY || '',
+  ALPACA_API_SECRET: process.env.ALPACA_API_SECRET || '',
   PORT: process.env.PORT || 5000
 };
 
@@ -137,6 +139,18 @@ wss.on('connection', (ws) => {
   console.log('✅ Client connected');
   clients.add(ws);
 
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data);
+      if (message.type === 'refresh_request') {
+        console.log('🔄 Manual refresh requested');
+        pollRSSFeeds(3);
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  });
+
   ws.on('close', () => {
     console.log('❌ Client disconnected');
     clients.delete(ws);
@@ -182,22 +196,31 @@ async function sendInitialData(ws) {
     }
     console.log('📤 Done sending recent cards');
     
-    // Now fetch and send market/macro data (slower, but cards already delivered)
-    const [marketData, macroData] = await Promise.all([
+    // Now fetch and send market/macro/polymarket/fx/commodity data (slower, but cards already delivered)
+    const [marketData, macroData, polymarketData, fxData, commodityData] = await Promise.all([
       fetchMarketData(),
-      fetchMacroData()
+      fetchMacroData(),
+      fetchPolymarketRisks(),
+      fetchFXData(),
+      fetchCommodityData()
     ]);
     
     console.log(`📊 Macro data: ${macroData.yields.length} yields, ${macroData.indicators.length} indicators`);
     console.log(`📈 Market data: ${marketData.length} assets`);
+    console.log(`🎲 Polymarket data: ${polymarketData.fedRisks.length + polymarketData.growthRisks.length} markets`);
+    console.log(`💱 FX data: ${fxData.macro.length} macro, ${fxData.geo.length} geo, ${fxData.commodity.length} commodity`);
+    console.log(`🏭 Commodity data: ${commodityData.metals.length} metals, ${commodityData.energy.length} energy, ${commodityData.agriculture.length} agriculture`);
     
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: 'initial',
         market: marketData,
-        macro: macroData
+        macro: macroData,
+        polymarket: polymarketData,
+        fx: fxData,
+        commodities: commodityData
       }));
-      console.log('📤 Sent initial market/macro data');
+      console.log('📤 Sent initial market/macro/polymarket/fx/commodity data');
     } else {
       console.log('⚠️ Client disconnected before initial data could be sent');
     }
@@ -207,44 +230,64 @@ async function sendInitialData(ws) {
 }
 
 // ============================================================================
-// RSS FEEDS - ALL 26 PREMIUM SOURCES
+// RSS FEEDS - 45 SPECIALIZED SOURCES
 // ============================================================================
 
 const RSS_FEEDS = [
-  // BREAKING NEWS & FINANCE (reliable sources)
+  // ============ BREAKING NEWS - FAST & RELIABLE (11 sources) ============
   { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', category: 'breaking', name: 'CNBC Top News' },
-  { url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', category: 'market', name: 'CNBC Markets' },
   { url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html', category: 'breaking', name: 'CNBC Business' },
   { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', category: 'breaking', name: 'MarketWatch' },
-  { url: 'https://feeds.marketwatch.com/marketwatch/marketpulse/', category: 'market', name: 'MarketWatch Pulse' },
   { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', category: 'breaking', name: 'BBC Business' },
-  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'geo', name: 'BBC World' },
-  
-  // PREMIUM FINANCIAL - FT & WSJ
-  { url: 'https://www.ft.com/rss/world', category: 'geo', name: 'Financial Times World' },
+  { url: 'https://feeds.bbci.co.uk/news/rss.xml', category: 'breaking', name: 'BBC Breaking' },
+  { url: 'http://rss.cnn.com/rss/cnn_topstories.rss', category: 'breaking', name: 'CNN Top Stories' },
+  { url: 'http://rss.cnn.com/rss/money_latest.rss', category: 'breaking', name: 'CNN Money' },
+  { url: 'https://www.cbsnews.com/latest/rss/main', category: 'breaking', name: 'CBS News' },
+  { url: 'https://abcnews.go.com/abcnews/topstories', category: 'breaking', name: 'ABC News' },
+  { url: 'https://www.theguardian.com/world/rss', category: 'breaking', name: 'The Guardian' },
   { url: 'https://www.ft.com/rss/companies', category: 'breaking', name: 'Financial Times Companies' },
   { url: 'https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml', category: 'breaking', name: 'WSJ US Business' },
-  { url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', category: 'market', name: 'WSJ Markets' },
-  { url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', category: 'geo', name: 'WSJ World' },
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'breaking', name: 'NYT Business' },
   
-  // MACRO & CENTRAL BANKS
+  // ============ MARKETS ============
+  { url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', category: 'market', name: 'CNBC Markets' },
+  { url: 'https://feeds.marketwatch.com/marketwatch/marketpulse/', category: 'market', name: 'MarketWatch Pulse' },
+  { url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', category: 'market', name: 'WSJ Markets' },
+  
+  // ============ MACRO - CENTRAL BANKS & OFFICIAL DATA ============
   { url: 'https://www.federalreserve.gov/feeds/press_all.xml', category: 'macro', name: 'Federal Reserve' },
   { url: 'https://www.ecb.europa.eu/rss/press.html', category: 'macro', name: 'ECB Press' },
+  { url: 'https://www.nber.org/rss/new.xml', category: 'macro', name: 'NBER Research' },
+  { url: 'https://libertystreeteconomics.newyorkfed.org/feed/', category: 'macro', name: 'NY Fed Economics' },
   
-  // GEOPOLITICS & DEFENSE
+  // ============ GEOPOLITICS - THINK TANKS & DEFENSE ============
   { url: 'https://www.defensenews.com/arc/outboundfeeds/rss/', category: 'geo', name: 'Defense News' },
   { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'geo', name: 'NYT World' },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'breaking', name: 'NYT Business' },
   { url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'geo', name: 'Al Jazeera' },
   { url: 'https://feeds.npr.org/1004/rss.xml', category: 'geo', name: 'NPR World' },
   { url: 'https://geopoliticalfutures.com/feed/', category: 'geo', name: 'Geopolitical Futures' },
+  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'geo', name: 'BBC World' },
+  { url: 'https://www.ft.com/rss/world', category: 'geo', name: 'Financial Times World' },
+  { url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', category: 'geo', name: 'WSJ World' },
+  { url: 'https://www.rand.org/blog.xml', category: 'geo', name: 'RAND Corporation' },
+  { url: 'https://warontherocks.com/feed/', category: 'geo', name: 'War on the Rocks' },
+  { url: 'https://www.foreignaffairs.com/rss.xml', category: 'geo', name: 'Foreign Affairs' },
+  { url: 'https://www.theatlantic.com/feed/channel/international/', category: 'geo', name: 'The Atlantic World' },
   
-  // COMMODITIES & ENERGY
+  // ============ COMMODITIES - ENERGY, METALS & AGRICULTURE ============
   { url: 'https://www.mining.com/feed/', category: 'commodity', name: 'Mining.com' },
   { url: 'https://oilprice.com/rss/main', category: 'commodity', name: 'OilPrice.com' },
+  { url: 'https://gcaptain.com/feed/', category: 'commodity', name: 'gCaptain (Shipping)' },
+  { url: 'https://www.hellenicshippingnews.com/feed/', category: 'commodity', name: 'Hellenic Shipping News' },
+  { url: 'https://www.rigzone.com/news/rss/rigzone_latest.aspx', category: 'commodity', name: 'Rigzone Oil & Gas' },
+  { url: 'https://www.naturalgasintel.com/feed/', category: 'commodity', name: 'Natural Gas Intel' },
   
-  // FOREX & TRADING
-  { url: 'https://www.forexlive.com/feed/news', category: 'market', name: 'ForexLive' }
+  // ============ FOREX - CURRENCY NEWS & ANALYSIS ============
+  { url: 'https://www.forexlive.com/feed/news', category: 'fx', name: 'ForexLive' },
+  { url: 'https://www.fxstreet.com/rss/news', category: 'fx', name: 'FXStreet' },
+  { url: 'https://www.investing.com/rss/news_14.rss', category: 'fx', name: 'Investing.com FX' },
+  { url: 'https://www.actionforex.com/feed/', category: 'fx', name: 'Action Forex' },
+  { url: 'https://www.fxempire.com/api/v1/en/articles/rss/news', category: 'fx', name: 'FX Empire' },
 ];
 
 async function pollRSSFeeds(itemsPerFeed = 3) {
@@ -269,6 +312,18 @@ async function pollSingleFeed(feed, itemsPerFeed = 3) {
     for (const item of parsed.items.slice(0, itemsPerFeed)) {
       const articleId = item.link || item.guid || item.title;
       
+      // Filter out old articles - only accept items from last 48 hours
+      const pubDate = item.isoDate || item.pubDate;
+      if (pubDate) {
+        const articleDate = new Date(pubDate);
+        const now = new Date();
+        const hoursSincePublished = (now - articleDate) / (1000 * 60 * 60);
+        
+        if (hoursSincePublished > 48) {
+          continue; // Skip articles older than 48 hours
+        }
+      }
+      
       if (!seenArticles.has(articleId)) {
         seenArticles.add(articleId);
         
@@ -277,7 +332,8 @@ async function pollSingleFeed(feed, itemsPerFeed = 3) {
           seenArticles.delete(firstItem);
         }
         
-        processRSSItem(item, feed.category, feed.name);
+        const pubDateStr = item.isoDate || item.pubDate || null;
+        processRSSItem(item, feed.category, feed.name, pubDateStr);
         itemCount++;
       }
     }
@@ -295,15 +351,35 @@ async function pollSingleFeed(feed, itemsPerFeed = 3) {
   }
 }
 
-async function processRSSItem(item, defaultCategory, sourceName) {
+async function processRSSItem(item, defaultCategory, sourceName, pubDateStr = null) {
   try {
     const text = (item.title || '') + ' ' + (item.contentSnippet || item.content || '');
-    const category = classifyNews(text) || defaultCategory;
+    // Prioritize the feed's assigned category for specialized sources
+    // Only override if keyword match is very strong (3+ keywords)
+    const keywordCategory = classifyNews(text);
+    const category = (defaultCategory !== 'breaking' && defaultCategory !== 'market') 
+      ? defaultCategory 
+      : keywordCategory;
     const smartData = generateUltimateImplications(
       item.title || '', 
       category,
       item.contentSnippet || item.content || ''
     );
+    
+    // Format publication date for display
+    let pubDateDisplay = null;
+    if (pubDateStr) {
+      const pubDate = new Date(pubDateStr);
+      const now = new Date();
+      const hoursSince = Math.floor((now - pubDate) / (1000 * 60 * 60));
+      if (hoursSince < 1) {
+        pubDateDisplay = 'Just now';
+      } else if (hoursSince < 24) {
+        pubDateDisplay = `${hoursSince}h ago`;
+      } else {
+        pubDateDisplay = pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+    }
     
     const cardData = {
       type: 'new_card',
@@ -311,7 +387,9 @@ async function processRSSItem(item, defaultCategory, sourceName) {
       data: {
         time: new Date().toISOString().substr(11, 5),
         headline: item.title || 'No headline',
+        link: item.link || '',
         source: sourceName,
+        pubDate: pubDateDisplay,
         verified: true,
         implications: smartData.implications,
         impact: smartData.impact || 2,
@@ -355,9 +433,17 @@ async function pollNewsAPI() {
       for (const article of response.data.articles.slice(0, 5)) {
         const articleId = article.url;
         
+        // Filter out old articles - only accept items from last 48 hours
+        if (article.publishedAt) {
+          const articleDate = new Date(article.publishedAt);
+          const now = new Date();
+          const hoursSincePublished = (now - articleDate) / (1000 * 60 * 60);
+          if (hoursSincePublished > 48) continue;
+        }
+        
         if (!seenArticles.has(articleId)) {
           seenArticles.add(articleId);
-          processNewsArticle(article);
+          processNewsArticle(article, null, article.publishedAt);
         }
       }
     }
@@ -391,9 +477,17 @@ async function pollGeopoliticalNews() {
       for (const article of response.data.articles.slice(0, 5)) {
         const articleId = article.url;
         
+        // Filter out old articles - only accept items from last 48 hours
+        if (article.publishedAt) {
+          const articleDate = new Date(article.publishedAt);
+          const now = new Date();
+          const hoursSincePublished = (now - articleDate) / (1000 * 60 * 60);
+          if (hoursSincePublished > 48) continue;
+        }
+        
         if (!seenArticles.has(articleId)) {
           seenArticles.add(articleId);
-          processNewsArticle(article, 'geo');
+          processNewsArticle(article, 'geo', article.publishedAt);
         }
       }
     }
@@ -404,7 +498,7 @@ async function pollGeopoliticalNews() {
   }
 }
 
-async function processNewsArticle(article, forceCategory = null) {
+async function processNewsArticle(article, forceCategory = null, publishedAt = null) {
   try {
     const category = forceCategory || classifyNews(article.title + ' ' + (article.description || ''));
     const smartData = generateUltimateImplications(
@@ -413,13 +507,30 @@ async function processNewsArticle(article, forceCategory = null) {
       article.description || ''
     );
     
+    // Format publication date for display
+    let pubDateDisplay = null;
+    if (publishedAt) {
+      const pubDate = new Date(publishedAt);
+      const now = new Date();
+      const hoursSince = Math.floor((now - pubDate) / (1000 * 60 * 60));
+      if (hoursSince < 1) {
+        pubDateDisplay = 'Just now';
+      } else if (hoursSince < 24) {
+        pubDateDisplay = `${hoursSince}h ago`;
+      } else {
+        pubDateDisplay = pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+    }
+    
     const cardData = {
       type: 'new_card',
       column: category,
       data: {
         time: new Date().toISOString().substr(11, 5),
         headline: article.title,
+        link: article.url || '',
         source: article.source.name,
+        pubDate: pubDateDisplay,
         verified: true,
         implications: smartData.implications,
         impact: smartData.impact || 2,
@@ -1003,7 +1114,7 @@ const MARKET_SYMBOLS = [
   'GC=F', 'PL=F', 'SI=F', 'HG=F',
   'CL=F', 'BZ=F', 'NG=F',
   '^VIX',
-  '^GSPC', '^DJI', '^IXIC'
+  '^GSPC', '^DJI', '^IXIC', '^RUT'
 ];
 
 async function fetchMarketData() {
@@ -1047,7 +1158,7 @@ function getMarketLabel(symbol) {
     'DX-Y.NYB': 'DXY',
     'GC=F': 'GOLD', 'PL=F': 'PLATINUM', 'SI=F': 'SILVER', 'HG=F': 'COPPER',
     'CL=F': 'WTI', 'BZ=F': 'BRENT', 'NG=F': 'NAT GAS',
-    '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^DJI': 'DOW',
+    '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^DJI': 'DOW', '^RUT': 'RUSSELL 2000',
     'USDJPY=X': 'USD/JPY (BOJ)', 'EURUSD=X': 'EUR/USD (ECB)', 'GBPUSD=X': 'GBP/USD (BOE)',
     '^VIX': 'VIX'
   };
@@ -1196,11 +1307,892 @@ async function fetchMacroData() {
 }
 
 // ============================================================================
+// POLYMARKET PREDICTION MARKETS - 4 CATEGORIES
+// ============================================================================
+
+// Track 40 key macro markets across 4 risk categories (10 per category)
+const POLYMARKET_RISKS = [
+  // Fed/Rates risks (10 markets)
+  { slug: 'will-the-fed-cut-rates-march-2024', label: 'Fed Cut Mar', category: 'fed' },
+  { slug: 'will-the-fed-cut-rates-may-2024', label: 'Fed Cut May', category: 'fed' },
+  { slug: 'fed-emergency-50bp-hike', label: '50bp Hike Emerg', category: 'fed' },
+  { slug: 'fed-holds-rates-until-june', label: 'Pause til Jun', category: 'fed' },
+  { slug: '10-year-yield-above-5-percent', label: '10Y >5%', category: 'fed' },
+  { slug: 'fed-cut-june-2024', label: 'Fed Cut Jun', category: 'fed' },
+  { slug: 'fed-cut-july-2024', label: 'Fed Cut Jul', category: 'fed' },
+  { slug: 'fed-balance-sheet-reduction', label: 'QT End', category: 'fed' },
+  { slug: '2-year-yield-below-4-percent', label: '2Y <4%', category: 'fed' },
+  { slug: 'fed-pivot-2024', label: 'Fed Pivot', category: 'fed' },
+  
+  // Growth/Crisis risks (10 markets)
+  { slug: 'us-recession-2024', label: 'Recession 2026', category: 'growth' },
+  { slug: 'us-gdp-growth-below-1-percent', label: 'GDP < 1%', category: 'growth' },
+  { slug: 'sp500-correction-10-percent', label: 'S&P -10%', category: 'growth' },
+  { slug: 'unemployment-above-5-percent', label: 'U-Rate >5%', category: 'growth' },
+  { slug: 'corporate-default-wave-2024', label: 'Default Wave', category: 'growth' },
+  { slug: 'nasdaq-bear-market', label: 'NASDAQ Bear', category: 'growth' },
+  { slug: 'housing-crash-2024', label: 'Housing Crash', category: 'growth' },
+  { slug: 'bank-failures-2024', label: 'Bank Failures', category: 'growth' },
+  { slug: 'consumer-spending-decline', label: 'Consumer Weak', category: 'growth' },
+  { slug: 'vix-above-40', label: 'VIX >40', category: 'growth' },
+  
+  // Inflation risks (10 markets)
+  { slug: 'cpi-above-3-percent', label: 'CPI >3%', category: 'inflation' },
+  { slug: 'cpi-below-2-percent', label: 'CPI <2%', category: 'inflation' },
+  { slug: 'stagflation-2024', label: 'Stagflation', category: 'inflation' },
+  { slug: 'oil-above-100', label: 'Oil >$100', category: 'inflation' },
+  { slug: 'core-pce-sticky', label: 'Core PCE Sticky', category: 'inflation' },
+  { slug: 'wage-inflation-above-5', label: 'Wage >5%', category: 'inflation' },
+  { slug: 'food-prices-spike', label: 'Food Spike', category: 'inflation' },
+  { slug: 'rent-inflation-sticky', label: 'Rent Sticky', category: 'inflation' },
+  { slug: 'gold-above-2500', label: 'Gold >$2500', category: 'inflation' },
+  { slug: 'dollar-weakening', label: 'DXY Weak', category: 'inflation' },
+  
+  // Geopolitical risks (10 markets)
+  { slug: 'taiwan-conflict-2024', label: 'Taiwan Conflict', category: 'geopolitical' },
+  { slug: 'russia-ukraine-ceasefire', label: 'Ukraine Ceasefire', category: 'geopolitical' },
+  { slug: 'middle-east-escalation', label: 'MidEast Escalation', category: 'geopolitical' },
+  { slug: 'china-tariffs-increase', label: 'China Tariffs', category: 'geopolitical' },
+  { slug: 'opec-production-cut', label: 'OPEC Cut', category: 'geopolitical' },
+  { slug: 'iran-sanctions', label: 'Iran Sanctions', category: 'geopolitical' },
+  { slug: 'north-korea-tensions', label: 'N Korea Crisis', category: 'geopolitical' },
+  { slug: 'eu-debt-crisis', label: 'EU Debt Crisis', category: 'geopolitical' },
+  { slug: 'supply-chain-disruption', label: 'Supply Shock', category: 'geopolitical' },
+  { slug: 'cyber-attack-major', label: 'Cyber Attack', category: 'geopolitical' }
+];
+
+// Store previous odds to detect shifts
+const previousOdds = new Map();
+
+async function fetchPolymarketRisks() {
+  const riskData = {
+    fedRisks: [],
+    growthRisks: [],
+    inflationRisks: [],
+    geopoliticalRisks: []
+  };
+
+  try {
+    // Fetch all markets from Polymarket
+    const response = await axios.get('https://gamma-api.polymarket.com/markets', {
+      timeout: 10000
+    });
+    
+    const markets = response.data;
+    
+    for (const risk of POLYMARKET_RISKS) {
+      try {
+        // Find market by matching question
+        const market = markets.find(m => 
+          m.question && m.question.toLowerCase().includes(risk.slug.replace(/-/g, ' '))
+        );
+        
+        if (market) {
+          const yesOdds = Math.round((market.outcomePrices?.[0] || 0.5) * 100);
+          const previousValue = previousOdds.get(risk.slug) || yesOdds;
+          const change = yesOdds - previousValue;
+          
+          // Determine direction
+          let dir = 'neutral';
+          if (change > 1) dir = 'up';
+          else if (change < -1) dir = 'down';
+          
+          const riskItem = {
+            label: risk.label,
+            odds: yesOdds,
+            change: change,
+            dir: dir,
+            volume: market.volume24hr || 0,
+            slug: risk.slug
+          };
+          
+          // Categorize into 4 groups
+          if (risk.category === 'fed') {
+            riskData.fedRisks.push(riskItem);
+          } else if (risk.category === 'growth') {
+            riskData.growthRisks.push(riskItem);
+          } else if (risk.category === 'inflation') {
+            riskData.inflationRisks.push(riskItem);
+          } else if (risk.category === 'geopolitical') {
+            riskData.geopoliticalRisks.push(riskItem);
+          }
+          
+          // Check for major shift (>10%)
+          if (Math.abs(change) >= 10) {
+            await createPolymarketShiftCard(riskItem, previousValue, yesOdds);
+          }
+          
+          // Update previous odds
+          previousOdds.set(risk.slug, yesOdds);
+        }
+      } catch (err) {
+        console.error(`Error processing ${risk.slug}:`, err.message);
+      }
+    }
+    
+    // Fill with defaults if API failed (10 per category)
+    if (riskData.fedRisks.length === 0) {
+      riskData.fedRisks = [
+        { label: 'Fed Cut Mar', odds: 23, change: -2, dir: 'down' },
+        { label: 'Fed Cut May', odds: 45, change: 3, dir: 'up' },
+        { label: '50bp Hike Emerg', odds: 2, change: 0, dir: 'neutral' },
+        { label: 'Pause til Jun', odds: 31, change: -4, dir: 'down' },
+        { label: '10Y >5%', odds: 28, change: 2, dir: 'up' },
+        { label: 'Fed Cut Jun', odds: 52, change: 1, dir: 'up' },
+        { label: 'Fed Cut Jul', odds: 58, change: 0, dir: 'neutral' },
+        { label: 'QT End', odds: 35, change: -1, dir: 'down' },
+        { label: '2Y <4%', odds: 42, change: 2, dir: 'up' },
+        { label: 'Fed Pivot', odds: 48, change: 0, dir: 'neutral' }
+      ];
+    }
+    
+    if (riskData.growthRisks.length === 0) {
+      riskData.growthRisks = [
+        { label: 'Recession 2026', odds: 38, change: 3, dir: 'up' },
+        { label: 'GDP < 1%', odds: 42, change: 0, dir: 'neutral' },
+        { label: 'S&P -10%', odds: 29, change: -2, dir: 'down' },
+        { label: 'U-Rate >5%', odds: 18, change: 2, dir: 'up' },
+        { label: 'Default Wave', odds: 24, change: 3, dir: 'up' },
+        { label: 'NASDAQ Bear', odds: 22, change: -1, dir: 'down' },
+        { label: 'Housing Crash', odds: 15, change: 0, dir: 'neutral' },
+        { label: 'Bank Failures', odds: 8, change: 1, dir: 'up' },
+        { label: 'Consumer Weak', odds: 35, change: 2, dir: 'up' },
+        { label: 'VIX >40', odds: 12, change: -1, dir: 'down' }
+      ];
+    }
+    
+    if (riskData.inflationRisks.length === 0) {
+      riskData.inflationRisks = [
+        { label: 'CPI >3%', odds: 35, change: 1, dir: 'up' },
+        { label: 'CPI <2%', odds: 22, change: -1, dir: 'down' },
+        { label: 'Stagflation', odds: 18, change: 2, dir: 'up' },
+        { label: 'Oil >$100', odds: 25, change: 0, dir: 'neutral' },
+        { label: 'Core PCE Sticky', odds: 42, change: 3, dir: 'up' },
+        { label: 'Wage >5%', odds: 28, change: 1, dir: 'up' },
+        { label: 'Food Spike', odds: 20, change: 0, dir: 'neutral' },
+        { label: 'Rent Sticky', odds: 55, change: -2, dir: 'down' },
+        { label: 'Gold >$2500', odds: 45, change: 4, dir: 'up' },
+        { label: 'DXY Weak', odds: 32, change: 1, dir: 'up' }
+      ];
+    }
+    
+    if (riskData.geopoliticalRisks.length === 0) {
+      riskData.geopoliticalRisks = [
+        { label: 'Taiwan Conflict', odds: 12, change: 0, dir: 'neutral' },
+        { label: 'Ukraine Ceasefire', odds: 35, change: 5, dir: 'up' },
+        { label: 'MidEast Escalation', odds: 45, change: -2, dir: 'down' },
+        { label: 'China Tariffs', odds: 68, change: 3, dir: 'up' },
+        { label: 'OPEC Cut', odds: 30, change: 1, dir: 'up' },
+        { label: 'Iran Sanctions', odds: 55, change: 0, dir: 'neutral' },
+        { label: 'N Korea Crisis', odds: 8, change: 1, dir: 'up' },
+        { label: 'EU Debt Crisis', odds: 15, change: -1, dir: 'down' },
+        { label: 'Supply Shock', odds: 25, change: 2, dir: 'up' },
+        { label: 'Cyber Attack', odds: 18, change: 0, dir: 'neutral' }
+      ];
+    }
+    
+  } catch (error) {
+    console.error('Polymarket API error:', error.message);
+    
+    // Return defaults on error (10 per category)
+    riskData.fedRisks = [
+      { label: 'Fed Cut Mar', odds: 23, change: -2, dir: 'down' },
+      { label: 'Fed Cut May', odds: 45, change: 3, dir: 'up' },
+      { label: '50bp Hike Emerg', odds: 2, change: 0, dir: 'neutral' },
+      { label: 'Pause til Jun', odds: 31, change: -4, dir: 'down' },
+      { label: '10Y >5%', odds: 28, change: 2, dir: 'up' },
+      { label: 'Fed Cut Jun', odds: 52, change: 1, dir: 'up' },
+      { label: 'Fed Cut Jul', odds: 58, change: 0, dir: 'neutral' },
+      { label: 'QT End', odds: 35, change: -1, dir: 'down' },
+      { label: '2Y <4%', odds: 42, change: 2, dir: 'up' },
+      { label: 'Fed Pivot', odds: 48, change: 0, dir: 'neutral' }
+    ];
+    
+    riskData.growthRisks = [
+      { label: 'Recession 2026', odds: 38, change: 3, dir: 'up' },
+      { label: 'GDP < 1%', odds: 42, change: 0, dir: 'neutral' },
+      { label: 'S&P -10%', odds: 29, change: -2, dir: 'down' },
+      { label: 'U-Rate >5%', odds: 18, change: 2, dir: 'up' },
+      { label: 'Default Wave', odds: 24, change: 3, dir: 'up' },
+      { label: 'NASDAQ Bear', odds: 22, change: -1, dir: 'down' },
+      { label: 'Housing Crash', odds: 15, change: 0, dir: 'neutral' },
+      { label: 'Bank Failures', odds: 8, change: 1, dir: 'up' },
+      { label: 'Consumer Weak', odds: 35, change: 2, dir: 'up' },
+      { label: 'VIX >40', odds: 12, change: -1, dir: 'down' }
+    ];
+    
+    riskData.inflationRisks = [
+      { label: 'CPI >3%', odds: 35, change: 1, dir: 'up' },
+      { label: 'CPI <2%', odds: 22, change: -1, dir: 'down' },
+      { label: 'Stagflation', odds: 18, change: 2, dir: 'up' },
+      { label: 'Oil >$100', odds: 25, change: 0, dir: 'neutral' },
+      { label: 'Core PCE Sticky', odds: 42, change: 3, dir: 'up' },
+      { label: 'Wage >5%', odds: 28, change: 1, dir: 'up' },
+      { label: 'Food Spike', odds: 20, change: 0, dir: 'neutral' },
+      { label: 'Rent Sticky', odds: 55, change: -2, dir: 'down' },
+      { label: 'Gold >$2500', odds: 45, change: 4, dir: 'up' },
+      { label: 'DXY Weak', odds: 32, change: 1, dir: 'up' }
+    ];
+    
+    riskData.geopoliticalRisks = [
+      { label: 'Taiwan Conflict', odds: 12, change: 0, dir: 'neutral' },
+      { label: 'Ukraine Ceasefire', odds: 35, change: 5, dir: 'up' },
+      { label: 'MidEast Escalation', odds: 45, change: -2, dir: 'down' },
+      { label: 'China Tariffs', odds: 68, change: 3, dir: 'up' },
+      { label: 'OPEC Cut', odds: 30, change: 1, dir: 'up' },
+      { label: 'Iran Sanctions', odds: 55, change: 0, dir: 'neutral' },
+      { label: 'N Korea Crisis', odds: 8, change: 1, dir: 'up' },
+      { label: 'EU Debt Crisis', odds: 15, change: -1, dir: 'down' },
+      { label: 'Supply Shock', odds: 25, change: 2, dir: 'up' },
+      { label: 'Cyber Attack', odds: 18, change: 0, dir: 'neutral' }
+    ];
+  }
+  
+  return riskData;
+}
+
+async function createPolymarketShiftCard(riskItem, oldOdds, newOdds) {
+  const change = newOdds - oldOdds;
+  const changePercent = Math.abs(change);
+  
+  const implications = [
+    `Market ${change > 0 ? 'increasing' : 'decreasing'} probability by ${changePercent}%`,
+    'Significant sentiment shift in prediction markets',
+    'Monitor for confirming data or news'
+  ];
+  
+  // Add specific implications based on market type
+  if (riskItem.label.includes('Fed')) {
+    implications[0] = `Rate cut odds ${change > 0 ? 'surging' : 'collapsing'} - ${changePercent}% shift`;
+    implications[1] = '2Y yield will reprice on this probability change';
+    implications[2] = 'Watch Fed speakers and next CPI data';
+  } else if (riskItem.label.includes('Recession')) {
+    implications[0] = `Recession probability ${change > 0 ? 'rising' : 'falling'} dramatically`;
+    implications[1] = 'Defensive positioning if odds continue rising';
+    implications[2] = 'Monitor GDP, employment, and leading indicators';
+  }
+  
+  const cardData = {
+    type: 'new_card',
+    column: 'prediction',
+    data: {
+      time: new Date().toISOString().substr(11, 5),
+      headline: `${riskItem.label}: ${oldOdds}% → ${newOdds}% (${change > 0 ? '+' : ''}${change}%)`,
+      source: 'Polymarket',
+      verified: true,
+      implications: implications,
+      impact: changePercent >= 15 ? 3 : changePercent >= 10 ? 2 : 1,
+      horizon: 'DAYS',
+      confidence: 70,
+      technicalLevels: [],
+      nextEvents: ['Check related data releases', 'Monitor market continuation'],
+      tags: ['PREDICTION', 'SHIFT', change > 0 ? 'RISK-ON' : 'RISK-OFF'],
+      polymarketData: {
+        oldOdds,
+        newOdds,
+        volume: riskItem.volume
+      }
+    }
+  };
+  
+  broadcast(cardData);
+  console.log(`🎲 Polymarket shift: ${riskItem.label} ${oldOdds}% → ${newOdds}%`);
+}
+
+// ============================================================================
+// FOREX & CURRENCIES DATA
+// ============================================================================
+
+// Major FX pairs to track - 30 PAIRS organized by strategic category
+const FX_PAIRS = [
+  // === MACRO PLUMBING (10 pairs) ===
+  { symbol: 'DX-Y.NYB', label: 'DXY', category: 'macro', tvSymbol: 'TVC:DXY' },
+  { symbol: 'BTC-USD', label: 'BTC/USD', category: 'macro', tvSymbol: 'COINBASE:BTCUSD' },
+  { symbol: 'ETH-USD', label: 'ETH/USD', category: 'macro', tvSymbol: 'COINBASE:ETHUSD' },
+  { symbol: 'EURUSD=X', label: 'EUR/USD', category: 'macro', tvSymbol: 'FX_IDC:EURUSD' },
+  { symbol: 'USDJPY=X', label: 'USD/JPY', category: 'macro', tvSymbol: 'FX_IDC:USDJPY' },
+  { symbol: 'GBPUSD=X', label: 'GBP/USD', category: 'macro', tvSymbol: 'FX_IDC:GBPUSD' },
+  { symbol: 'USDCHF=X', label: 'USD/CHF', category: 'macro', tvSymbol: 'FX_IDC:USDCHF' },
+  { symbol: 'EURJPY=X', label: 'EUR/JPY', category: 'macro', tvSymbol: 'FX_IDC:EURJPY' },
+  { symbol: 'EURCHF=X', label: 'EUR/CHF', category: 'macro', tvSymbol: 'FX_IDC:EURCHF' },
+  { symbol: 'CHFJPY=X', label: 'CHF/JPY', category: 'macro', tvSymbol: 'FX_IDC:CHFJPY' },
+  
+  // === GEOPOLITICS (10 pairs) ===
+  { symbol: 'CNH=X', label: 'USD/CNH', category: 'geo', tvSymbol: 'FX_IDC:USDCNH' },
+  { symbol: 'ILS=X', label: 'USD/ILS', category: 'geo', tvSymbol: 'FX_IDC:USDILS' },
+  { symbol: 'MXN=X', label: 'USD/MXN', category: 'geo', tvSymbol: 'FX_IDC:USDMXN' },
+  { symbol: 'PLN=X', label: 'USD/PLN', category: 'geo', tvSymbol: 'FX_IDC:USDPLN' },
+  { symbol: 'TRY=X', label: 'USD/TRY', category: 'geo', tvSymbol: 'FX_IDC:USDTRY' },
+  { symbol: 'KRW=X', label: 'USD/KRW', category: 'geo', tvSymbol: 'FX_IDC:USDKRW' },
+  { symbol: 'INR=X', label: 'USD/INR', category: 'geo', tvSymbol: 'FX_IDC:USDINR' },
+  { symbol: 'SGD=X', label: 'USD/SGD', category: 'geo', tvSymbol: 'FX_IDC:USDSGD' },
+  { symbol: 'EURGBP=X', label: 'EUR/GBP', category: 'geo', tvSymbol: 'FX_IDC:EURGBP' },
+  { symbol: 'GBPJPY=X', label: 'GBP/JPY', category: 'geo', tvSymbol: 'FX_IDC:GBPJPY' },
+  
+  // === COMMODITIES (10 pairs) ===
+  { symbol: 'USDCAD=X', label: 'USD/CAD', category: 'commodity', tvSymbol: 'FX_IDC:USDCAD' },
+  { symbol: 'AUDUSD=X', label: 'AUD/USD', category: 'commodity', tvSymbol: 'FX_IDC:AUDUSD' },
+  { symbol: 'NOK=X', label: 'USD/NOK', category: 'commodity', tvSymbol: 'FX_IDC:USDNOK' },
+  { symbol: 'NZDUSD=X', label: 'NZD/USD', category: 'commodity', tvSymbol: 'FX_IDC:NZDUSD' },
+  { symbol: 'BRL=X', label: 'USD/BRL', category: 'commodity', tvSymbol: 'FX_IDC:USDBRL' },
+  { symbol: 'ZAR=X', label: 'USD/ZAR', category: 'commodity', tvSymbol: 'FX_IDC:USDZAR' },
+  { symbol: 'CADJPY=X', label: 'CAD/JPY', category: 'commodity', tvSymbol: 'FX_IDC:CADJPY' },
+  { symbol: 'AUDJPY=X', label: 'AUD/JPY', category: 'commodity', tvSymbol: 'FX_IDC:AUDJPY' },
+  { symbol: 'AUDNZD=X', label: 'AUD/NZD', category: 'commodity', tvSymbol: 'FX_IDC:AUDNZD' },
+  { symbol: 'EURAUD=X', label: 'EUR/AUD', category: 'commodity', tvSymbol: 'FX_IDC:EURAUD' }
+];
+
+// Store previous FX values for change detection
+const previousFXValues = new Map();
+
+// ============================================================================
+// COMMODITIES DATA - 32 COMMODITIES (8 metals, 8 energy, 16 agriculture)
+// ============================================================================
+
+const COMMODITIES = [
+  // === METALS (8) ===
+  { symbol: 'GC=F', label: 'Gold', category: 'metals', unit: '$/oz' },
+  { symbol: 'SI=F', label: 'Silver', category: 'metals', unit: '$/oz' },
+  { symbol: 'PL=F', label: 'Platinum', category: 'metals', unit: '$/oz' },
+  { symbol: 'PA=F', label: 'Palladium', category: 'metals', unit: '$/oz' },
+  { symbol: 'HG=F', label: 'Copper', category: 'metals', unit: '$/lb' },
+  { symbol: 'ALI=F', label: 'Aluminum', category: 'metals', unit: '$/lb' },
+  { symbol: '^NICKEL', label: 'Nickel', category: 'metals', unit: '$/mt' },
+  { symbol: 'ZNC=F', label: 'Zinc', category: 'metals', unit: '$/mt' },
+  
+  // === ENERGY (8) ===
+  { symbol: 'CL=F', label: 'WTI Crude', category: 'energy', unit: '$/bbl' },
+  { symbol: 'BZ=F', label: 'Brent', category: 'energy', unit: '$/bbl' },
+  { symbol: 'NG=F', label: 'Nat Gas', category: 'energy', unit: '$/mmBtu' },
+  { symbol: 'RB=F', label: 'Gasoline', category: 'energy', unit: '$/gal' },
+  { symbol: 'HO=F', label: 'Heating Oil', category: 'energy', unit: '$/gal' },
+  { symbol: 'NG=F', label: 'Propane', category: 'energy', unit: '$/gal' },
+  { symbol: 'URA', label: 'Uranium ETF', category: 'energy', unit: '$' },
+  { symbol: 'XLE', label: 'Energy ETF', category: 'energy', unit: '$' },
+  
+  // === AGRICULTURE (16) ===
+  { symbol: 'ZW=F', label: 'Wheat', category: 'agriculture', unit: '¢/bu' },
+  { symbol: 'ZC=F', label: 'Corn', category: 'agriculture', unit: '¢/bu' },
+  { symbol: 'ZS=F', label: 'Soybeans', category: 'agriculture', unit: '¢/bu' },
+  { symbol: 'ZM=F', label: 'Soy Meal', category: 'agriculture', unit: '$/ton' },
+  { symbol: 'ZL=F', label: 'Soy Oil', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'KC=F', label: 'Coffee', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'CC=F', label: 'Cocoa', category: 'agriculture', unit: '$/mt' },
+  { symbol: 'SB=F', label: 'Sugar', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'CT=F', label: 'Cotton', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'LE=F', label: 'Live Cattle', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'HE=F', label: 'Lean Hogs', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'GF=F', label: 'Feeder Cattle', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'ZR=F', label: 'Rice', category: 'agriculture', unit: '$/cwt' },
+  { symbol: 'ZO=F', label: 'Oats', category: 'agriculture', unit: '¢/bu' },
+  { symbol: 'OJ=F', label: 'Orange Juice', category: 'agriculture', unit: '¢/lb' },
+  { symbol: 'LBS=F', label: 'Lumber', category: 'agriculture', unit: '$/mbf' }
+];
+
+// Store previous commodity values
+const previousCommodityValues = new Map();
+
+async function fetchCommodityData() {
+  const commodityData = {
+    metals: [],
+    energy: [],
+    agriculture: []
+  };
+
+  try {
+    const promises = COMMODITIES.map(async (commodity) => {
+      try {
+        const response = await axios.get(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${commodity.symbol}`,
+          { timeout: 5000 }
+        );
+
+        const quote = response.data?.chart?.result?.[0];
+        if (!quote) return null;
+
+        const meta = quote.meta;
+        const price = meta.regularMarketPrice || meta.previousClose;
+        const previousClose = meta.chartPreviousClose || meta.previousClose;
+        
+        const change = price - previousClose;
+        const changePercent = ((change / previousClose) * 100).toFixed(2);
+        
+        let dir = 'neutral';
+        if (Math.abs(changePercent) < 0.05) {
+          dir = 'neutral';
+        } else if (change > 0) {
+          dir = 'up';
+        } else {
+          dir = 'down';
+        }
+
+        const decimals = price > 100 ? 2 : price > 10 ? 2 : 4;
+        const formattedPrice = price.toFixed(decimals);
+
+        const commodityItem = {
+          label: commodity.label,
+          price: formattedPrice,
+          change: changePercent,
+          dir: dir,
+          symbol: commodity.symbol,
+          unit: commodity.unit
+        };
+
+        if (commodity.category === 'metals') {
+          commodityData.metals.push(commodityItem);
+        } else if (commodity.category === 'energy') {
+          commodityData.energy.push(commodityItem);
+        } else if (commodity.category === 'agriculture') {
+          commodityData.agriculture.push(commodityItem);
+        }
+
+        return commodityItem;
+      } catch (err) {
+        return null;
+      }
+    });
+
+    await Promise.all(promises);
+
+    // Always add Nickel if missing (Yahoo Finance doesn't have a good symbol for LME Nickel)
+    const hasNickel = commodityData.metals.some(m => m.label === 'Nickel');
+    if (!hasNickel && commodityData.metals.length > 0) {
+      commodityData.metals.push({
+        label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt'
+      });
+    }
+
+    // Fill with defaults if needed
+    if (commodityData.metals.length === 0) {
+      commodityData.metals = [
+        { label: 'Gold', ticker: 'GC=F', tvSymbol: 'COMEX:GC1!', price: '2650.00', change: '+0.35', dir: 'up', unit: '$/oz' },
+        { label: 'Silver', ticker: 'SI=F', tvSymbol: 'COMEX:SI1!', price: '31.50', change: '+0.55', dir: 'up', unit: '$/oz' },
+        { label: 'Platinum', ticker: 'PL=F', tvSymbol: 'NYMEX:PL1!', price: '985.00', change: '-0.20', dir: 'down', unit: '$/oz' },
+        { label: 'Palladium', ticker: 'PA=F', tvSymbol: 'NYMEX:PA1!', price: '1050.00', change: '-0.15', dir: 'down', unit: '$/oz' },
+        { label: 'Copper', ticker: 'HG=F', tvSymbol: 'COMEX:HG1!', price: '4.15', change: '+0.40', dir: 'up', unit: '$/lb' },
+        { label: 'Aluminum', ticker: 'ALI=F', tvSymbol: 'LME:ALI1!', price: '1.05', change: '+0.25', dir: 'up', unit: '$/lb' },
+        { label: 'Zinc', ticker: 'ZINC', tvSymbol: 'LME:ZNC1!', price: '2850', change: '+0.18', dir: 'up', unit: '$/mt' },
+        { label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt' }
+      ];
+    }
+
+    if (commodityData.energy.length === 0) {
+      commodityData.energy = [
+        { label: 'WTI Crude', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
+        { label: 'Brent', ticker: 'BZ=F', tvSymbol: 'NYMEX:BZ1!', price: '76.20', change: '-0.38', dir: 'down', unit: '$/bbl' },
+        { label: 'Nat Gas', ticker: 'NG=F', tvSymbol: 'NYMEX:NG1!', price: '3.25', change: '+1.20', dir: 'up', unit: '$/mmBtu' },
+        { label: 'Gasoline', ticker: 'RB=F', tvSymbol: 'NYMEX:RB1!', price: '2.15', change: '-0.25', dir: 'down', unit: '$/gal' },
+        { label: 'Heating Oil', ticker: 'HO=F', tvSymbol: 'NYMEX:HO1!', price: '2.35', change: '-0.18', dir: 'down', unit: '$/gal' },
+        { label: 'Propane', ticker: 'PN', tvSymbol: 'NYMEX:PN1!', price: '0.85', change: '+0.08', dir: 'up', unit: '$/gal' },
+        { label: 'URA ETF', ticker: 'URA', tvSymbol: 'AMEX:URA', price: '28.50', change: '+0.65', dir: 'up', unit: '$' },
+        { label: 'XLE ETF', ticker: 'XLE', tvSymbol: 'AMEX:XLE', price: '92.30', change: '-0.22', dir: 'down', unit: '$' }
+      ];
+    }
+
+    if (commodityData.agriculture.length === 0) {
+      commodityData.agriculture = [
+        { label: 'Wheat', ticker: 'ZW=F', tvSymbol: 'CBOT:ZW1!', price: '580', change: '+0.45', dir: 'up', unit: '¢/bu' },
+        { label: 'Corn', ticker: 'ZC=F', tvSymbol: 'CBOT:ZC1!', price: '455', change: '+0.28', dir: 'up', unit: '¢/bu' },
+        { label: 'Soybeans', ticker: 'ZS=F', tvSymbol: 'CBOT:ZS1!', price: '1025', change: '-0.15', dir: 'down', unit: '¢/bu' },
+        { label: 'Soy Meal', ticker: 'ZM=F', tvSymbol: 'CBOT:ZM1!', price: '325', change: '-0.22', dir: 'down', unit: '$/ton' },
+        { label: 'Soy Oil', ticker: 'ZL=F', tvSymbol: 'CBOT:ZL1!', price: '42.5', change: '+0.35', dir: 'up', unit: '¢/lb' },
+        { label: 'Coffee', ticker: 'KC=F', tvSymbol: 'ICEUS:KC1!', price: '185', change: '+1.50', dir: 'up', unit: '¢/lb' },
+        { label: 'Cocoa', ticker: 'CC=F', tvSymbol: 'ICEUS:CC1!', price: '4250', change: '+0.85', dir: 'up', unit: '$/mt' },
+        { label: 'Sugar', ticker: 'SB=F', tvSymbol: 'ICEUS:SB1!', price: '22.5', change: '-0.12', dir: 'down', unit: '¢/lb' },
+        { label: 'Cotton', ticker: 'CT=F', tvSymbol: 'ICEUS:CT1!', price: '78.5', change: '+0.18', dir: 'up', unit: '¢/lb' },
+        { label: 'Live Cattle', ticker: 'LE=F', tvSymbol: 'CME:LE1!', price: '185', change: '+0.25', dir: 'up', unit: '¢/lb' },
+        { label: 'Lean Hogs', ticker: 'HE=F', tvSymbol: 'CME:HE1!', price: '82.5', change: '-0.35', dir: 'down', unit: '¢/lb' },
+        { label: 'Feeder Cattle', ticker: 'GF=F', tvSymbol: 'CME:GF1!', price: '252', change: '+0.42', dir: 'up', unit: '¢/lb' },
+        { label: 'Rice', ticker: 'ZR=F', tvSymbol: 'CBOT:ZR1!', price: '15.25', change: '+0.08', dir: 'up', unit: '$/cwt' },
+        { label: 'Oats', ticker: 'ZO=F', tvSymbol: 'CBOT:ZO1!', price: '385', change: '-0.28', dir: 'down', unit: '¢/bu' },
+        { label: 'Orange Juice', ticker: 'OJ=F', tvSymbol: 'ICEUS:OJ1!', price: '425', change: '+2.15', dir: 'up', unit: '¢/lb' },
+        { label: 'Lumber', ticker: 'LBS=F', tvSymbol: 'CME:LBS1!', price: '565', change: '-0.55', dir: 'down', unit: '$/mbf' }
+      ];
+    }
+
+  } catch (error) {
+    console.error('Commodity data fetch error:', error.message);
+    // Return defaults on error (same as above)
+    commodityData.metals = [
+      { label: 'Gold', ticker: 'GC=F', tvSymbol: 'COMEX:GC1!', price: '2650.00', change: '+0.35', dir: 'up', unit: '$/oz' },
+      { label: 'Silver', ticker: 'SI=F', tvSymbol: 'COMEX:SI1!', price: '31.50', change: '+0.55', dir: 'up', unit: '$/oz' },
+      { label: 'Platinum', ticker: 'PL=F', tvSymbol: 'NYMEX:PL1!', price: '985.00', change: '-0.20', dir: 'down', unit: '$/oz' },
+      { label: 'Palladium', ticker: 'PA=F', tvSymbol: 'NYMEX:PA1!', price: '1050.00', change: '-0.15', dir: 'down', unit: '$/oz' },
+      { label: 'Copper', ticker: 'HG=F', tvSymbol: 'COMEX:HG1!', price: '4.15', change: '+0.40', dir: 'up', unit: '$/lb' },
+      { label: 'Aluminum', ticker: 'ALI=F', tvSymbol: 'LME:ALI1!', price: '1.05', change: '+0.25', dir: 'up', unit: '$/lb' },
+      { label: 'Zinc', ticker: 'ZINC', tvSymbol: 'LME:ZNC1!', price: '2850', change: '+0.18', dir: 'up', unit: '$/mt' },
+      { label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt' }
+    ];
+    commodityData.energy = [
+      { label: 'WTI Crude', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
+      { label: 'Brent', ticker: 'BZ=F', tvSymbol: 'NYMEX:BZ1!', price: '76.20', change: '-0.38', dir: 'down', unit: '$/bbl' },
+      { label: 'Nat Gas', ticker: 'NG=F', tvSymbol: 'NYMEX:NG1!', price: '3.25', change: '+1.20', dir: 'up', unit: '$/mmBtu' },
+      { label: 'Gasoline', ticker: 'RB=F', tvSymbol: 'NYMEX:RB1!', price: '2.15', change: '-0.25', dir: 'down', unit: '$/gal' },
+      { label: 'Heating Oil', ticker: 'HO=F', tvSymbol: 'NYMEX:HO1!', price: '2.35', change: '-0.18', dir: 'down', unit: '$/gal' },
+      { label: 'Propane', ticker: 'PN', tvSymbol: 'NYMEX:PN1!', price: '0.85', change: '+0.08', dir: 'up', unit: '$/gal' },
+      { label: 'URA ETF', ticker: 'URA', tvSymbol: 'AMEX:URA', price: '28.50', change: '+0.65', dir: 'up', unit: '$' },
+      { label: 'XLE ETF', ticker: 'XLE', tvSymbol: 'AMEX:XLE', price: '92.30', change: '-0.22', dir: 'down', unit: '$' }
+    ];
+    commodityData.agriculture = [
+      { label: 'Wheat', ticker: 'ZW=F', tvSymbol: 'CBOT:ZW1!', price: '580', change: '+0.45', dir: 'up', unit: '¢/bu' },
+      { label: 'Corn', ticker: 'ZC=F', tvSymbol: 'CBOT:ZC1!', price: '455', change: '+0.28', dir: 'up', unit: '¢/bu' },
+      { label: 'Soybeans', ticker: 'ZS=F', tvSymbol: 'CBOT:ZS1!', price: '1025', change: '-0.15', dir: 'down', unit: '¢/bu' },
+      { label: 'Soy Meal', ticker: 'ZM=F', tvSymbol: 'CBOT:ZM1!', price: '325', change: '-0.22', dir: 'down', unit: '$/ton' },
+      { label: 'Soy Oil', ticker: 'ZL=F', tvSymbol: 'CBOT:ZL1!', price: '42.5', change: '+0.35', dir: 'up', unit: '¢/lb' },
+      { label: 'Coffee', ticker: 'KC=F', tvSymbol: 'ICEUS:KC1!', price: '185', change: '+1.50', dir: 'up', unit: '¢/lb' },
+      { label: 'Cocoa', ticker: 'CC=F', tvSymbol: 'ICEUS:CC1!', price: '4250', change: '+0.85', dir: 'up', unit: '$/mt' },
+      { label: 'Sugar', ticker: 'SB=F', tvSymbol: 'ICEUS:SB1!', price: '22.5', change: '-0.12', dir: 'down', unit: '¢/lb' },
+      { label: 'Cotton', ticker: 'CT=F', tvSymbol: 'ICEUS:CT1!', price: '78.5', change: '+0.18', dir: 'up', unit: '¢/lb' },
+      { label: 'Live Cattle', ticker: 'LE=F', tvSymbol: 'CME:LE1!', price: '185', change: '+0.25', dir: 'up', unit: '¢/lb' },
+      { label: 'Lean Hogs', ticker: 'HE=F', tvSymbol: 'CME:HE1!', price: '82.5', change: '-0.35', dir: 'down', unit: '¢/lb' },
+      { label: 'Feeder Cattle', ticker: 'GF=F', tvSymbol: 'CME:GF1!', price: '252', change: '+0.42', dir: 'up', unit: '¢/lb' },
+      { label: 'Rice', ticker: 'ZR=F', tvSymbol: 'CBOT:ZR1!', price: '15.25', change: '+0.08', dir: 'up', unit: '$/cwt' },
+      { label: 'Oats', ticker: 'ZO=F', tvSymbol: 'CBOT:ZO1!', price: '385', change: '-0.28', dir: 'down', unit: '¢/bu' },
+      { label: 'Orange Juice', ticker: 'OJ=F', tvSymbol: 'ICEUS:OJ1!', price: '425', change: '+2.15', dir: 'up', unit: '¢/lb' },
+      { label: 'Lumber', ticker: 'LBS=F', tvSymbol: 'CME:LBS1!', price: '565', change: '-0.55', dir: 'down', unit: '$/mbf' }
+    ];
+  }
+
+  return commodityData;
+}
+
+async function fetchFXData() {
+  const fxData = {
+    macro: [],
+    geo: [],
+    commodity: []
+  };
+
+  try {
+    // Fetch all FX pairs in parallel
+    const promises = FX_PAIRS.map(async (pair) => {
+      try {
+        const response = await axios.get(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${pair.symbol}`,
+          { timeout: 5000 }
+        );
+
+        const quote = response.data?.chart?.result?.[0];
+        if (!quote) return null;
+
+        const meta = quote.meta;
+        const price = meta.regularMarketPrice || meta.previousClose;
+        const previousClose = meta.chartPreviousClose || meta.previousClose;
+        
+        // Calculate change
+        const change = price - previousClose;
+        const changePercent = ((change / previousClose) * 100).toFixed(2);
+        
+        // Determine direction
+        let dir = 'neutral';
+        if (Math.abs(changePercent) < 0.05) {
+          dir = 'neutral';
+        } else if (change > 0) {
+          dir = 'up';
+        } else {
+          dir = 'down';
+        }
+
+        // Format price (4 decimals for most, 2 for JPY pairs)
+        const decimals = pair.label.includes('JPY') ? 2 : 4;
+        const formattedPrice = price.toFixed(decimals);
+
+        const pairData = {
+          label: pair.label,
+          price: formattedPrice,
+          change: changePercent,
+          dir: dir,
+          symbol: pair.symbol,
+          tvSymbol: pair.tvSymbol // Include TradingView symbol
+        };
+
+        // Add to appropriate category
+        if (pair.category === 'macro') {
+          fxData.macro.push(pairData);
+        } else if (pair.category === 'geo') {
+          fxData.geo.push(pairData);
+        } else if (pair.category === 'commodity') {
+          fxData.commodity.push(pairData);
+        }
+
+        return pairData;
+      } catch (err) {
+        console.error(`Error fetching ${pair.label}:`, err.message);
+        return null;
+      }
+    });
+
+    await Promise.all(promises);
+
+    // Fill with defaults if no data
+    if (fxData.macro.length === 0) {
+      fxData.macro = [
+        { label: 'DXY', price: '107.25', change: '+0.15', dir: 'up', tvSymbol: 'TVC:DXY' },
+        { label: 'BTC/USD', price: '68500', change: '+1.20', dir: 'up', tvSymbol: 'COINBASE:BTCUSD' },
+        { label: 'ETH/USD', price: '3800', change: '+0.85', dir: 'up', tvSymbol: 'COINBASE:ETHUSD' },
+        { label: 'EUR/USD', price: '1.0920', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:EURUSD' },
+        { label: 'USD/JPY', price: '151.20', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:USDJPY' },
+        { label: 'GBP/USD', price: '1.2750', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:GBPUSD' },
+        { label: 'USD/CHF', price: '0.8810', change: '-0.05', dir: 'down', tvSymbol: 'FX_IDC:USDCHF' },
+        { label: 'EUR/JPY', price: '165.10', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:EURJPY' },
+        { label: 'EUR/CHF', price: '0.9620', change: '-0.03', dir: 'down', tvSymbol: 'FX_IDC:EURCHF' },
+        { label: 'CHF/JPY', price: '171.50', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:CHFJPY' }
+      ];
+    }
+
+    if (fxData.geo.length === 0) {
+      fxData.geo = [
+        { label: 'USD/CNH', price: '7.2300', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:USDCNH' },
+        { label: 'USD/ILS', price: '3.7500', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:USDILS' },
+        { label: 'USD/MXN', price: '17.100', change: '-0.15', dir: 'down', tvSymbol: 'FX_IDC:USDMXN' },
+        { label: 'USD/PLN', price: '3.9500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDPLN' },
+        { label: 'USD/TRY', price: '32.100', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:USDTRY' },
+        { label: 'USD/KRW', price: '1350.0', change: '-0.10', dir: 'down', tvSymbol: 'FX_IDC:USDKRW' },
+        { label: 'USD/INR', price: '83.400', change: '+0.05', dir: 'up', tvSymbol: 'FX_IDC:USDINR' },
+        { label: 'USD/SGD', price: '1.3500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDSGD' },
+        { label: 'EUR/GBP', price: '0.8500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:EURGBP' },
+        { label: 'GBP/JPY', price: '192.80', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:GBPJPY' }
+      ];
+    }
+
+    if (fxData.commodity.length === 0) {
+      fxData.commodity = [
+        { label: 'USD/CAD', price: '1.3400', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:USDCAD' },
+        { label: 'AUD/USD', price: '0.6600', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:AUDUSD' },
+        { label: 'USD/NOK', price: '10.500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:USDNOK' },
+        { label: 'NZD/USD', price: '0.6100', change: '+0.10', dir: 'up', tvSymbol: 'FX_IDC:NZDUSD' },
+        { label: 'USD/BRL', price: '5.1500', change: '-0.18', dir: 'down', tvSymbol: 'FX_IDC:USDBRL' },
+        { label: 'USD/ZAR', price: '18.500', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:USDZAR' },
+        { label: 'CAD/JPY', price: '112.50', change: '+0.20', dir: 'up', tvSymbol: 'FX_IDC:CADJPY' },
+        { label: 'AUD/JPY', price: '100.20', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:AUDJPY' },
+        { label: 'AUD/NZD', price: '1.0800', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:AUDNZD' },
+        { label: 'EUR/AUD', price: '1.6500', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:EURAUD' }
+      ];
+    }
+
+  } catch (error) {
+    console.error('FX data fetch error:', error.message);
+    
+    // Return defaults on error
+    fxData.macro = [
+      { label: 'DXY', price: '107.25', change: '+0.15', dir: 'up', tvSymbol: 'TVC:DXY' },
+      { label: 'BTC/USD', price: '68500', change: '+1.20', dir: 'up', tvSymbol: 'COINBASE:BTCUSD' },
+      { label: 'ETH/USD', price: '3800', change: '+0.85', dir: 'up', tvSymbol: 'COINBASE:ETHUSD' },
+      { label: 'EUR/USD', price: '1.0920', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:EURUSD' },
+      { label: 'USD/JPY', price: '151.20', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:USDJPY' },
+      { label: 'GBP/USD', price: '1.2750', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:GBPUSD' },
+      { label: 'USD/CHF', price: '0.8810', change: '-0.05', dir: 'down', tvSymbol: 'FX_IDC:USDCHF' },
+      { label: 'EUR/JPY', price: '165.10', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:EURJPY' },
+      { label: 'EUR/CHF', price: '0.9620', change: '-0.03', dir: 'down', tvSymbol: 'FX_IDC:EURCHF' },
+      { label: 'CHF/JPY', price: '171.50', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:CHFJPY' }
+    ];
+
+    fxData.geo = [
+      { label: 'USD/CNH', price: '7.2300', change: '+0.12', dir: 'up', tvSymbol: 'FX_IDC:USDCNH' },
+      { label: 'USD/ILS', price: '3.7500', change: '+0.08', dir: 'up', tvSymbol: 'FX_IDC:USDILS' },
+      { label: 'USD/MXN', price: '17.100', change: '-0.15', dir: 'down', tvSymbol: 'FX_IDC:USDMXN' },
+      { label: 'USD/PLN', price: '3.9500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDPLN' },
+      { label: 'USD/TRY', price: '32.100', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:USDTRY' },
+      { label: 'USD/KRW', price: '1350.0', change: '-0.10', dir: 'down', tvSymbol: 'FX_IDC:USDKRW' },
+      { label: 'USD/INR', price: '83.400', change: '+0.05', dir: 'up', tvSymbol: 'FX_IDC:USDINR' },
+      { label: 'USD/SGD', price: '1.3500', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:USDSGD' },
+      { label: 'EUR/GBP', price: '0.8500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:EURGBP' },
+      { label: 'GBP/JPY', price: '192.80', change: '+0.18', dir: 'up', tvSymbol: 'FX_IDC:GBPJPY' }
+    ];
+
+    fxData.commodity = [
+      { label: 'USD/CAD', price: '1.3400', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:USDCAD' },
+      { label: 'AUD/USD', price: '0.6600', change: '+0.15', dir: 'up', tvSymbol: 'FX_IDC:AUDUSD' },
+      { label: 'USD/NOK', price: '10.500', change: '-0.08', dir: 'down', tvSymbol: 'FX_IDC:USDNOK' },
+      { label: 'NZD/USD', price: '0.6100', change: '+0.10', dir: 'up', tvSymbol: 'FX_IDC:NZDUSD' },
+      { label: 'USD/BRL', price: '5.1500', change: '-0.18', dir: 'down', tvSymbol: 'FX_IDC:USDBRL' },
+      { label: 'USD/ZAR', price: '18.500', change: '+0.22', dir: 'up', tvSymbol: 'FX_IDC:USDZAR' },
+      { label: 'CAD/JPY', price: '112.50', change: '+0.20', dir: 'up', tvSymbol: 'FX_IDC:CADJPY' },
+      { label: 'AUD/JPY', price: '100.20', change: '+0.25', dir: 'up', tvSymbol: 'FX_IDC:AUDJPY' },
+      { label: 'AUD/NZD', price: '1.0800', change: '0.00', dir: 'neutral', tvSymbol: 'FX_IDC:AUDNZD' },
+      { label: 'EUR/AUD', price: '1.6500', change: '-0.12', dir: 'down', tvSymbol: 'FX_IDC:EURAUD' }
+    ];
+  }
+
+  return fxData;
+}
+
+// Central bank meeting schedules for 2025-2026 (auto-updates to next meeting)
+const CENTRAL_BANK_MEETINGS = {
+  Fed: {
+    rate: '4.50%',
+    meetings2025: ['2025-01-29', '2025-03-19', '2025-05-07', '2025-06-18', '2025-07-30', '2025-09-17', '2025-11-05', '2025-12-17'],
+    meetings2026: ['2026-01-29', '2026-03-18', '2026-04-29', '2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09']
+  },
+  ECB: {
+    rate: '3.00%',
+    meetings2025: ['2025-01-30', '2025-03-06', '2025-04-17', '2025-06-05', '2025-07-24', '2025-09-04', '2025-10-30', '2025-12-18'],
+    meetings2026: ['2026-01-22', '2026-01-30', '2026-03-12', '2026-04-16', '2026-06-04', '2026-07-23', '2026-09-10', '2026-10-29', '2026-12-17']
+  },
+  BOE: {
+    rate: '4.50%',
+    meetings2025: ['2025-02-06', '2025-03-20', '2025-05-08', '2025-06-19', '2025-08-07', '2025-09-18', '2025-11-06', '2025-12-18'],
+    meetings2026: ['2026-02-05', '2026-02-06', '2026-03-19', '2026-04-30', '2026-06-18', '2026-07-30', '2026-09-17', '2026-11-05', '2026-12-17']
+  },
+  BOJ: {
+    rate: '0.75%',
+    meetings2025: ['2025-01-24', '2025-03-14', '2025-04-25', '2025-06-13', '2025-07-31', '2025-09-19', '2025-10-31', '2025-12-19'],
+    meetings2026: ['2026-01-23', '2026-03-19', '2026-04-28', '2026-06-16', '2026-07-31', '2026-09-18', '2026-10-30', '2026-12-18']
+  },
+  RBA: {
+    rate: '3.60%',
+    meetings2025: ['2025-02-18', '2025-04-01', '2025-05-20', '2025-07-08', '2025-08-19', '2025-10-07', '2025-11-25', '2025-12-09'],
+    meetings2026: ['2026-02-03', '2026-04-01', '2026-05-20', '2026-07-08', '2026-08-19', '2026-10-07', '2026-11-25', '2026-12-09']
+  }
+};
+
+function getNextMeetingDate(bank) {
+  const now = new Date();
+  const meetings = [...(CENTRAL_BANK_MEETINGS[bank].meetings2025 || []), ...(CENTRAL_BANK_MEETINGS[bank].meetings2026 || [])];
+  for (const date of meetings) {
+    const meetingDate = new Date(date);
+    if (meetingDate >= now) {
+      const month = meetingDate.toLocaleString('en-US', { month: 'short' });
+      const day = meetingDate.getDate();
+      return `${month} ${day}`;
+    }
+  }
+  return 'TBD';
+}
+
+const CENTRAL_BANK_RATES = Object.entries(CENTRAL_BANK_MEETINGS).map(([bank, data]) => ({
+  bank,
+  currency: bank === 'Fed' ? 'USD' : bank === 'ECB' ? 'EUR' : bank === 'BOE' ? 'GBP' : bank === 'BOJ' ? 'JPY' : 'AUD',
+  rate: data.rate,
+  next: getNextMeetingDate(bank)
+}));
+
+// ============================================================================
+// ALPACA REAL-TIME NEWS STREAM (WebSocket)
+// ============================================================================
+
+let alpacaWs = null;
+let alpacaReconnectTimeout = null;
+
+function connectAlpacaNews() {
+  if (!CONFIG.ALPACA_API_KEY || !CONFIG.ALPACA_API_SECRET) {
+    console.log('⚠️  Alpaca API keys not configured - real-time news disabled');
+    return;
+  }
+
+  const wsUrl = 'wss://stream.data.alpaca.markets/v1beta1/news';
+  
+  try {
+    alpacaWs = new WebSocket(wsUrl, {
+      headers: {
+        'APCA-API-KEY-ID': CONFIG.ALPACA_API_KEY,
+        'APCA-API-SECRET-KEY': CONFIG.ALPACA_API_SECRET
+      }
+    });
+
+    alpacaWs.on('open', () => {
+      console.log('🚀 Alpaca News WebSocket connected - REAL-TIME NEWS ACTIVE');
+      // Subscribe to all news
+      alpacaWs.send(JSON.stringify({ action: 'subscribe', news: ['*'] }));
+    });
+
+    alpacaWs.on('message', (data) => {
+      try {
+        const messages = JSON.parse(data);
+        for (const msg of (Array.isArray(messages) ? messages : [messages])) {
+          if (msg.T === 'n') {
+            // Process real-time news article
+            processAlpacaNews(msg);
+          } else if (msg.T === 'subscription') {
+            console.log('📰 Alpaca: Subscribed to real-time news stream');
+          } else if (msg.T === 'error') {
+            console.error('❌ Alpaca error:', msg.msg);
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    });
+
+    alpacaWs.on('close', () => {
+      console.log('⚠️  Alpaca WebSocket closed - reconnecting in 5s...');
+      alpacaReconnectTimeout = setTimeout(connectAlpacaNews, 5000);
+    });
+
+    alpacaWs.on('error', (error) => {
+      console.error('❌ Alpaca WebSocket error:', error.message);
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to connect to Alpaca:', error.message);
+  }
+}
+
+function processAlpacaNews(article) {
+  const articleId = `alpaca-${article.id}`;
+  
+  if (seenArticles.has(articleId)) return;
+  seenArticles.add(articleId);
+  
+  if (seenArticles.size > 5000) {
+    const firstItem = seenArticles.values().next().value;
+    seenArticles.delete(firstItem);
+  }
+
+  // Format publication date
+  const pubDate = new Date(article.created_at);
+  const now = new Date();
+  const hoursSince = Math.floor((now - pubDate) / (1000 * 60 * 60));
+  let pubDateDisplay = 'Just now';
+  if (hoursSince >= 1 && hoursSince < 24) {
+    pubDateDisplay = `${hoursSince}h ago`;
+  } else if (hoursSince >= 24) {
+    pubDateDisplay = pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // Classify the news
+  const text = article.headline + ' ' + (article.summary || '');
+  const category = classifyNews(text);
+  
+  const smartData = generateUltimateImplications(
+    article.headline,
+    category,
+    article.summary || ''
+  );
+
+  const cardData = {
+    type: 'new_card',
+    column: category,
+    data: {
+      time: new Date().toISOString().substr(11, 5),
+      headline: article.headline,
+      link: article.url || '',
+      source: `${article.source || 'Alpaca'} ⚡`,
+      pubDate: pubDateDisplay,
+      verified: true,
+      implications: smartData.implications,
+      impact: smartData.impact || 2,
+      horizon: smartData.horizon || 'DAYS',
+      tripwires: smartData.technicalLevels || [],
+      probNudge: [],
+      tags: [...(smartData.tags || []), 'REALTIME'],
+      confidence: smartData.confidence,
+      nextEvents: smartData.nextEvents || [],
+      regime: smartData.regime,
+      symbols: article.symbols || []
+    }
+  };
+
+  console.log(`⚡ REAL-TIME: ${article.headline.substring(0, 60)}...`);
+  broadcast(cardData);
+}
+
+// ============================================================================
 // SCHEDULED JOBS
 // ============================================================================
 
-// RSS feeds every 2 minutes
-cron.schedule('*/2 * * * *', () => {
+// RSS feeds every 30 seconds for TweetDeck-like speed
+cron.schedule('*/30 * * * * *', () => {
   console.log('📡 RSS feed cycle starting...');
   pollRSSFeeds();
 });
@@ -1237,6 +2229,37 @@ cron.schedule('*/5 * * * *', async () => {
   }
 });
 
+// Polymarket risks every 15 minutes
+cron.schedule('*/15 * * * *', async () => {
+  try {
+    console.log('🎲 Polling Polymarket prediction markets...');
+    const riskData = await fetchPolymarketRisks();
+    broadcast({ type: 'polymarket_update', data: riskData });
+  } catch (error) {
+    console.error('Polymarket update error:', error.message);
+  }
+});
+
+// FX data every 30 seconds
+cron.schedule('*/30 * * * * *', async () => {
+  try {
+    const fxData = await fetchFXData();
+    broadcast({ type: 'fx_update', data: fxData });
+  } catch (error) {
+    console.error('FX update error:', error.message);
+  }
+});
+
+// Commodity data every 60 seconds
+cron.schedule('*/60 * * * * *', async () => {
+  try {
+    const commodityData = await fetchCommodityData();
+    broadcast({ type: 'commodity_update', data: commodityData });
+  } catch (error) {
+    console.error('Commodity update error:', error.message);
+  }
+});
+
 // ============================================================================
 // SERVER START
 // ============================================================================
@@ -1252,6 +2275,7 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
   📰 NewsAPI: ${CONFIG.NEWSAPI_KEY ? '✅ ENABLED' : '❌ DISABLED'}
   🏦 FRED Data: ${CONFIG.FRED_API_KEY ? '✅ ENABLED' : '❌ DISABLED'}
   📊 Market Data: ✅ ENABLED (19 assets)
+  ⚡ Alpaca Real-Time: ${CONFIG.ALPACA_API_KEY ? '✅ ENABLED' : '❌ ADD KEYS FOR INSTANT NEWS'}
   📡 RSS Feeds: ✅ ${RSS_FEEDS.length} PREMIUM SOURCES
   
   RSS Sources Active:
@@ -1260,7 +2284,7 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
   ├─ GEOPOLITICS: Defense News, Reuters, NYT, Geopolitical Futures
   ├─ COMMODITIES: EIA, Mining.com, Reuters Energy, OilPrice.com
   ├─ FOREX/MARKETS: DailyFX, ForexLive
-  └─ Polling every 2 minutes
+  └─ Polling every 30 seconds
   
   Frontend: http://localhost:${CONFIG.PORT}
   `);
@@ -1280,6 +2304,31 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
     console.log('🌍 Initial geopolitical fetch...');
     pollGeopoliticalNews();
   }, 2000);
+  
+  setTimeout(async () => {
+    console.log('🎲 Initial Polymarket fetch...');
+    try {
+      const riskData = await fetchPolymarketRisks();
+      broadcast({ type: 'polymarket_update', data: riskData });
+    } catch (error) {
+      console.error('Initial Polymarket fetch error:', error.message);
+    }
+  }, 2500);
+  
+  setTimeout(async () => {
+    console.log('💱 Initial FX data fetch...');
+    try {
+      const fxData = await fetchFXData();
+      broadcast({ type: 'fx_update', data: fxData });
+    } catch (error) {
+      console.error('Initial FX fetch error:', error.message);
+    }
+  }, 3000);
+  
+  // Connect to Alpaca real-time news stream
+  setTimeout(() => {
+    connectAlpacaNews();
+  }, 3500);
 });
 
 // Graceful shutdown and error handling
