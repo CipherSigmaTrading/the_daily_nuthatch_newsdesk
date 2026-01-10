@@ -274,13 +274,39 @@ const RSS_FEEDS = [
   { url: 'https://www.foreignaffairs.com/rss.xml', category: 'geo', name: 'Foreign Affairs' },
   { url: 'https://www.theatlantic.com/feed/channel/international/', category: 'geo', name: 'The Atlantic World' },
   
-  // ============ COMMODITIES - ENERGY, METALS & AGRICULTURE ============
+  // NEW DEFENSE & MILITARY SOURCES
+  { url: 'https://www.militarytimes.com/arc/outboundfeeds/rss/', category: 'geo', name: 'Military Times' },
+  { url: 'https://www.stripes.com/rss/1.117146', category: 'geo', name: 'Stars and Stripes' },
+  { url: 'https://breakingdefense.com/feed/', category: 'geo', name: 'Breaking Defense' },
+  { url: 'https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx', category: 'geo', name: 'US Dept of Defense' },
+  { url: 'https://news.usni.org/feed', category: 'geo', name: 'USNI News' },
+  { url: 'https://www.janes.com/feeds/news', category: 'geo', name: 'Janes Defence' },
+  
+  // NEW GEOPOLITICAL INTELLIGENCE SOURCES
+  { url: 'https://thediplomat.com/feed/', category: 'geo', name: 'The Diplomat' },
+  { url: 'https://www.middleeasteye.net/rss', category: 'geo', name: 'Middle East Eye' },
+  { url: 'https://www.scmp.com/rss/91/feed', category: 'geo', name: 'South China Morning Post' },
+  { url: 'https://www.timesofisrael.com/feed/', category: 'geo', name: 'Times of Israel' },
+  { url: 'https://www.bloomberg.com/politics/feeds/sitemap_news.xml', category: 'geo', name: 'Bloomberg Politics' },
+  { url: 'https://www.csis.org/analysis/feed', category: 'geo', name: 'CSIS Analysis' },
+  { url: 'https://carnegieendowment.org/rss.xml', category: 'geo', name: 'Carnegie Endowment' },
+  { url: 'https://www.cfr.org/feeds/daily_news_brief.xml', category: 'geo', name: 'Council on Foreign Relations' },
+  
+  // COMMODITIES - ENERGY, METALS & AGRICULTURE ============
   { url: 'https://www.mining.com/feed/', category: 'commodity', name: 'Mining.com' },
   { url: 'https://oilprice.com/rss/main', category: 'commodity', name: 'OilPrice.com' },
   { url: 'https://gcaptain.com/feed/', category: 'commodity', name: 'gCaptain (Shipping)' },
   { url: 'https://www.hellenicshippingnews.com/feed/', category: 'commodity', name: 'Hellenic Shipping News' },
   { url: 'https://www.rigzone.com/news/rss/rigzone_latest.aspx', category: 'commodity', name: 'Rigzone Oil & Gas' },
   { url: 'https://www.naturalgasintel.com/feed/', category: 'commodity', name: 'Natural Gas Intel' },
+  
+  // NEW COMMODITY-SPECIFIC SOURCES
+  { url: 'https://www.agweb.com/rss.xml', category: 'commodity', name: 'AgWeb (Agriculture)' },
+  { url: 'https://www.world-grain.com/rss/all', category: 'commodity', name: 'World Grain' },
+  { url: 'https://www.metalbulletin.com/RSS/', category: 'commodity', name: 'Metal Bulletin' },
+  { url: 'https://www.steelorbis.com/rss.xml', category: 'commodity', name: 'SteelOrbis' },
+  { url: 'https://www.energyvoice.com/feed/', category: 'commodity', name: 'Energy Voice' },
+  { url: 'https://www.spglobal.com/commodity-insights/en/rss-feed', category: 'commodity', name: 'S&P Global Commodities' },
   
   // ============ FOREX - CURRENCY NEWS & ANALYSIS ============
   { url: 'https://www.forexlive.com/feed/news', category: 'fx', name: 'ForexLive' },
@@ -1097,7 +1123,164 @@ function generateUltimateImplications(headline, category, description = '') {
     analysis.tags.unshift(analysis.regime);
   }
 
-  // Limit to 3 implications for readability
+  // ========== ENHANCED INTELLIGENCE LAYERS (NEW!) ==========
+  
+  // LAYER 1: TECHNICAL LEVEL EXTRACTION
+  // Auto-extract key levels from text (150.00, 5%, etc.)
+  const levelPatterns = [
+    /(\d+\.?\d*)\s*(?:level|price|rate|yield|handle|figure|target)/gi,
+    /(?:at|near|above|below|breaks|holds)\s+(\d+\.?\d+)/gi,
+    /(\d+\.?\d+)(?:%|bp|bps|basis\s+points)/gi,
+    /\$?(\d+,?\d+\.?\d*)\s*(?:trillion|billion|million|thousand)/gi
+  ];
+  
+  levelPatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) {
+        const level = match[1].replace(/,/g, '');
+        // Only add significant levels
+        if (!isNaN(level) && parseFloat(level) > 0) {
+          const context = match[0];
+          analysis.technicalLevels.push(context.substring(0, 50));
+        }
+      }
+    }
+  });
+  
+  // LAYER 2: NEXT EVENTS PREDICTION
+  // "Watch for X if Y happens" logic
+  if (text.match(/fed|fomc|powell/)) {
+    if (text.match(/hawkish|hike|tighten/)) {
+      analysis.nextEvents.push('Watch for EM currency stress if dollar continues higher');
+      analysis.nextEvents.push('Monitor credit spreads for contagion risk');
+    } else if (text.match(/dovish|pause|cut/)) {
+      analysis.nextEvents.push('Watch for risk asset rally continuation');
+      analysis.nextEvents.push('Monitor inflation expectations rebound');
+    }
+  }
+  
+  if (text.match(/war|conflict|military|strike/)) {
+    analysis.nextEvents.push('Monitor oil price reaction to supply risk');
+    analysis.nextEvents.push('Watch for safe-haven flows (CHF/JPY/Gold)');
+    if (text.match(/middle east|iran|israel/)) {
+      analysis.nextEvents.push('If escalates: watch Strait of Hormuz closure risk');
+    }
+  }
+  
+  if (text.match(/china|taiwan|xi jinping/)) {
+    if (text.match(/tension|conflict|invasion/)) {
+      analysis.nextEvents.push('Watch semiconductor supply chain disruption');
+      analysis.nextEvents.push('Monitor TSMC operations risk');
+    }
+    if (text.match(/stimulus|easing|support/)) {
+      analysis.nextEvents.push('Watch commodity demand rebound if sustained');
+      analysis.nextEvents.push('Monitor AUD/USD and base metals');
+    }
+  }
+  
+  if (text.match(/recession|downturn|contraction/)) {
+    analysis.nextEvents.push('Watch unemployment data for confirmation');
+    analysis.nextEvents.push('Monitor corporate earnings revisions');
+    analysis.nextEvents.push('If confirmed: expect Fed pivot and curve steepening');
+  }
+  
+  if (text.match(/inflation|cpi|pce/) && text.match(/spike|surge|jump|soar/)) {
+    analysis.nextEvents.push('Watch for Fed emergency meeting if sustained');
+    analysis.nextEvents.push('Monitor wage growth acceleration');
+    analysis.nextEvents.push('If persistent: expect yield curve bear steepening');
+  }
+  
+  // LAYER 3: GAME THEORY INSIGHTS
+  // Add strategic interaction analysis
+  let gameTheoryInsight = null;
+  
+  // Prisoner's Dilemma patterns
+  if (text.match(/tariff|trade war|retaliat/) || 
+      (text.match(/sanction/) && text.match(/counter/))) {
+    gameTheoryInsight = 'Game Theory: Prisoner\'s Dilemma - both sides worse off if they retaliate';
+    analysis.confidence += 10;
+  }
+  
+  // Coordination Game patterns
+  if (text.match(/g7|g20|coordinated|joint action|alliance/)) {
+    gameTheoryInsight = 'Game Theory: Coordination Game - collective action multiplies impact';
+    analysis.confidence += 15;
+  }
+  
+  // Chicken Game / Brinkmanship
+  if (text.match(/brinksmanship|standoff|red line/) ||
+      (text.match(/threat/) && text.match(/escalat/))) {
+    gameTheoryInsight = 'Game Theory: Chicken Game - both sides testing resolve, high accident risk';
+    analysis.confidence += 5;
+  }
+  
+  // Nash Equilibrium / Dominant Strategy
+  if (text.match(/central bank/) && text.match(/all|coordinated|simultaneous/)) {
+    gameTheoryInsight = 'Game Theory: Nash Equilibrium - synchronized policy is dominant strategy';
+    analysis.confidence += 10;
+  }
+  
+  // Add game theory to implications if detected
+  if (gameTheoryInsight) {
+    analysis.implications.push(gameTheoryInsight);
+  }
+  
+  // LAYER 4: ENHANCED CONFIDENCE SCORING
+  // Source reliability bonus
+  if (text.match(/federal reserve|ecb|treasury|official|government/)) {
+    analysis.confidence += 15; // Official sources highly reliable
+  }
+  
+  if (text.match(/reuters|bloomberg|wsj|ft|financial times/)) {
+    analysis.confidence += 10; // Premium sources
+  }
+  
+  // Specificity bonus
+  const hasNumbers = /\d+\.?\d*%|\d+\s*(?:bp|bps|basis points)/.test(text);
+  const hasDates = /january|february|march|april|may|june|july|august|september|october|november|december|q[1-4]|20\d{2}/.test(text.toLowerCase());
+  const hasNames = /powell|yellen|lagarde|bailey|kuroda/.test(text.toLowerCase());
+  
+  if (hasNumbers) analysis.confidence += 10;
+  if (hasDates) analysis.confidence += 5;
+  if (hasNames) analysis.confidence += 5;
+  
+  // Uncertainty penalty
+  if (text.match(/may|might|could|possibly|unclear|uncertain|mixed/)) {
+    analysis.confidence -= 15;
+  }
+  
+  // Cap confidence at 100%
+  analysis.confidence = Math.min(100, Math.max(10, analysis.confidence));
+  
+  // LAYER 5: CROSS-ASSET IMPLICATIONS (Second & Third Order Effects)
+  // Add deeper implications based on detected patterns
+  if (analysis.implications.length > 0) {
+    const originalImplicationsCount = analysis.implications.length;
+    
+    // If Fed hawkish, add second-order effects
+    if (text.match(/fed.*hawkish|fomc.*hawkish|powell.*hawkish/)) {
+      if (!analysis.implications.some(imp => imp.includes('EM'))) {
+        analysis.implications.push('2nd order: EM central banks forced to defend currencies');
+      }
+    }
+    
+    // If oil shock, add implications
+    if (text.match(/oil.*(?:surge|spike|soar)/)) {
+      if (!analysis.implications.some(imp => imp.includes('inflation'))) {
+        analysis.implications.push('2nd order: Inflation expectations likely to rise');
+      }
+    }
+    
+    // If China stimulus, add implications
+    if (text.match(/china.*stimulus|pboc.*easing/)) {
+      if (!analysis.implications.some(imp => imp.includes('commodity'))) {
+        analysis.implications.push('2nd order: Base metals and AUD to benefit');
+      }
+    }
+  }
+
+  // Limit to 3 implications for readability (but now they're MUCH smarter!)
   analysis.implications = analysis.implications.slice(0, 3);
 
   return analysis;
