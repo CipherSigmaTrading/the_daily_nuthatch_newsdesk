@@ -167,18 +167,100 @@
             background: linear-gradient(90deg, rgba(51, 153, 255, 0.1) 0%, transparent 100%);
             border-left: 3px solid var(--accent-blue);
             padding: 0.6rem 2rem;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             position: relative;
             height: 45px;
             display: flex;
             align-items: center;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            cursor: grab;
+        }
+
+        .market-ticker::-webkit-scrollbar {
+            display: none;
+        }
+
+        .market-ticker:active {
+            cursor: grabbing;
+        }
+
+        .ticker-search-popup {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            border: 1px solid var(--accent-blue);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            min-width: 280px;
+        }
+
+        .ticker-search-popup.active {
+            display: block;
+        }
+
+        .ticker-search-popup input {
+            width: 100%;
+            background: rgba(42, 48, 64, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .ticker-search-popup input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .ticker-search-popup label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .ticker-search-popup button {
+            margin-top: 0.5rem;
+            width: 100%;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 4px;
+            padding: 0.5rem;
+            color: var(--bg-primary);
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .ticker-search-popup button:hover {
+            background: var(--accent-green);
         }
 
         .market-ticker-content {
             display: flex;
             gap: 3rem;
-            animation: scroll-fast 45s linear infinite;
+            animation: scroll-fast 120s linear infinite;
             white-space: nowrap;
+            cursor: grab;
+        }
+
+        .market-ticker-content:active {
+            cursor: grabbing;
+        }
+
+        .market-ticker-content.dragging {
+            animation-play-state: paused;
         }
 
         @keyframes scroll-fast {
@@ -227,7 +309,7 @@
         /* Main Grid - 4 Columns */
         .main-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 1px;
             background: var(--border);
             padding: 1px;
@@ -271,6 +353,45 @@
         .col-geo .column-title { color: var(--accent-purple); }
         .col-commodity .column-title { color: var(--accent-yellow); }
         .col-market .column-title { color: var(--accent-green); }
+
+        /* Refresh button */
+        .refresh-btn {
+            cursor: pointer;
+            font-size: 1rem;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            margin-left: 8px;
+        }
+        
+        .refresh-btn:hover {
+            opacity: 1;
+            transform: rotate(180deg);
+        }
+        
+        .refresh-btn.spinning {
+            animation: spin 0.5s linear;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Live pulse indicator */
+        .live-pulse {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #00ff88;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(0, 255, 136, 0); }
+        }
 
         .column-content {
             padding: 1rem;
@@ -482,6 +603,451 @@
 
         .macro-neutral {
             color: var(--text-dim);
+        }
+
+        /* Polymarket Risk Dashboard - Similar to Macro Grid */
+        .risk-dashboard-container {
+            background: linear-gradient(135deg, rgba(187, 102, 255, 0.1) 0%, rgba(51, 153, 255, 0.1) 100%);
+            border: 1px solid var(--accent-purple);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .risk-dashboard-title {
+            font-size: 0.7rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .risk-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .risk-grid-4 {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 0.5rem;
+        }
+
+        .risk-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .risk-column-title {
+            font-size: 0.65rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(187, 102, 255, 0.3);
+        }
+
+        .risk-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid rgba(187, 102, 255, 0.3);
+            border-radius: 4px;
+            padding: 0.5rem 0.65rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .risk-item:hover {
+            border-color: var(--accent-purple);
+            background: rgba(187, 102, 255, 0.15);
+        }
+
+        .risk-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .risk-item-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .risk-item-odds {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--accent-purple);
+        }
+
+        .risk-item-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .risk-item-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .risk-up {
+            color: var(--accent-red);
+        }
+
+        .risk-down {
+            color: var(--accent-green);
+        }
+
+        .risk-neutral {
+            color: var(--text-dim);
+        }
+
+        /* Commodities Dashboard - Yellow/Gold Theme */
+        .commodity-dashboard-container {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%);
+            border: 1px solid var(--accent-yellow);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .commodity-dashboard-title {
+            font-size: 0.7rem;
+            color: var(--accent-yellow);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .commodity-grid-3col {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 0.75rem;
+            max-width: 100%;
+        }
+
+        .commodity-grid-3col .commodity-grid-column:nth-child(3) {
+            grid-column: 1 / -1;
+        }
+
+        .commodity-grid-3col .commodity-grid-column:nth-child(3) #commodityAgriculture {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .commodity-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .commodity-column-title {
+            font-size: 0.6rem;
+            color: var(--accent-yellow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 0.15rem;
+            text-align: center;
+        }
+
+        .commodity-column-subtitle {
+            font-size: 0.5rem;
+            color: rgba(255, 193, 7, 0.6);
+            text-align: center;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+        }
+
+        .commodity-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 4px;
+            padding: 0.4rem 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+            min-width: 0;
+            word-break: keep-all;
+        }
+
+        .commodity-item:hover {
+            border-color: var(--accent-yellow);
+            background: rgba(255, 193, 7, 0.15);
+        }
+
+        .commodity-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .commodity-item-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .commodity-ticker {
+            font-size: 0.5rem;
+            color: rgba(255, 193, 7, 0.5);
+            font-weight: 400;
+            margin-left: 0.25rem;
+        }
+
+        .commodity-item-price {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--accent-yellow);
+        }
+
+        .commodity-item-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .commodity-item-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .commodity-up {
+            color: var(--accent-green);
+        }
+
+        .commodity-down {
+            color: var(--accent-red);
+        }
+
+        .commodity-neutral {
+            color: var(--text-dim);
+        }
+
+        /* FX Pairs Dashboard - Cyan/Teal Theme */
+        .fx-dashboard-container {
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(0, 180, 216, 0.1) 100%);
+            border: 1px solid #00D9FF;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .fx-dashboard-title {
+            font-size: 0.7rem;
+            color: #00D9FF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .fx-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .fx-grid-3col {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 0.75rem;
+            max-width: 100%;
+        }
+        
+        .fx-grid-3col .fx-grid-column:nth-child(3) {
+            grid-column: 1 / -1;
+        }
+        
+        .fx-grid-3col .fx-grid-column:nth-child(3) #fxCommodity {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .fx-grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .fx-column-title {
+            font-size: 0.6rem;
+            color: #00D9FF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 0.15rem;
+            text-align: center;
+        }
+
+        .fx-column-subtitle {
+            font-size: 0.5rem;
+            color: rgba(0, 217, 255, 0.6);
+            text-align: center;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+        }
+
+        .fx-pair-item {
+            background: rgba(42, 48, 64, 0.3);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 4px;
+            padding: 0.4rem 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            min-width: 0;
+            word-break: keep-all;
+        }
+
+        .fx-pair-item:hover {
+            border-color: #00D9FF;
+            background: rgba(0, 217, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .fx-pair-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .fx-pair-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .fx-pair-price {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: #00D9FF;
+        }
+
+        .fx-pair-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .fx-pair-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .fx-up {
+            color: var(--accent-green);
+        }
+
+        .fx-down {
+            color: var(--accent-red);
+        }
+
+        .fx-neutral {
+            color: var(--text-dim);
+        }
+
+        /* Central Bank Rates Section */
+        .cb-rates-container {
+            background: rgba(42, 48, 64, 0.2);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .cb-rates-title {
+            font-size: 0.65rem;
+            color: #00D9FF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .cb-rate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.1);
+            font-size: 0.65rem;
+        }
+
+        .cb-rate-item:last-child {
+            border-bottom: none;
+        }
+
+        .cb-rate-left {
+            display: flex;
+            gap: 0.3rem;
+            align-items: center;
+        }
+
+        .cb-rate-bank {
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .cb-rate-currency {
+            color: var(--text-dim);
+            font-size: 0.6rem;
+        }
+
+        .cb-rate-right {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .cb-rate-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: #00D9FF;
+        }
+
+        .cb-rate-next {
+            color: var(--text-dim);
+            font-size: 0.6rem;
         }
 
         /* Probability Nudge */
@@ -698,7 +1264,112 @@
             background: var(--accent-green);
         }
 
-        /* Tab Navigation (hidden on large desktop) */
+        /* TradingView Chart Modal */
+        .chart-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .chart-modal-content {
+            width: 95%;
+            height: 85%;
+            max-width: 1400px;
+            background: #131722;
+            border: 2px solid #00D9FF;
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 0 40px rgba(0, 217, 255, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+        
+        /* Mobile chart - X button visible at top */
+        @media (max-width: 768px) {
+            .chart-modal-content {
+                width: 95%;
+                height: 75%;
+                max-height: 500px;
+            }
+            
+            .chart-close-btn {
+                top: 8px;
+                right: 8px;
+                width: 44px;
+                height: 44px;
+                font-size: 28px;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 10;
+            }
+        }
+        
+        /* Portrait mode on phones */
+        @media (max-width: 480px) and (orientation: portrait) {
+            .chart-modal-content {
+                width: 95%;
+                height: 70%;
+                max-height: 450px;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .chart-close-btn {
+            position: absolute;
+            top: -45px;
+            right: 0;
+            background: transparent;
+            border: 2px solid #00D9FF;
+            color: #00D9FF;
+            font-size: 28px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: 300;
+            line-height: 1;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-close-btn:hover {
+            background: #00D9FF;
+            color: #000;
+            transform: rotate(90deg);
+        }
+
+        #tradingview_widget {
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        /* Mobile Tab Navigation */
         .mobile-tabs {
             display: none;
             background: var(--bg-card);
@@ -712,23 +1383,21 @@
 
         .mobile-tab {
             flex: 1;
-            padding: 0.75rem 0.5rem;
+            padding: 0.5rem 0.25rem;
             background: var(--bg-column);
             border: 1px solid var(--border);
             color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.55rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             cursor: pointer;
             transition: all 0.2s ease;
             border-radius: 4px;
-        }
-
-        .mobile-tab:hover {
-            background: var(--bg-card);
-            border-color: var(--accent-green);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .mobile-tab:active {
@@ -741,195 +1410,95 @@
             border-color: var(--accent-green);
         }
 
-        /* ============================================
-           RESPONSIVE BREAKPOINTS - ALL DEVICES
-           ============================================ */
-
-        /* Large Desktop: 1400px+ - Full 4 columns, no tabs */
-        @media (min-width: 1401px) {
+        /* Responsive */
+        @media (max-width: 1800px) {
             .main-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-            .column {
-                display: flex !important;
+                grid-template-columns: repeat(3, 1fr);
             }
         }
 
-        /* Small Desktop / Large Tablet Landscape: 1024px - 1400px - 2x2 grid */
-        @media (max-width: 1400px) and (min-width: 1025px) {
+        @media (max-width: 1200px) {
             .main-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
-            .column {
-                display: flex !important;
-            }
-            .column-content {
-                max-height: 500px;
-            }
         }
 
-        /* Tablet Landscape: 900px - 1024px - 2 columns with tabs */
-        @media (max-width: 1024px) and (min-width: 769px) {
+        @media (max-width: 768px) {
             .mobile-tabs {
                 display: flex;
             }
-            
-            .mobile-tab {
-                font-size: 0.75rem;
-                padding: 0.85rem 1rem;
-            }
-            
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .column {
-                display: none;
-            }
-            
-            .column.mobile-active {
-                display: flex;
-            }
-            
-            .column-header {
-                display: none;
-            }
-            
-            .header {
-                padding: 1rem 1.5rem;
-            }
-            
-            .logo {
-                font-size: 1.2rem;
-            }
-        }
 
-        /* Tablet Portrait: 600px - 768px - Single column with tabs */
-        @media (max-width: 768px) and (min-width: 481px) {
-            .mobile-tabs {
-                display: flex;
-                top: 55px;
-            }
-            
-            .mobile-tab {
-                font-size: 0.7rem;
-                padding: 0.75rem 0.75rem;
-            }
-            
             .main-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .column {
                 display: none;
             }
-            
+
             .column.mobile-active {
                 display: flex;
             }
-            
+
             .column-header {
                 display: none;
             }
-            
+
             .header {
                 padding: 0.75rem 1rem;
             }
-            
-            .logo {
-                font-size: 1rem;
-            }
-            
-            .news-ticker, .market-ticker {
-                padding: 0.5rem 1rem;
-            }
-            
-            .ticker-item, .market-ticker-item {
-                font-size: 0.7rem;
-            }
-        }
 
-        /* Mobile: under 480px - Compact single column with tabs */
-        @media (max-width: 480px) {
-            .mobile-tabs {
-                display: flex;
-                top: 50px;
-                padding: 0.4rem;
-            }
-            
-            .mobile-tab {
-                font-size: 0.6rem;
-                padding: 0.6rem 0.25rem;
-                letter-spacing: 0;
-            }
-            
-            .main-grid {
-                grid-template-columns: 1fr;
-                padding: 0.5rem;
-                gap: 0.5rem;
-            }
-            
-            .column {
-                display: none;
-            }
-            
-            .column.mobile-active {
-                display: flex;
-            }
-            
-            .column-header {
-                display: none;
-            }
-            
-            .header {
-                padding: 0.5rem 0.75rem;
-            }
-            
             .logo {
-                font-size: 0.8rem;
+                font-size: 0.9rem;
             }
-            
+
             .time-display {
                 display: none;
             }
-            
-            .connection-status {
-                font-size: 0.65rem;
-            }
-            
-            .news-ticker, .market-ticker {
-                padding: 0.4rem 0.75rem;
-                height: 40px;
-            }
-            
-            .ticker-item, .market-ticker-item {
-                font-size: 0.65rem;
-            }
-            
-            .card {
-                padding: 0.75rem;
-            }
-            
-            .card-headline {
-                font-size: 0.85rem;
-            }
-            
-            .card-content {
-                font-size: 0.75rem;
+        }
+
+        @media (max-width: 900px) and (min-width: 769px) {
+            .main-grid {
+                grid-template-columns: 1fr;
             }
         }
 
         /* Clickable Headlines */
-        .card-headline.clickable {
+        .card-headline {
+            text-decoration: none;
+            display: block;
+        }
+        
+        a.card-headline {
             cursor: pointer;
             transition: color 0.2s ease;
-            -webkit-tap-highlight-color: rgba(0, 255, 136, 0.2);
-            touch-action: manipulation;
+        }
+        
+        a.card-headline:hover {
+            color: var(--accent-green);
         }
 
-        .card-headline.clickable:hover,
-        .card-headline.clickable:active {
-            color: var(--accent-green);
+        /* Deep Analysis Button */
+        .deep-analysis-btn {
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(32, 178, 170, 0.15), rgba(32, 178, 170, 0.05));
+            border: 1px solid #20b2aa;
+            border-radius: 4px;
+            padding: 4px 8px !important;
+            transition: all 0.2s ease;
+        }
+        
+        .deep-analysis-btn:hover {
+            background: linear-gradient(135deg, rgba(32, 178, 170, 0.3), rgba(32, 178, 170, 0.15));
+            box-shadow: 0 0 8px rgba(32, 178, 170, 0.4);
+        }
+        
+        .analysis-text {
+            color: #20b2aa;
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
         /* AI Analysis Modal */
@@ -953,13 +1522,6 @@
             padding: 2rem;
         }
 
-        /* Modal responsive for tablets */
-        @media (max-width: 1024px) {
-            .modal-content {
-                max-width: 95%;
-            }
-        }
-
         @media (max-width: 768px) {
             .modal-overlay.active {
                 padding: 1rem;
@@ -967,7 +1529,6 @@
             
             .modal-content {
                 max-height: 95vh;
-                max-width: 100%;
             }
             
             .modal-header {
@@ -976,35 +1537,6 @@
             
             .modal-body {
                 padding: 1rem;
-            }
-            
-            .modal-title {
-                font-size: 0.9rem;
-            }
-            
-            .modal-headline {
-                font-size: 0.85rem;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .modal-overlay.active {
-                padding: 0.5rem;
-            }
-            
-            .modal-header {
-                padding: 0.75rem;
-            }
-            
-            .modal-body {
-                padding: 0.75rem;
-                font-size: 0.85rem;
-            }
-            
-            .modal-close {
-                width: 32px;
-                height: 32px;
-                font-size: 1.25rem;
             }
         }
 
@@ -1112,6 +1644,26 @@
             color: var(--text-secondary);
         }
 
+        .thinking-status {
+            margin-top: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: #00ff00;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+
+        .thinking-status::before {
+            content: '> ';
+            color: #00ff00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
         .modal-analysis {
             font-size: 0.85rem;
             line-height: 1.8;
@@ -1189,25 +1741,32 @@
         </div>
         
         <!-- Market Ticker (Bottom) -->
-        <div class="market-ticker">
+        <div class="market-ticker" id="marketTicker">
             <div class="market-ticker-content" id="marketTickerContent">
+            </div>
+            <div class="ticker-search-popup" id="tickerSearchPopup">
+                <label>Looking for another symbol?</label>
+                <input type="text" id="symbolSearchInput" placeholder="Enter symbol (e.g., AAPL, TSLA, BTC)" />
+                <button onclick="searchSymbol()">Open TradingView Chart</button>
             </div>
         </div>
     </div>
 
     <!-- Mobile Tab Navigation (hidden on desktop) -->
     <div class="mobile-tabs" id="mobileTabs">
-        <button class="mobile-tab active" data-column="breaking">BREAKING</button>
+        <button class="mobile-tab active" data-column="breaking">NEWS</button>
         <button class="mobile-tab" data-column="macro">MACRO</button>
         <button class="mobile-tab" data-column="geo">GEO</button>
-        <button class="mobile-tab" data-column="commodity">COMMODITIES</button>
+        <button class="mobile-tab" data-column="commodity">COMMOD</button>
+        <button class="mobile-tab" data-column="fx">FX</button>
+        <button class="mobile-tab" data-column="prediction">PRED</button>
     </div>
 
     <!-- Main Grid - 4 Columns -->
     <div class="main-grid">
         <div class="column col-breaking">
             <div class="column-header">
-                <div class="column-title">BREAKING TICK</div>
+                <div class="column-title">NEWS <span class="refresh-btn" onclick="manualRefresh()" title="Refresh now">↻</span></div>
                 <div class="column-subtitle">Top events • Fastest feed</div>
             </div>
             <div class="column-content" id="breakingColumn"></div>
@@ -1232,9 +1791,161 @@
         <div class="column col-commodity">
             <div class="column-header">
                 <div class="column-title">COMMODITIES</div>
-                <div class="column-subtitle">Oil • Metals • Shipping</div>
+                <div class="column-subtitle">Metals • Energy • Agriculture</div>
             </div>
-            <div class="column-content" id="commodityColumn"></div>
+            <div class="column-content" id="commodityColumn">
+                <!-- Commodities Dashboard Pinned at Top - 32 COMMODITIES -->
+                <div class="commodity-dashboard-container" id="commodityDashboard">
+                    <div class="commodity-dashboard-title">🏭 COMMODITY WAR ROOM • 32 ASSETS</div>
+                    <div class="commodity-grid-3col">
+                        <!-- Column 1: METALS (8) -->
+                        <div class="commodity-grid-column">
+                            <div class="commodity-column-title">METALS</div>
+                            <div class="commodity-column-subtitle">Precious • Base</div>
+                            <div id="commodityMetals"></div>
+                        </div>
+                        <!-- Column 2: ENERGY (8) -->
+                        <div class="commodity-grid-column">
+                            <div class="commodity-column-title">ENERGY</div>
+                            <div class="commodity-column-subtitle">Oil • Gas • Power</div>
+                            <div id="commodityEnergy"></div>
+                        </div>
+                        <!-- Column 3: AGRICULTURE (16) -->
+                        <div class="commodity-grid-column">
+                            <div class="commodity-column-title">AGRICULTURE</div>
+                            <div class="commodity-column-subtitle">Grains • Softs • Meats</div>
+                            <div id="commodityAgriculture"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Commodity news cards appear below -->
+            </div>
+        </div>
+
+        <div class="column col-fx">
+            <div class="column-header">
+                <div class="column-title">FX & CURRENCIES</div>
+                <div class="column-subtitle">30 Pairs • Central Banks • Live</div>
+            </div>
+            <div class="column-content" id="fxColumn">
+                <!-- FX Pairs Dashboard Pinned at Top - 30 PAIRS -->
+                <div class="fx-dashboard-container" id="fxDashboard">
+                    <div class="fx-dashboard-title">💱 FX WAR ROOM • 30 PAIRS</div>
+                    <div class="fx-grid-3col">
+                        <!-- Column 1: MACRO PLUMBING (10 pairs) -->
+                        <div class="fx-grid-column">
+                            <div class="fx-column-title">MACRO PLUMBING</div>
+                            <div class="fx-column-subtitle">Rates • Liquidity</div>
+                            <div id="fxMacro"></div>
+                        </div>
+                        <!-- Column 2: GEOPOLITICS (10 pairs) -->
+                        <div class="fx-grid-column">
+                            <div class="fx-column-title">GEOPOLITICS</div>
+                            <div class="fx-column-subtitle">State • Escalation</div>
+                            <div id="fxGeo"></div>
+                        </div>
+                        <!-- Column 3: COMMODITIES (10 pairs) -->
+                        <div class="fx-grid-column">
+                            <div class="fx-column-title">COMMODITIES</div>
+                            <div class="fx-column-subtitle">Oil • Metals • Ag</div>
+                            <div id="fxCommodity"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Central Bank Rates Section -->
+                <div class="cb-rates-container">
+                    <div class="cb-rates-title">🏦 CENTRAL BANK RATES</div>
+                    <div id="cbRates">
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">Fed</span>
+                                <span class="cb-rate-currency">(USD)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">4.50%</span>
+                                <span class="cb-rate-next" id="fed-next">→ Jan 29</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">ECB</span>
+                                <span class="cb-rate-currency">(EUR)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">3.00%</span>
+                                <span class="cb-rate-next" id="ecb-next">→ Jan 30</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">BOE</span>
+                                <span class="cb-rate-currency">(GBP)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">4.50%</span>
+                                <span class="cb-rate-next" id="boe-next">→ Feb 6</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">BOJ</span>
+                                <span class="cb-rate-currency">(JPY)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">0.75%</span>
+                                <span class="cb-rate-next" id="boj-next">→ Jan 23</span>
+                            </div>
+                        </div>
+                        <div class="cb-rate-item">
+                            <div class="cb-rate-left">
+                                <span class="cb-rate-bank">RBA</span>
+                                <span class="cb-rate-currency">(AUD)</span>
+                            </div>
+                            <div class="cb-rate-right">
+                                <span class="cb-rate-value">3.60%</span>
+                                <span class="cb-rate-next" id="rba-next">→ Feb 3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- FX news cards appear below -->
+            </div>
+        </div>
+
+        <div class="column col-prediction">
+            <div class="column-header">
+                <div class="column-title">PREDICTION MARKETS</div>
+                <div class="column-subtitle">Polymarket • Odds • Shifts</div>
+            </div>
+            <div class="column-content" id="predictionColumn">
+                <!-- Risk Dashboard Pinned at Top - 2x2 Grid -->
+                <div class="risk-dashboard-container" id="riskDashboard">
+                    <div class="risk-dashboard-title">🎲 MACRO RISK DASHBOARD</div>
+                    <div class="risk-grid-4">
+                        <!-- Top Left: Fed Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">FED RISKS</div>
+                            <div id="fedRisks"></div>
+                        </div>
+                        <!-- Top Right: Growth Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">GROWTH RISKS</div>
+                            <div id="growthRisks"></div>
+                        </div>
+                        <!-- Bottom Left: Inflation Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">INFLATION RISKS</div>
+                            <div id="inflationRisks"></div>
+                        </div>
+                        <!-- Bottom Right: Geopolitical Risks -->
+                        <div class="risk-grid-column">
+                            <div class="risk-column-title">GEO RISKS</div>
+                            <div id="geopoliticalRisks"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Odds shift cards appear below -->
+            </div>
         </div>
     </div>
 
@@ -1249,9 +1960,10 @@
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
             <div class="modal-body" id="modalBody">
-                <div class="modal-loading">
+                <div class="modal-loading" id="modalLoading">
                     <div class="modal-spinner"></div>
-                    <div class="modal-loading-text">Analyzing with Gemini AI...</div>
+                    <div class="modal-loading-text" id="loadingText">Analyzing with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Something great is about to happen - just a moment!</span></div>
+                    <div class="thinking-status" id="thinkingStatus"></div>
                 </div>
             </div>
             <div class="modal-source" id="modalSource"></div>
@@ -1277,6 +1989,53 @@
         updateTime();
 
         // ========================================================================
+        // CENTRAL BANK MEETING DATE AUTO-UPDATER
+        // ========================================================================
+        
+        const CENTRAL_BANK_MEETINGS = {
+            Fed: ['2026-01-29', '2026-03-18', '2026-04-29', '2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09'],
+            ECB: ['2026-01-22', '2026-01-30', '2026-03-12', '2026-04-16', '2026-06-04', '2026-07-23', '2026-09-10', '2026-10-29', '2026-12-17'],
+            BOE: ['2026-02-05', '2026-02-06', '2026-03-19', '2026-04-30', '2026-06-18', '2026-07-30', '2026-09-17', '2026-11-05', '2026-12-17'],
+            BOJ: ['2026-01-23', '2026-03-19', '2026-04-28', '2026-06-16', '2026-07-31', '2026-09-18', '2026-10-30', '2026-12-18'],
+            RBA: ['2026-02-03', '2026-04-01', '2026-05-20', '2026-07-08', '2026-08-19', '2026-10-07', '2026-11-25', '2026-12-09']
+        };
+
+        function getNextMeetingDate(bank) {
+            const now = new Date();
+            const meetings = CENTRAL_BANK_MEETINGS[bank] || [];
+            for (const date of meetings) {
+                const meetingDate = new Date(date);
+                if (meetingDate >= now) {
+                    const month = meetingDate.toLocaleString('en-US', { month: 'short' });
+                    const day = meetingDate.getDate();
+                    return `${month} ${day}`;
+                }
+            }
+            return 'TBD';
+        }
+
+        function updateCentralBankDates() {
+            const bankMapping = {
+                'fed': 'Fed',
+                'ecb': 'ECB',
+                'boe': 'BOE',
+                'boj': 'BOJ',
+                'rba': 'RBA'
+            };
+            
+            Object.entries(bankMapping).forEach(([domId, bankKey]) => {
+                const element = document.getElementById(`${domId}-next`);
+                if (element) {
+                    const nextDate = getNextMeetingDate(bankKey);
+                    element.textContent = `→ ${nextDate}`;
+                }
+            });
+        }
+
+        updateCentralBankDates();
+        setInterval(updateCentralBankDates, 3600000);
+
+        // ========================================================================
         // MOBILE TAB NAVIGATION
         // ========================================================================
         
@@ -1284,7 +2043,9 @@
             'breaking': '.col-breaking',
             'macro': '.col-macro',
             'geo': '.col-geo',
-            'commodity': '.col-commodity'
+            'commodity': '.col-commodity',
+            'fx': '.col-fx',
+            'prediction': '.col-prediction'
         };
 
         function initMobileTabs() {
@@ -1355,13 +2116,79 @@
             `).join('');
         }
 
+        let fxDataStore = { macro: [], geo: [], commodity: [] };
+
         function updateMarketTicker(marketData) {
             marketTickerData = marketData;
+            updateSuperTicker();
+        }
+
+        function updateSuperTicker() {
             const ticker = document.getElementById('marketTickerContent');
-            const doubled = [...marketData, ...marketData];
+            if (!ticker) return;
+
+            let allItems = [];
+            
+            if (marketTickerData && marketTickerData.length > 0) {
+                allItems = allItems.concat(marketTickerData.map(item => ({
+                    label: item.label,
+                    value: item.value,
+                    change: item.change,
+                    dir: item.dir,
+                    tvSymbol: item.symbol || item.label,
+                    type: 'market'
+                })));
+            }
+            
+            if (fxDataStore.macro) {
+                allItems = allItems.concat(fxDataStore.macro.map(item => ({
+                    label: item.label,
+                    value: item.price,
+                    change: item.change + '%',
+                    dir: item.dir,
+                    tvSymbol: item.tvSymbol || item.label,
+                    type: 'fx'
+                })));
+            }
+            if (fxDataStore.geo) {
+                allItems = allItems.concat(fxDataStore.geo.map(item => ({
+                    label: item.label,
+                    value: item.price,
+                    change: item.change + '%',
+                    dir: item.dir,
+                    tvSymbol: item.tvSymbol || item.label,
+                    type: 'fx'
+                })));
+            }
+            if (fxDataStore.commodity) {
+                allItems = allItems.concat(fxDataStore.commodity.map(item => ({
+                    label: item.label,
+                    value: item.price,
+                    change: item.change + '%',
+                    dir: item.dir,
+                    tvSymbol: item.tvSymbol || item.label,
+                    type: 'fx'
+                })));
+            }
+            
+            const allCommodities = [
+                ...(commodityDataStore.metals || []),
+                ...(commodityDataStore.energy || []),
+                ...(commodityDataStore.agriculture || [])
+            ];
+            allItems = allItems.concat(allCommodities.map(item => ({
+                label: item.label,
+                value: item.price,
+                change: item.change + '%',
+                dir: item.dir,
+                tvSymbol: item.tvSymbol || item.ticker || item.label,
+                type: 'commodity'
+            })));
+
+            const doubled = [...allItems, ...allItems];
             
             ticker.innerHTML = doubled.map(item => `
-                <div class="market-ticker-item">
+                <div class="market-ticker-item" onclick="openChart('${item.tvSymbol}')" style="cursor: pointer;">
                     <span class="market-ticker-label">${item.label}</span>
                     <span class="market-ticker-value">${item.value}</span>
                     <span class="market-ticker-change ${getMarketTickerClass(item.dir)}">
@@ -1376,6 +2203,68 @@
                    dir === 'down' ? 'market-ticker-down' : 
                    'market-ticker-neutral';
         }
+
+        // ========================================================================
+        // TICKER MOUSE/TOUCH SCROLL
+        // ========================================================================
+        
+        function initTickerScroll() {
+            const ticker = document.getElementById('marketTicker');
+            const tickerContent = document.getElementById('marketTickerContent');
+            if (!ticker || !tickerContent) return;
+            
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+            
+            ticker.addEventListener('mousedown', (e) => {
+                isDown = true;
+                tickerContent.classList.add('dragging');
+                startX = e.pageX - ticker.offsetLeft;
+                scrollLeft = ticker.scrollLeft;
+            });
+            
+            ticker.addEventListener('mouseleave', () => {
+                if (isDown) {
+                    isDown = false;
+                    tickerContent.classList.remove('dragging');
+                }
+            });
+            
+            ticker.addEventListener('mouseup', () => {
+                isDown = false;
+                tickerContent.classList.remove('dragging');
+            });
+            
+            ticker.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - ticker.offsetLeft;
+                const walk = (x - startX) * 3;
+                ticker.scrollLeft = scrollLeft - walk;
+            });
+            
+            ticker.addEventListener('touchstart', (e) => {
+                isDown = true;
+                tickerContent.classList.add('dragging');
+                startX = e.touches[0].pageX - ticker.offsetLeft;
+                scrollLeft = ticker.scrollLeft;
+            }, { passive: true });
+            
+            ticker.addEventListener('touchend', () => {
+                isDown = false;
+                tickerContent.classList.remove('dragging');
+            });
+            
+            ticker.addEventListener('touchmove', (e) => {
+                if (!isDown) return;
+                const x = e.touches[0].pageX - ticker.offsetLeft;
+                const walk = (x - startX) * 3;
+                ticker.scrollLeft = scrollLeft - walk;
+            }, { passive: true });
+        }
+        
+        document.addEventListener('DOMContentLoaded', initTickerScroll);
 
         // ========================================================================
         // WEBSOCKET CONNECTION
@@ -1444,6 +2333,15 @@
                 case 'macro_update':
                     updateMacroData(message.data);
                     break;
+                case 'polymarket_update':
+                    updatePolymarketData(message.data);
+                    break;
+                case 'fx_update':
+                    updateFXData(message.data);
+                    break;
+                case 'commodity_update':
+                    updateCommodityData(message.data);
+                    break;
             }
         }
 
@@ -1453,6 +2351,15 @@
             }
             if (message.macro) {
                 updateMacroData(message.macro);
+            }
+            if (message.polymarket) {
+                updatePolymarketData(message.polymarket);
+            }
+            if (message.fx) {
+                updateFXData(message.fx);
+            }
+            if (message.commodities) {
+                updateCommodityData(message.commodities);
             }
         }
 
@@ -1464,11 +2371,34 @@
 
             const cardHtml = createCardHtml(message.data);
             
-            // For macro column, insert AFTER the macro grid (keep indicators on top)
+            // Insert cards AFTER pinned dashboards to keep them on top
             if (columnId === 'macroColumn') {
                 const macroGrid = column.querySelector('.macro-grid-container');
                 if (macroGrid) {
                     macroGrid.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'commodityColumn') {
+                const commodityDashboard = column.querySelector('.commodity-dashboard-container');
+                if (commodityDashboard) {
+                    commodityDashboard.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'fxColumn') {
+                const fxDashboard = column.querySelector('.fx-dashboard-container');
+                const cbRates = column.querySelector('.cb-rates-container');
+                const insertAfter = cbRates || fxDashboard;
+                if (insertAfter) {
+                    insertAfter.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'predictionColumn') {
+                const riskDashboard = column.querySelector('.risk-dashboard-container');
+                if (riskDashboard) {
+                    riskDashboard.insertAdjacentHTML('afterend', cardHtml);
                 } else {
                     column.insertAdjacentHTML('afterbegin', cardHtml);
                 }
@@ -1505,7 +2435,9 @@
                 'macro': 'macroColumn',
                 'geo': 'geoColumn',
                 'commodity': 'commodityColumn',
-                'market': 'breakingColumn'
+                'market': 'breakingColumn',
+                'fx': 'fxColumn',
+                'prediction': 'predictionColumn'
             };
             return mapping[category] || 'breakingColumn';
         }
@@ -1515,8 +2447,9 @@
                 `<div class="impact-dot ${i < (data.impact || 2) ? 'active' : ''}"></div>`
             ).join('');
 
+            const pubDateHtml = data.pubDate ? ` • ${data.pubDate}` : '';
             const sourceHtml = data.source ? 
-                `<div class="card-source">📡 ${data.source}${data.verified ? ' ✓' : ''}</div>` : '';
+                `<div class="card-source">📡 ${data.source}${data.verified ? ' ✓' : ''}${pubDateHtml}</div>` : '';
             
             // Regime badge if detected
             const regimeHtml = data.regime ? 
@@ -1580,18 +2513,26 @@
             
             cardDataStore[cardId] = {
                 headline: data.headline,
+                link: data.link || '',
                 source: data.source || '',
                 implications: data.implications || []
             };
+            
+            const headlineHtml = data.link 
+                ? `<a href="${data.link}" target="_blank" rel="noopener noreferrer" class="card-headline">${data.headline}</a>`
+                : `<div class="card-headline">${data.headline}</div>`;
             
             return `
                 <div class="card" id="${cardId}">
                     <div class="card-timestamp">${data.time} UTC</div>
                     ${sourceHtml}
                     ${regimeHtml}
-                    <div class="card-headline clickable" onclick="analyzeHeadline('${cardId}')">${data.headline}</div>
+                    ${headlineHtml}
                     ${implicationsHtml}
                     <div class="card-meta">
+                        <div class="meta-item deep-analysis-btn" onclick="analyzeHeadline('${cardId}')">
+                            <span class="analysis-text">DEEP ANALYSIS</span>
+                        </div>
                         <div class="meta-item">
                             <span class="meta-label">Impact:</span>
                             <div class="impact-indicator">${impactDots}</div>
@@ -1694,6 +2635,182 @@
                    'macro-neutral';
         }
 
+        function updatePolymarketData(polymarketData) {
+            if (!polymarketData) return;
+
+            const fedRisksContainer = document.getElementById('fedRisks');
+            const growthRisksContainer = document.getElementById('growthRisks');
+            const inflationRisksContainer = document.getElementById('inflationRisks');
+            const geopoliticalRisksContainer = document.getElementById('geopoliticalRisks');
+
+            const renderRisks = (risks) => risks.map(risk => `
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <div class="risk-item-label">${risk.label}</div>
+                        <div class="risk-item-odds">${risk.odds}%</div>
+                    </div>
+                    <div class="risk-item-right">
+                        <div class="risk-item-change ${getRiskClass(risk.dir)}">
+                            ${risk.change > 0 ? '+' : ''}${risk.change}%
+                        </div>
+                        <span class="${getRiskClass(risk.dir)}">${getRiskArrow(risk.dir)}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            if (polymarketData.fedRisks && fedRisksContainer) {
+                fedRisksContainer.innerHTML = renderRisks(polymarketData.fedRisks);
+            }
+            if (polymarketData.growthRisks && growthRisksContainer) {
+                growthRisksContainer.innerHTML = renderRisks(polymarketData.growthRisks);
+            }
+            if (polymarketData.inflationRisks && inflationRisksContainer) {
+                inflationRisksContainer.innerHTML = renderRisks(polymarketData.inflationRisks);
+            }
+            if (polymarketData.geopoliticalRisks && geopoliticalRisksContainer) {
+                geopoliticalRisksContainer.innerHTML = renderRisks(polymarketData.geopoliticalRisks);
+            }
+        }
+
+        function getRiskClass(dir) {
+            return dir === 'up' ? 'risk-up' : 
+                   dir === 'down' ? 'risk-down' : 
+                   'risk-neutral';
+        }
+
+        function getRiskArrow(dir) {
+            return dir === 'up' ? '▲' : 
+                   dir === 'down' ? '▼' : 
+                   '→';
+        }
+
+        function updateFXData(fxData) {
+            if (!fxData || (!fxData.macro && !fxData.geo && !fxData.commodity)) return;
+            fxDataStore = fxData;
+
+            const fxMacroContainer = document.getElementById('fxMacro');
+            const fxGeoContainer = document.getElementById('fxGeo');
+            const fxCommodityContainer = document.getElementById('fxCommodity');
+
+            // Update MACRO PLUMBING (10 pairs)
+            if (fxData.macro && fxMacroContainer) {
+                fxMacroContainer.innerHTML = fxData.macro.map(pair => `
+                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                        <div class="fx-pair-left">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
+                        </div>
+                        <div class="fx-pair-right">
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                                ${pair.change}%
+                            </div>
+                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update GEOPOLITICS (10 pairs)
+            if (fxData.geo && fxGeoContainer) {
+                fxGeoContainer.innerHTML = fxData.geo.map(pair => `
+                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                        <div class="fx-pair-left">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
+                        </div>
+                        <div class="fx-pair-right">
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                                ${pair.change}%
+                            </div>
+                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update COMMODITIES (10 pairs)
+            if (fxData.commodity && fxCommodityContainer) {
+                fxCommodityContainer.innerHTML = fxData.commodity.map(pair => `
+                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                        <div class="fx-pair-left">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
+                        </div>
+                        <div class="fx-pair-right">
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                                ${pair.change}%
+                            </div>
+                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateSuperTicker();
+        }
+
+        function getFXClass(dir) {
+            return dir === 'up' ? 'fx-up' : 
+                   dir === 'down' ? 'fx-down' : 
+                   'fx-neutral';
+        }
+
+        function getFXArrow(dir) {
+            return dir === 'up' ? '▲' : 
+                   dir === 'down' ? '▼' : 
+                   '→';
+        }
+
+        let commodityDataStore = { metals: [], energy: [], agriculture: [] };
+
+        function updateCommodityData(commodityData) {
+            if (!commodityData) return;
+            commodityDataStore = commodityData;
+
+            const metalsContainer = document.getElementById('commodityMetals');
+            const energyContainer = document.getElementById('commodityEnergy');
+            const agricultureContainer = document.getElementById('commodityAgriculture');
+
+            const renderCommodity = (item) => `
+                <div class="commodity-item" onclick="openChart('${item.tvSymbol || item.ticker || item.label}')" style="cursor: pointer;">
+                    <div class="commodity-item-left">
+                        <div class="commodity-item-label">${item.label} <span class="commodity-ticker">${item.ticker || ''}</span></div>
+                        <div class="commodity-item-price">${item.price}</div>
+                    </div>
+                    <div class="commodity-item-right">
+                        <div class="commodity-item-change ${getCommodityClass(item.dir)}">
+                            ${item.change}%
+                        </div>
+                        <span class="${getCommodityClass(item.dir)}">${getCommodityArrow(item.dir)}</span>
+                    </div>
+                </div>
+            `;
+
+            if (commodityData.metals && metalsContainer) {
+                metalsContainer.innerHTML = commodityData.metals.map(renderCommodity).join('');
+            }
+            if (commodityData.energy && energyContainer) {
+                energyContainer.innerHTML = commodityData.energy.map(renderCommodity).join('');
+            }
+            if (commodityData.agriculture && agricultureContainer) {
+                agricultureContainer.innerHTML = commodityData.agriculture.map(renderCommodity).join('');
+            }
+
+            updateSuperTicker();
+        }
+
+        function getCommodityClass(dir) {
+            return dir === 'up' ? 'commodity-up' : 
+                   dir === 'down' ? 'commodity-down' : 
+                   'commodity-neutral';
+        }
+
+        function getCommodityArrow(dir) {
+            return dir === 'up' ? '▲' : 
+                   dir === 'down' ? '▼' : 
+                   '→';
+        }
+
         function getMarketClass(dir) {
             return dir === 'up' ? 'market-up' : 
                    dir === 'down' ? 'market-down' : 
@@ -1709,6 +2826,18 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function manualRefresh() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            
+            // Request immediate refresh from server
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'refresh_request' }));
+            }
+            
+            setTimeout(() => btn.classList.remove('spinning'), 500);
         }
 
         function analyzeHeadline(cardId) {
@@ -1732,7 +2861,7 @@
             modalBody.innerHTML = `
                 <div class="modal-loading">
                     <div class="modal-spinner"></div>
-                    <div class="modal-loading-text">Analyzing with Gemini AI...</div>
+                    <div class="modal-loading-text">Analyzing with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Something great is about to happen - just a moment!</span></div>
                 </div>
             `;
 
@@ -1769,8 +2898,99 @@
         });
 
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape') {
+                closeModal();
+                closeChart();
+            }
         });
+
+        // ========================================================================
+        // TRADINGVIEW CHART POPUP
+        // ========================================================================
+
+        function openChart(tvSymbol) {
+            const modal = document.getElementById('chartModal');
+            modal.style.display = 'flex';
+            
+            // Clear previous chart
+            document.getElementById('tradingview_widget').innerHTML = '';
+            
+            // Create TradingView widget
+            new TradingView.widget({
+                "width": "100%",
+                "height": "100%",
+                "symbol": tvSymbol,
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#131722",
+                "enable_publishing": false,
+                "allow_symbol_change": true,
+                "save_image": false,
+                "container_id": "tradingview_widget",
+                "hide_top_toolbar": false,
+                "hide_legend": false,
+                "withdateranges": true,
+                "studies": [
+                    "MASimple@tv-basicstudies",
+                    "RSI@tv-basicstudies"
+                ]
+            });
+        }
+
+        function closeChart(event) {
+            document.getElementById('chartModal').style.display = 'none';
+        }
+        
+        function stopChartPropagation(event) {
+            event.stopPropagation();
+        }
+
+        function searchSymbol() {
+            const input = document.getElementById('symbolSearchInput');
+            const symbol = input.value.trim().toUpperCase();
+            if (symbol) {
+                openChart(symbol);
+                input.value = '';
+                document.getElementById('tickerSearchPopup').classList.remove('active');
+            }
+        }
+
+        (function() {
+            const ticker = document.getElementById('marketTicker');
+            const popup = document.getElementById('tickerSearchPopup');
+            const input = document.getElementById('symbolSearchInput');
+            let hoverTimeout;
+
+            if (ticker && popup) {
+                ticker.addEventListener('mouseenter', function() {
+                    hoverTimeout = setTimeout(function() {
+                        popup.classList.add('active');
+                    }, 500);
+                });
+
+                ticker.addEventListener('mouseleave', function(e) {
+                    clearTimeout(hoverTimeout);
+                    if (!popup.contains(e.relatedTarget)) {
+                        popup.classList.remove('active');
+                    }
+                });
+
+                popup.addEventListener('mouseleave', function() {
+                    popup.classList.remove('active');
+                });
+
+                if (input) {
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            searchSymbol();
+                        }
+                    });
+                }
+            }
+        })();
 
         function parseMarkdown(text) {
             return text
@@ -1794,5 +3014,17 @@
                 });
         }
     </script>
+
+    <!-- TradingView Chart Modal -->
+    <div id="chartModal" class="chart-modal-overlay" style="display: none;" onclick="closeChart(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()">
+            <button class="chart-close-btn" onclick="closeChart(event)">×</button>
+            <div id="tradingview_widget"></div>
+        </div>
+    </div>
+
+    <!-- TradingView Widget Library -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
 </body>
 </html>
