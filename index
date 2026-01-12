@@ -6,7 +6,7 @@
     <title>The Daily Nuthatch Live Desk</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -20,27 +20,34 @@
             --bg-card: #1a1f2b;
             --border: #2a3040;
             --text-primary: #e6e8eb;
-            --text-secondary: #8b92a8;
+            --text-secondary: #6B8BA4;
             --text-dim: #5a6070;
             --accent-green: #00ff88;
             --accent-red: #ff4466;
             --accent-yellow: #ffbb33;
             --accent-blue: #3399ff;
             --accent-purple: #bb66ff;
+            --accent-orange: #D4714A;
         }
 
         body {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             background: var(--bg-main);
             color: var(--text-primary);
-            overflow-x: hidden;
+            overflow: hidden;
             line-height: 1.4;
+            height: 100vh;
+        }
+        
+        html {
+            overflow: hidden;
+            height: 100vh;
         }
 
         /* Header */
         .header {
             background: linear-gradient(135deg, #1a1f2b 0%, #0f1319 100%);
-            border-bottom: 2px solid var(--accent-green);
+            border-bottom: 2px solid var(--accent-orange);
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
@@ -48,7 +55,7 @@
             position: sticky;
             top: 0;
             z-index: 1000;
-            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1);
+            box-shadow: 0 4px 20px rgba(212, 113, 74, 0.15);
         }
 
         .logo {
@@ -56,9 +63,8 @@
             font-size: 1.5rem;
             font-weight: 700;
             letter-spacing: -0.5px;
-            color: var(--accent-green);
+            color: #ffffff;
             text-transform: uppercase;
-            animation: pulse 3s ease-in-out infinite;
         }
 
         @keyframes pulse {
@@ -99,6 +105,28 @@
             letter-spacing: 1px;
         }
 
+        .info-button {
+            background: rgba(212, 113, 74, 0.1);
+            border: 1px solid rgba(212, 113, 74, 0.3);
+            color: var(--accent-orange);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .info-button:hover {
+            background: rgba(212, 113, 74, 0.2);
+            border-color: var(--accent-orange);
+            transform: translateY(-1px);
+        }
+
         /* Ticker Container - Two Tickers */
         .ticker-container {
             background: var(--bg-card);
@@ -107,8 +135,7 @@
 
         /* News Ticker (Top) */
         .news-ticker {
-            background: linear-gradient(90deg, rgba(0, 255, 136, 0.1) 0%, transparent 100%);
-            border-left: 3px solid var(--accent-green);
+            background: var(--bg-card);
             padding: 0.75rem 2rem;
             overflow: hidden;
             position: relative;
@@ -116,6 +143,8 @@
             display: flex;
             align-items: center;
             border-bottom: 1px solid var(--border);
+            box-shadow: inset 25px 0 20px -20px rgba(0, 0, 0, 0.6),
+                        inset -25px 0 20px -20px rgba(0, 0, 0, 0.6);
         }
 
         .news-ticker-content {
@@ -138,12 +167,42 @@
         }
 
         .ticker-time {
-            color: var(--accent-green);
+            color: var(--accent-orange);
             font-weight: 600;
         }
 
         .ticker-text {
             color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .ticker-text.top-story {
+            color: #ffffff;
+            font-weight: 700;
+        }
+        
+        .top-story-badge {
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+            color: white;
+            font-size: 0.55rem;
+            font-weight: 800;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            margin-right: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: topStoryPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes topStoryPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .ticker-item.top-story {
+            background: rgba(255, 68, 68, 0.1);
+            border-left: 2px solid #ff4444;
+            padding-left: 0.75rem;
         }
 
         .ticker-impact {
@@ -164,8 +223,7 @@
 
         /* Market Ticker (Bottom) */
         .market-ticker {
-            background: linear-gradient(90deg, rgba(51, 153, 255, 0.1) 0%, transparent 100%);
-            border-left: 3px solid var(--accent-blue);
+            background: var(--bg-card);
             padding: 0.6rem 2rem;
             overflow-x: auto;
             overflow-y: hidden;
@@ -176,6 +234,8 @@
             scrollbar-width: none;
             -ms-overflow-style: none;
             cursor: grab;
+            box-shadow: inset 25px 0 20px -20px rgba(0, 0, 0, 0.6),
+                        inset -25px 0 20px -20px rgba(0, 0, 0, 0.6);
         }
 
         .market-ticker::-webkit-scrollbar {
@@ -244,7 +304,7 @@
         }
 
         .ticker-search-popup button:hover {
-            background: var(--accent-green);
+            background: var(--accent-orange);
         }
 
         .market-ticker-content {
@@ -270,7 +330,7 @@
 
         .market-ticker-item {
             display: flex;
-            gap: 0.35rem;
+            gap: 0.5rem;
             align-items: center;
             font-size: 0.75rem;
         }
@@ -278,20 +338,21 @@
         .market-ticker-label {
             color: var(--text-secondary);
             font-weight: 600;
-            min-width: 70px;
+            min-width: 85px;
+            text-align: right;
         }
 
         .market-ticker-value {
             color: var(--text-primary);
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
-            margin-left: -0.2rem;
+            margin-left: 0.15rem;
         }
 
         .market-ticker-change {
             font-size: 0.7rem;
             font-weight: 600;
-            margin-left: -0.1rem;
+            margin-left: 0.15rem;
         }
 
         .market-ticker-up {
@@ -313,7 +374,8 @@
             gap: 1px;
             background: var(--border);
             padding: 1px;
-            min-height: calc(100vh - 150px);
+            height: calc(100vh - 150px);
+            overflow: hidden;
         }
 
         .column {
@@ -321,6 +383,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            max-height: 100%;
         }
 
         .column-header {
@@ -352,6 +415,8 @@
         .col-macro .column-title { color: var(--accent-blue); }
         .col-geo .column-title { color: var(--accent-purple); }
         .col-commodity .column-title { color: var(--accent-yellow); }
+        .col-fx .column-title { color: #00D9FF; }
+        .col-prediction .column-title { color: var(--accent-purple); }
         .col-market .column-title { color: var(--accent-green); }
 
         /* Refresh button */
@@ -382,21 +447,24 @@
             display: inline-block;
             width: 6px;
             height: 6px;
-            background: #00ff88;
+            background: #D4714A;
             border-radius: 50%;
             margin-right: 4px;
             animation: pulse 1.5s ease-in-out infinite;
         }
         
         @keyframes pulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
-            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(0, 255, 136, 0); }
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(212, 113, 74, 0.7); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(212, 113, 74, 0); }
         }
 
         .column-content {
             padding: 1rem;
             overflow-y: auto;
             flex: 1;
+            /* Thin CSS3 scrollbars */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(212, 113, 74, 0.3) transparent;
         }
 
         /* Cards */
@@ -411,7 +479,7 @@
         }
 
         .card:hover {
-            border-color: var(--accent-green);
+            border-color: var(--accent-orange);
             transform: translateX(2px);
         }
 
@@ -493,65 +561,100 @@
 
         /* Tripwire Section */
         .tripwire-section {
-            background: rgba(255, 68, 102, 0.05);
-            border: 1px solid rgba(255, 68, 102, 0.2);
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.08) 0%, rgba(255, 152, 0, 0.05) 100%);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-left: 3px solid #FFC107;
             border-radius: 4px;
-            padding: 0.75rem;
+            padding: 0.6rem 0.75rem;
             margin-top: 0.75rem;
         }
 
         .tripwire-title {
-            font-size: 0.7rem;
-            color: var(--accent-red);
+            font-size: 0.65rem;
+            color: #FFC107;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
         }
 
         .tripwire-item {
             font-size: 0.7rem;
-            color: var(--text-secondary);
-            margin-left: 0.5rem;
-            margin-bottom: 0.3rem;
+            color: var(--text-primary);
+            margin-left: 0;
+            margin-bottom: 0.35rem;
             line-height: 1.4;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.25rem 0.4rem;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .tripwire-item::before {
+            content: "→";
+            color: #FFC107;
+            margin-right: 0.4rem;
+            font-weight: bold;
         }
 
-        /* Macro Plumbing Grid - 2x4 Layout */
+        /* Macro Plumbing Grid - 2x4 Layout (Rates Dashboard) */
         .macro-grid-container {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(51, 153, 255, 0.1) 0%, rgba(51, 153, 255, 0.05) 100%);
+            border: 1px solid var(--accent-blue);
             border-radius: 6px;
-            padding: 1rem;
+            padding: 0.75rem;
             margin-bottom: 1rem;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .macro-dashboard-title {
+            font-size: 0.65rem;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.6rem;
+            font-weight: 700;
+            text-align: center;
         }
 
         .macro-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 0.5rem;
+            max-width: 100%;
         }
 
         .macro-grid-column {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .macro-grid-item {
             background: rgba(42, 48, 64, 0.3);
-            border: 1px solid var(--border);
+            border: 1px solid rgba(51, 153, 255, 0.25);
             border-radius: 4px;
-            padding: 0.6rem 0.75rem;
+            padding: 0.4rem 0.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             transition: all 0.2s ease;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .macro-grid-item:hover {
-            border-color: var(--accent-green);
-            background: rgba(42, 48, 64, 0.5);
+            border-color: var(--accent-blue);
+            background: rgba(51, 153, 255, 0.1);
         }
 
         .macro-grid-item.tripwire-hit {
@@ -562,34 +665,39 @@
         .macro-item-left {
             display: flex;
             flex-direction: column;
-            gap: 0.15rem;
+            gap: 0.1rem;
+            min-width: 0;
+            flex-shrink: 1;
         }
 
         .macro-item-label {
-            font-size: 0.65rem;
-            color: var(--text-dim);
+            font-size: 0.55rem;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .macro-item-value {
-            font-size: 0.95rem;
+            font-size: 0.8rem;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
-            color: var(--text-primary);
+            color: var(--accent-blue);
         }
 
         .macro-item-right {
             text-align: right;
             display: flex;
-            flex-direction: column;
-            gap: 0.1rem;
-            align-items: flex-end;
+            align-items: center;
+            gap: 0.2rem;
+            flex-shrink: 0;
         }
 
         .macro-item-change {
-            font-size: 0.75rem;
+            font-size: 0.6rem;
             font-weight: 600;
         }
 
@@ -605,114 +713,6 @@
             color: var(--text-dim);
         }
 
-        /* Polymarket Risk Dashboard - Similar to Macro Grid */
-        .risk-dashboard-container {
-            background: linear-gradient(135deg, rgba(187, 102, 255, 0.1) 0%, rgba(51, 153, 255, 0.1) 100%);
-            border: 1px solid var(--accent-purple);
-            border-radius: 6px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .risk-dashboard-title {
-            font-size: 0.7rem;
-            color: var(--accent-purple);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 0.75rem;
-            font-weight: 700;
-            text-align: center;
-        }
-
-        .risk-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-        }
-
-        .risk-grid-4 {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            grid-template-rows: auto auto;
-            gap: 0.5rem;
-        }
-
-        .risk-grid-column {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .risk-column-title {
-            font-size: 0.65rem;
-            color: var(--accent-purple);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-            text-align: center;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid rgba(187, 102, 255, 0.3);
-        }
-
-        .risk-item {
-            background: rgba(42, 48, 64, 0.3);
-            border: 1px solid rgba(187, 102, 255, 0.3);
-            border-radius: 4px;
-            padding: 0.5rem 0.65rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s ease;
-        }
-
-        .risk-item:hover {
-            border-color: var(--accent-purple);
-            background: rgba(187, 102, 255, 0.15);
-        }
-
-        .risk-item-left {
-            display: flex;
-            flex-direction: column;
-            gap: 0.1rem;
-        }
-
-        .risk-item-label {
-            font-size: 0.6rem;
-            color: var(--text-secondary);
-            font-weight: 600;
-        }
-
-        .risk-item-odds {
-            font-size: 0.85rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            color: var(--accent-purple);
-        }
-
-        .risk-item-right {
-            text-align: right;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-
-        .risk-item-change {
-            font-size: 0.7rem;
-            font-weight: 700;
-        }
-
-        .risk-up {
-            color: var(--accent-red);
-        }
-
-        .risk-down {
-            color: var(--accent-green);
-        }
-
-        .risk-neutral {
-            color: var(--text-dim);
-        }
 
         /* Commodities Dashboard - Yellow/Gold Theme */
         .commodity-dashboard-container {
@@ -727,11 +727,11 @@
         }
 
         .commodity-dashboard-title {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--accent-yellow);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.6rem;
             font-weight: 700;
             text-align: center;
         }
@@ -806,20 +806,20 @@
         }
 
         .commodity-item-label {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             color: var(--text-secondary);
             font-weight: 600;
         }
 
         .commodity-ticker {
-            font-size: 0.5rem;
+            font-size: 0.45rem;
             color: rgba(255, 193, 7, 0.5);
             font-weight: 400;
-            margin-left: 0.25rem;
+            margin-left: 0.2rem;
         }
 
         .commodity-item-price {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             color: var(--accent-yellow);
@@ -833,8 +833,8 @@
         }
 
         .commodity-item-change {
-            font-size: 0.7rem;
-            font-weight: 700;
+            font-size: 0.6rem;
+            font-weight: 600;
         }
 
         .commodity-up {
@@ -862,11 +862,11 @@
         }
 
         .fx-dashboard-title {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #00D9FF;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.6rem;
             font-weight: 700;
             text-align: center;
         }
@@ -949,13 +949,13 @@
         }
 
         .fx-pair-label {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             color: var(--text-secondary);
             font-weight: 600;
         }
 
         .fx-pair-price {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             color: #00D9FF;
@@ -969,8 +969,8 @@
         }
 
         .fx-pair-change {
-            font-size: 0.7rem;
-            font-weight: 700;
+            font-size: 0.6rem;
+            font-weight: 600;
         }
 
         .fx-up {
@@ -1098,8 +1098,8 @@
         }
 
         .news-tag:hover {
-            border-color: var(--accent-green);
-            background: rgba(0, 255, 136, 0.05);
+            border-color: var(--accent-orange);
+            background: rgba(212, 113, 74, 0.05);
         }
 
         /* Tag Type Colors */
@@ -1110,9 +1110,9 @@
         }
 
         .news-tag.risk-on {
-            border-color: var(--accent-green);
-            color: var(--accent-green);
-            background: rgba(0, 255, 136, 0.05);
+            border-color: #22c55e;
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
         }
 
         .news-tag.risk-off {
@@ -1152,7 +1152,7 @@
             color: var(--accent-purple);
         }
 
-        /* Confidence Indicator */
+        /* Market Risk Indicator */
         .confidence-bar {
             margin-top: 0.5rem;
             padding-top: 0.5rem;
@@ -1172,13 +1172,30 @@
             background: rgba(42, 48, 64, 0.5);
             border-radius: 2px;
             overflow: hidden;
+            position: relative;
         }
 
         .confidence-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--accent-red), var(--accent-yellow), var(--accent-green));
             border-radius: 2px;
             transition: width 0.3s ease;
+        }
+        
+        /* Dynamic risk colors set via inline style from JS */
+        .confidence-fill.risk-low {
+            background: linear-gradient(90deg, #00ff88 0%, #33ff99 100%);
+        }
+        .confidence-fill.risk-medium {
+            background: linear-gradient(90deg, #00ff88 0%, #88cc44 40%, #ffbb33 100%);
+        }
+        .confidence-fill.risk-elevated {
+            background: linear-gradient(90deg, #00ff88 0%, #ffbb33 50%, #ff8833 100%);
+        }
+        .confidence-fill.risk-high {
+            background: linear-gradient(90deg, #00ff88 0%, #ffbb33 30%, #ff8833 60%, #ff4466 100%);
+        }
+        .confidence-fill.risk-critical {
+            background: linear-gradient(90deg, #00ff88 0%, #ffbb33 20%, #ff8833 40%, #ff4466 70%, #dd2244 100%);
         }
 
         /* Next Events Section */
@@ -1246,23 +1263,48 @@
         .market-down { color: var(--accent-red); }
         .market-neutral { color: var(--text-dim); }
 
-        /* Scrollbar */
+        /* Thin CSS3 Scrollbars for columns */
         .column-content::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
         }
 
         .column-content::-webkit-scrollbar-track {
-            background: var(--bg-column);
+            background: transparent;
         }
 
         .column-content::-webkit-scrollbar-thumb {
-            background: var(--border);
+            background: rgba(212, 113, 74, 0.25);
             border-radius: 3px;
         }
 
         .column-content::-webkit-scrollbar-thumb:hover {
-            background: var(--accent-green);
+            background: rgba(212, 113, 74, 0.5);
         }
+        
+        /* Column-specific scrollbar colors */
+        .col-breaking .column-content { scrollbar-color: rgba(255, 68, 102, 0.3) transparent; }
+        .col-breaking .column-content::-webkit-scrollbar-thumb { background: rgba(255, 68, 102, 0.25); }
+        .col-breaking .column-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 68, 102, 0.5); }
+        
+        .col-macro .column-content { scrollbar-color: rgba(51, 153, 255, 0.3) transparent; }
+        .col-macro .column-content::-webkit-scrollbar-thumb { background: rgba(51, 153, 255, 0.25); }
+        .col-macro .column-content::-webkit-scrollbar-thumb:hover { background: rgba(51, 153, 255, 0.5); }
+        
+        .col-geo .column-content { scrollbar-color: rgba(187, 102, 255, 0.3) transparent; }
+        .col-geo .column-content::-webkit-scrollbar-thumb { background: rgba(187, 102, 255, 0.25); }
+        .col-geo .column-content::-webkit-scrollbar-thumb:hover { background: rgba(187, 102, 255, 0.5); }
+        
+        .col-commodity .column-content { scrollbar-color: rgba(255, 187, 51, 0.3) transparent; }
+        .col-commodity .column-content::-webkit-scrollbar-thumb { background: rgba(255, 187, 51, 0.25); }
+        .col-commodity .column-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 187, 51, 0.5); }
+        
+        .col-fx .column-content { scrollbar-color: rgba(0, 217, 255, 0.3) transparent; }
+        .col-fx .column-content::-webkit-scrollbar-thumb { background: rgba(0, 217, 255, 0.25); }
+        .col-fx .column-content::-webkit-scrollbar-thumb:hover { background: rgba(0, 217, 255, 0.5); }
+        
+        .col-prediction .column-content { scrollbar-color: rgba(187, 102, 255, 0.3) transparent; }
+        .col-prediction .column-content::-webkit-scrollbar-thumb { background: rgba(187, 102, 255, 0.25); }
+        .col-prediction .column-content::-webkit-scrollbar-thumb:hover { background: rgba(187, 102, 255, 0.5); }
 
         /* TradingView Chart Modal */
         .chart-modal-overlay {
@@ -1325,6 +1367,114 @@
             }
         }
 
+        /* Info Modal specific styles */
+        #infoModal .chart-modal-content {
+            height: auto;
+            max-height: 85vh;
+            padding: 1rem;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-orange) var(--bg-column);
+            border-color: var(--accent-orange);
+        }
+
+        #infoModal .chart-close-btn {
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+
+        #infoModal .chart-modal-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #infoModal .chart-modal-content::-webkit-scrollbar-track {
+            background: var(--bg-column);
+            border-radius: 3px;
+        }
+
+        #infoModal .chart-modal-content::-webkit-scrollbar-thumb {
+            background: var(--accent-orange);
+            border-radius: 3px;
+        }
+
+        #infoModal .chart-modal-content::-webkit-scrollbar-thumb:hover {
+            background: #e08050;
+        }
+
+        #infoModal .modal-title {
+            padding-right: 2rem;
+        }
+
+        #infoModal .modal-analysis {
+            padding: 0 0.5rem;
+        }
+
+        .info-modal-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-orange) var(--bg-column);
+        }
+
+        .info-modal-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .info-modal-scroll::-webkit-scrollbar-track {
+            background: var(--bg-column);
+            border-radius: 3px;
+        }
+
+        .info-modal-scroll::-webkit-scrollbar-thumb {
+            background: var(--accent-orange);
+            border-radius: 3px;
+        }
+
+        .info-modal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #e08050;
+        }
+
+        @media (max-width: 768px) {
+            #infoModal .chart-modal-content {
+                width: 92%;
+                max-width: 100%;
+                max-height: 80vh;
+                padding: 0.75rem;
+                margin: 1rem;
+            }
+
+            #infoModal .modal-analysis {
+                max-height: 65vh !important;
+                padding: 0;
+                font-size: 0.85rem;
+            }
+
+            #infoModal .modal-analysis p {
+                margin-bottom: 0.5rem;
+            }
+
+            #infoModal .modal-analysis h3 {
+                font-size: 0.9rem;
+                margin-top: 1rem !important;
+            }
+        }
+
+        @media (max-width: 480px) and (orientation: portrait) {
+            #infoModal .chart-modal-content {
+                width: 94%;
+                max-height: 75vh;
+                padding: 0.5rem;
+                margin: 0.5rem;
+            }
+
+            #infoModal .modal-analysis {
+                max-height: 60vh !important;
+                font-size: 0.8rem;
+            }
+
+            #infoModal .modal-title {
+                font-size: 1rem;
+            }
+        }
+
         @keyframes slideIn {
             from {
                 transform: translateY(-50px);
@@ -1357,7 +1507,7 @@
         }
 
         .chart-close-btn:hover {
-            background: #00D9FF;
+            background: var(--accent-orange);
             color: #000;
             transform: rotate(90deg);
         }
@@ -1405,39 +1555,179 @@
         }
 
         .mobile-tab.active {
-            background: var(--accent-green);
-            color: var(--bg-main);
-            border-color: var(--accent-green);
+            background: var(--accent-red);
+            color: #ffffff;
+            border-color: var(--accent-red);
+            font-size: 0.63rem;
+        }
+        
+        /* Column-specific mobile tab colors */
+        .mobile-tab[data-column="breaking"].active {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+        .mobile-tab[data-column="macro"].active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        .mobile-tab[data-column="geo"].active {
+            background: var(--accent-purple);
+            border-color: var(--accent-purple);
+        }
+        .mobile-tab[data-column="commodity"].active {
+            background: var(--accent-yellow);
+            border-color: var(--accent-yellow);
+        }
+        .mobile-tab[data-column="fx"].active {
+            background: #00D9FF;
+            border-color: #00D9FF;
+        }
+        .mobile-tab[data-column="prediction"].active {
+            background: var(--accent-purple);
+            border-color: var(--accent-purple);
         }
 
-        /* Responsive */
-        @media (max-width: 1800px) {
+        /* Responsive - Force 6 columns on larger screens */
+        
+        /* Large desktop (1600px+): Full 6 columns with normal spacing */
+        @media (min-width: 1600px) {
+            .main-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+        }
+        
+        /* Medium desktop (1200-1600px): Compact 6 columns */
+        @media (min-width: 1200px) and (max-width: 1599px) {
+            .main-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 1px;
+            }
+            
+            .column-title { font-size: 0.65rem; }
+            .column-subtitle { font-size: 0.5rem; }
+            .card { padding: 0.5rem; margin-bottom: 0.4rem; }
+            .card-headline { font-size: 0.7rem; }
+            .card-timestamp { font-size: 0.55rem; }
+            .card-implications { font-size: 0.55rem; }
+            .news-tags { font-size: 0.5rem; }
+        }
+        
+        /* Medium screens (768-1199px) - use accordion row toggle */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            /* Hide mobile tabs, show accordion row buttons */
+            .mobile-tabs {
+                display: none !important;
+            }
+            
+            .accordion-toggle-row {
+                display: flex !important;
+            }
+            
             .main-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
-        }
-
-        @media (max-width: 1200px) {
-            .main-grid {
-                grid-template-columns: repeat(2, 1fr);
+            
+            /* Hide second row by default in accordion mode */
+            .column.accordion-collapsed {
+                display: none;
+            }
+            
+            .column.accordion-expanded {
+                display: flex;
             }
         }
+        
+        /* Accordion toggle row (hidden by default, shown on medium screens) */
+        .accordion-toggle-row {
+            display: none;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .accordion-toggle-btn {
+            background: var(--bg-column);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+        
+        .accordion-toggle-btn.active {
+            background: var(--accent-orange);
+            color: #fff;
+            border-color: var(--accent-orange);
+        }
+        
+        .accordion-toggle-btn:hover {
+            border-color: var(--accent-orange);
+        }
 
-        @media (max-width: 768px) {
+        @media (max-width: 767px) {
             .mobile-tabs {
                 display: flex;
+            }
+            
+            .accordion-toggle-row {
+                display: none !important;
             }
 
             .main-grid {
                 grid-template-columns: 1fr;
             }
+            
+            /* Mobile prediction market fixes */
+            .risk-grid-4 {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+            }
+            
+            .risk-grid-column {
+                padding: 0.3rem;
+                gap: 0.15rem;
+            }
+            
+            .risk-item {
+                padding: 0.2rem 0.3rem;
+            }
+            
+            .risk-item-label {
+                font-size: 0.45rem;
+                max-width: 60px;
+            }
+            
+            .risk-item-odds {
+                font-size: 0.55rem;
+            }
+            
+            .risk-item-change {
+                font-size: 0.4rem;
+            }
+            
+            .risk-column-title {
+                font-size: 0.5rem;
+                padding-bottom: 0.2rem;
+            }
 
+            /* Reset accordion classes for mobile - mobile-active takes precedence */
             .column {
+                display: none;
+            }
+            
+            .column.accordion-expanded,
+            .column.accordion-collapsed {
                 display: none;
             }
 
             .column.mobile-active {
-                display: flex;
+                display: flex !important;
             }
 
             .column-header {
@@ -1454,6 +1744,53 @@
 
             .time-display {
                 display: none;
+            }
+        }
+        
+        /* Mobile landscape mode - keep tabs visible */
+        @media (max-width: 900px) and (orientation: landscape) {
+            .mobile-tabs {
+                display: flex !important;
+                padding: 0.3rem;
+                gap: 0.2rem;
+            }
+            
+            .mobile-tab {
+                padding: 0.35rem 0.2rem;
+                font-size: 0.5rem;
+            }
+            
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .column {
+                display: none;
+            }
+
+            .column.mobile-active {
+                display: flex;
+            }
+
+            .column-header {
+                display: none;
+            }
+            
+            .header {
+                padding: 0.5rem 1rem;
+            }
+            
+            .logo {
+                font-size: 0.85rem;
+            }
+            
+            .time-display {
+                display: none;
+            }
+            
+            .info-button {
+                padding: 0.35rem 0.6rem;
+                font-size: 0.65rem;
             }
         }
 
@@ -1475,22 +1812,37 @@
         }
         
         a.card-headline:hover {
-            color: var(--accent-green);
+            color: var(--accent-orange);
         }
 
         /* Deep Analysis Button */
         .deep-analysis-btn {
             cursor: pointer;
             background: linear-gradient(135deg, rgba(32, 178, 170, 0.15), rgba(32, 178, 170, 0.05));
-            border: 1px solid #20b2aa;
+            border: 1px solid;
+            border-image: linear-gradient(90deg, #20b2aa, #00d9ff, #20b2aa) 1;
             border-radius: 4px;
             padding: 4px 8px !important;
             transition: all 0.2s ease;
+            animation: borderPulse 3s ease-in-out infinite;
+            position: relative;
+        }
+        
+        @keyframes borderPulse {
+            0%, 100% {
+                border-image: linear-gradient(90deg, #20b2aa, #00d9ff, #20b2aa) 1;
+                box-shadow: 0 0 5px rgba(32, 178, 170, 0.3);
+            }
+            50% {
+                border-image: linear-gradient(90deg, #00d9ff, #20b2aa, #00d9ff) 1;
+                box-shadow: 0 0 12px rgba(0, 217, 255, 0.5);
+            }
         }
         
         .deep-analysis-btn:hover {
             background: linear-gradient(135deg, rgba(32, 178, 170, 0.3), rgba(32, 178, 170, 0.15));
-            box-shadow: 0 0 8px rgba(32, 178, 170, 0.4);
+            box-shadow: 0 0 15px rgba(32, 178, 170, 0.6);
+            transform: translateY(-1px);
         }
         
         .analysis-text {
@@ -1542,13 +1894,13 @@
 
         .modal-content {
             background: var(--bg-card);
-            border: 2px solid var(--accent-green);
+            border: 2px solid var(--accent-orange);
             border-radius: 8px;
             max-width: 800px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 255, 136, 0.2);
+            box-shadow: 0 20px 60px rgba(212, 113, 74, 0.2);
             animation: modalSlideIn 0.3s ease-out;
         }
 
@@ -1578,7 +1930,7 @@
         .modal-title {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.8rem;
-            color: var(--accent-green);
+            color: var(--accent-orange);
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 0.5rem;
@@ -1671,7 +2023,7 @@
         }
 
         .modal-analysis h1, .modal-analysis h2, .modal-analysis h3 {
-            color: var(--accent-green);
+            color: var(--accent-orange);
             font-family: 'JetBrains Mono', monospace;
             margin-top: 1.5rem;
             margin-bottom: 0.75rem;
@@ -1724,12 +2076,13 @@
 <body>
     <!-- Header -->
     <div class="header">
-        <div class="logo">THE DAILY NUTHATCH // LIVE DESK</div>
+        <div class="logo">THE DAILY NUTHATCH // NEWS FEED</div>
         <div class="connection-status">
             <div class="status-dot" id="statusDot"></div>
             <span id="statusText">CONNECTING...</span>
         </div>
         <div class="time-display" id="currentTime">00:00:00 UTC</div>
+        <button class="info-button" onclick="openInfoModal()">INFO</button>
     </div>
 
     <!-- Dual Ticker System -->
@@ -1762,9 +2115,15 @@
         <button class="mobile-tab" data-column="prediction">PRED</button>
     </div>
 
-    <!-- Main Grid - 4 Columns -->
+    <!-- Accordion Toggle Row (for medium screens 768-1199px) -->
+    <div class="accordion-toggle-row" id="accordionToggle">
+        <button class="accordion-toggle-btn active" data-row="1">ROW 1: NEWS / MACRO / GEO</button>
+        <button class="accordion-toggle-btn" data-row="2">ROW 2: COMMOD / FX / PRED</button>
+    </div>
+
+    <!-- Main Grid - 6 Columns -->
     <div class="main-grid">
-        <div class="column col-breaking">
+        <div class="column col-breaking accordion-expanded" data-accordion-row="1">
             <div class="column-header">
                 <div class="column-title">NEWS <span class="refresh-btn" onclick="manualRefresh()" title="Refresh now">↻</span></div>
                 <div class="column-subtitle">Top events • Fastest feed</div>
@@ -1772,7 +2131,7 @@
             <div class="column-content" id="breakingColumn"></div>
         </div>
 
-        <div class="column col-macro">
+        <div class="column col-macro accordion-expanded" data-accordion-row="1">
             <div class="column-header">
                 <div class="column-title">MACRO PLUMBING</div>
                 <div class="column-subtitle">Rates • Liquidity • Credit</div>
@@ -1780,7 +2139,7 @@
             <div class="column-content" id="macroColumn"></div>
         </div>
 
-        <div class="column col-geo">
+        <div class="column col-geo accordion-expanded" data-accordion-row="1">
             <div class="column-header">
                 <div class="column-title">GEOPOLITICS</div>
                 <div class="column-subtitle">State moves • Escalation</div>
@@ -1788,7 +2147,7 @@
             <div class="column-content" id="geoColumn"></div>
         </div>
 
-        <div class="column col-commodity">
+        <div class="column col-commodity accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
                 <div class="column-title">COMMODITIES</div>
                 <div class="column-subtitle">Metals • Energy • Agriculture</div>
@@ -1796,7 +2155,7 @@
             <div class="column-content" id="commodityColumn">
                 <!-- Commodities Dashboard Pinned at Top - 32 COMMODITIES -->
                 <div class="commodity-dashboard-container" id="commodityDashboard">
-                    <div class="commodity-dashboard-title">🏭 COMMODITY WAR ROOM • 32 ASSETS</div>
+                    <div class="commodity-dashboard-title">📦 COMMODITY DASHBOARD • 32 ASSETS</div>
                     <div class="commodity-grid-3col">
                         <!-- Column 1: METALS (8) -->
                         <div class="commodity-grid-column">
@@ -1822,7 +2181,7 @@
             </div>
         </div>
 
-        <div class="column col-fx">
+        <div class="column col-fx accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
                 <div class="column-title">FX & CURRENCIES</div>
                 <div class="column-subtitle">30 Pairs • Central Banks • Live</div>
@@ -1830,7 +2189,7 @@
             <div class="column-content" id="fxColumn">
                 <!-- FX Pairs Dashboard Pinned at Top - 30 PAIRS -->
                 <div class="fx-dashboard-container" id="fxDashboard">
-                    <div class="fx-dashboard-title">💱 FX WAR ROOM • 30 PAIRS</div>
+                    <div class="fx-dashboard-title">💱 FX DASHBOARD • 30 PAIRS</div>
                     <div class="fx-grid-3col">
                         <!-- Column 1: MACRO PLUMBING (10 pairs) -->
                         <div class="fx-grid-column">
@@ -1912,39 +2271,13 @@
             </div>
         </div>
 
-        <div class="column col-prediction">
+        <div class="column col-prediction accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
                 <div class="column-title">PREDICTION MARKETS</div>
-                <div class="column-subtitle">Polymarket • Odds • Shifts</div>
+                <div class="column-subtitle">Market Sentiment • Odds</div>
             </div>
             <div class="column-content" id="predictionColumn">
-                <!-- Risk Dashboard Pinned at Top - 2x2 Grid -->
-                <div class="risk-dashboard-container" id="riskDashboard">
-                    <div class="risk-dashboard-title">🎲 MACRO RISK DASHBOARD</div>
-                    <div class="risk-grid-4">
-                        <!-- Top Left: Fed Risks -->
-                        <div class="risk-grid-column">
-                            <div class="risk-column-title">FED RISKS</div>
-                            <div id="fedRisks"></div>
-                        </div>
-                        <!-- Top Right: Growth Risks -->
-                        <div class="risk-grid-column">
-                            <div class="risk-column-title">GROWTH RISKS</div>
-                            <div id="growthRisks"></div>
-                        </div>
-                        <!-- Bottom Left: Inflation Risks -->
-                        <div class="risk-grid-column">
-                            <div class="risk-column-title">INFLATION RISKS</div>
-                            <div id="inflationRisks"></div>
-                        </div>
-                        <!-- Bottom Right: Geopolitical Risks -->
-                        <div class="risk-grid-column">
-                            <div class="risk-column-title">GEO RISKS</div>
-                            <div id="geopoliticalRisks"></div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Odds shift cards appear below -->
+                <!-- Prediction cards appear here -->
             </div>
         </div>
     </div>
@@ -2073,8 +2406,39 @@
             });
         }
 
+        // Initialize accordion toggle for medium screens
+        function initAccordionToggle() {
+            const toggleBtns = document.querySelectorAll('.accordion-toggle-btn');
+            const columns = document.querySelectorAll('.column');
+            
+            toggleBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetRow = this.dataset.row;
+                    
+                    // Update button states
+                    toggleBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update column visibility for accordion mode
+                    columns.forEach(col => {
+                        const colRow = col.dataset.accordionRow;
+                        if (colRow === targetRow) {
+                            col.classList.remove('accordion-collapsed');
+                            col.classList.add('accordion-expanded');
+                        } else {
+                            col.classList.remove('accordion-expanded');
+                            col.classList.add('accordion-collapsed');
+                        }
+                    });
+                });
+            });
+        }
+
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', initMobileTabs);
+        document.addEventListener('DOMContentLoaded', function() {
+            initMobileTabs();
+            initAccordionToggle();
+        });
 
         // ========================================================================
         // DUAL TICKER SYSTEM
@@ -2082,14 +2446,34 @@
         
         let newsTickerItems = [];
         let marketTickerData = [];
+        const seenTickerHeadlines = new Set();
 
-        function addToNewsTicker(headline, impact, assets) {
+        function addToNewsTicker(headline, impact, assets, link) {
+            // Deduplicate - normalize headline for comparison
+            const normalizedHeadline = headline.toLowerCase().trim().substring(0, 60);
+            if (seenTickerHeadlines.has(normalizedHeadline)) {
+                return; // Skip duplicate
+            }
+            seenTickerHeadlines.add(normalizedHeadline);
+            
+            // Limit seen headlines cache
+            if (seenTickerHeadlines.size > 100) {
+                const firstItem = seenTickerHeadlines.values().next().value;
+                seenTickerHeadlines.delete(firstItem);
+            }
+            
             const time = new Date().toISOString().substr(11, 5);
+            
+            // Detect top stories - high impact or contains urgent keywords
+            const isTopStory = impact >= 3 || /breaking|urgent|just in|exclusive|alert|flash/i.test(headline);
+            
             newsTickerItems.unshift({
                 time: time,
                 text: headline.substring(0, 100),
                 impact: impact,
-                assets: assets
+                assets: assets,
+                link: link || '',
+                isTopStory: isTopStory
             });
             
             if (newsTickerItems.length > 20) {
@@ -2103,17 +2487,23 @@
             const ticker = document.getElementById('newsTickerContent');
             const doubled = [...newsTickerItems, ...newsTickerItems];
             
-            ticker.innerHTML = doubled.map(item => `
-                <div class="ticker-item">
+            ticker.innerHTML = doubled.map(item => {
+                const topStoryBadge = item.isTopStory ? '<span class="top-story-badge">TOP</span>' : '';
+                const topStoryClass = item.isTopStory ? 'top-story' : '';
+                const tickerContent = `
                     <span class="ticker-time">${item.time} UTC</span>
-                    <span class="ticker-text">${item.text}</span>
+                    ${topStoryBadge}
+                    <span class="ticker-text ${topStoryClass}">${item.text}</span>
                     <div class="ticker-impact">
                         ${Array(3).fill(0).map((_, i) => 
                             `<div class="impact-dot ${i < item.impact ? 'active' : ''}"></div>`
                         ).join('')}
                     </div>
-                </div>
-            `).join('');
+                `;
+                return item.link 
+                    ? `<a href="${item.link}" target="_blank" rel="noopener noreferrer" class="ticker-item ${topStoryClass}" style="text-decoration: none; color: inherit;">${tickerContent}</a>`
+                    : `<div class="ticker-item ${topStoryClass}">${tickerContent}</div>`;
+            }).join('');
         }
 
         let fxDataStore = { macro: [], geo: [], commodity: [] };
@@ -2333,9 +2723,6 @@
                 case 'macro_update':
                     updateMacroData(message.data);
                     break;
-                case 'polymarket_update':
-                    updatePolymarketData(message.data);
-                    break;
                 case 'fx_update':
                     updateFXData(message.data);
                     break;
@@ -2351,9 +2738,6 @@
             }
             if (message.macro) {
                 updateMacroData(message.macro);
-            }
-            if (message.polymarket) {
-                updatePolymarketData(message.polymarket);
             }
             if (message.fx) {
                 updateFXData(message.fx);
@@ -2396,9 +2780,9 @@
                     column.insertAdjacentHTML('afterbegin', cardHtml);
                 }
             } else if (columnId === 'predictionColumn') {
-                const riskDashboard = column.querySelector('.risk-dashboard-container');
-                if (riskDashboard) {
-                    riskDashboard.insertAdjacentHTML('afterend', cardHtml);
+                const predDashboard = column.querySelector('#predictionsDashboard');
+                if (predDashboard) {
+                    predDashboard.insertAdjacentHTML('afterend', cardHtml);
                 } else {
                     column.insertAdjacentHTML('afterbegin', cardHtml);
                 }
@@ -2406,11 +2790,15 @@
                 column.insertAdjacentHTML('afterbegin', cardHtml);
             }
 
-            addToNewsTicker(
-                message.data.headline, 
-                message.data.impact || 2,
-                formatAssets(message.data)
-            );
+            // Only add to ticker if not excluded (opinion/analysis pieces filtered out)
+            if (!message.data.excludeFromTicker) {
+                addToNewsTicker(
+                    message.data.headline, 
+                    message.data.impact || 2,
+                    formatAssets(message.data),
+                    message.data.link || ''
+                );
+            }
 
             const cards = column.querySelectorAll('.card');
             if (cards.length > 12) {
@@ -2442,6 +2830,13 @@
             return mapping[category] || 'breakingColumn';
         }
 
+        function getRiskEmoji(risk) {
+            if (risk <= 30) return '🟢'; // LOW
+            if (risk <= 60) return '🟡'; // MEDIUM
+            if (risk <= 85) return '🟠'; // HIGH
+            return '🔴'; // CRITICAL
+        }
+
         function createCardHtml(data) {
             const impactDots = Array(3).fill(0).map((_, i) => 
                 `<div class="impact-dot ${i < (data.impact || 2) ? 'active' : ''}"></div>`
@@ -2464,7 +2859,7 @@
             const tripwireHtml = data.tripwires && data.tripwires.length > 0 ? `
                 <div class="tripwire-section">
                     <div class="tripwire-title">📍 KEY LEVELS</div>
-                    ${data.tripwires.map(tw => `<div class="tripwire-item">• ${tw}</div>`).join('')}
+                    ${data.tripwires.map(tw => `<div class="tripwire-item">${tw}</div>`).join('')}
                 </div>
             ` : '';
 
@@ -2489,19 +2884,28 @@
                 </div>
             ` : '';
 
-            // Confidence bar
-            const confidenceHtml = data.confidence ? `
+            // Market Risk bar (backward compatible with old confidence field)
+            const riskValue = data.marketRisk || data.confidence;
+            const getRiskClass = (val) => {
+                if (val <= 20) return 'risk-low';
+                if (val <= 40) return 'risk-medium';
+                if (val <= 60) return 'risk-elevated';
+                if (val <= 80) return 'risk-high';
+                return 'risk-critical';
+            };
+            const confidenceHtml = riskValue ? `
                 <div class="confidence-bar">
-                    <div class="confidence-label">Confidence: ${data.confidence}%</div>
+                    <div class="confidence-label">Market Risk: ${riskValue}%</div>
                     <div class="confidence-track">
-                        <div class="confidence-fill" style="width: ${data.confidence}%"></div>
+                        <div class="confidence-fill ${getRiskClass(riskValue)}" style="width: ${riskValue}%"></div>
                     </div>
                 </div>
             ` : '';
 
-            const tagsHtml = data.tags && data.tags.length > 0 ? `
+            const filteredTags = data.tags ? data.tags.filter(tag => tag !== 'DEVELOPING') : [];
+            const tagsHtml = filteredTags.length > 0 ? `
                 <div class="news-tags">
-                    ${data.tags.map(tag => {
+                    ${filteredTags.map(tag => {
                         const tagClass = tag.toLowerCase().replace(/[\s-]/g, '-');
                         const emoji = getTagEmoji(tag);
                         return `<span class="news-tag ${tagClass}">${emoji} ${tag}</span>`;
@@ -2531,11 +2935,7 @@
                     ${implicationsHtml}
                     <div class="card-meta">
                         <div class="meta-item deep-analysis-btn" onclick="analyzeHeadline('${cardId}')">
-                            <span class="analysis-text">DEEP ANALYSIS</span>
-                        </div>
-                        <div class="meta-item">
-                            <span class="meta-label">Impact:</span>
-                            <div class="impact-indicator">${impactDots}</div>
+                            <span class="analysis-text">🧠 GET DEEP AI ANALYSIS →</span>
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">Horizon:</span>
@@ -2555,7 +2955,6 @@
             const emojiMap = {
                 'FLASH': '⚡',
                 'SCHEDULED': '📅',
-                'DEVELOPING': '🔄',
                 'CONTEXT': '📊',
                 'RATES': '📈',
                 'EQUITIES': '📊',
@@ -2610,6 +3009,7 @@
             const existingGrid = macroColumn.querySelector('.macro-grid-container');
             const gridHtml = `
                 <div class="macro-grid-container">
+                    <div class="macro-dashboard-title">📊 RATES DASHBOARD</div>
                     <div class="macro-grid">
                         <div class="macro-grid-column">
                             ${yieldsHtml}
@@ -2617,6 +3017,10 @@
                         <div class="macro-grid-column">
                             ${indicatorsHtml}
                         </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:4px 8px;font-size:9px;color:#6a7585;border-top:1px solid rgba(255,255,255,0.05);">
+                        <span style="display:inline-block;width:12px;height:3px;background:var(--accent-red);border-radius:1px;"></span>
+                        <span>Tripwire breached (e.g. U6 >8%)</span>
                     </div>
                 </div>
             `;
@@ -2635,54 +3039,6 @@
                    'macro-neutral';
         }
 
-        function updatePolymarketData(polymarketData) {
-            if (!polymarketData) return;
-
-            const fedRisksContainer = document.getElementById('fedRisks');
-            const growthRisksContainer = document.getElementById('growthRisks');
-            const inflationRisksContainer = document.getElementById('inflationRisks');
-            const geopoliticalRisksContainer = document.getElementById('geopoliticalRisks');
-
-            const renderRisks = (risks) => risks.map(risk => `
-                <div class="risk-item">
-                    <div class="risk-item-left">
-                        <div class="risk-item-label">${risk.label}</div>
-                        <div class="risk-item-odds">${risk.odds}%</div>
-                    </div>
-                    <div class="risk-item-right">
-                        <div class="risk-item-change ${getRiskClass(risk.dir)}">
-                            ${risk.change > 0 ? '+' : ''}${risk.change}%
-                        </div>
-                        <span class="${getRiskClass(risk.dir)}">${getRiskArrow(risk.dir)}</span>
-                    </div>
-                </div>
-            `).join('');
-
-            if (polymarketData.fedRisks && fedRisksContainer) {
-                fedRisksContainer.innerHTML = renderRisks(polymarketData.fedRisks);
-            }
-            if (polymarketData.growthRisks && growthRisksContainer) {
-                growthRisksContainer.innerHTML = renderRisks(polymarketData.growthRisks);
-            }
-            if (polymarketData.inflationRisks && inflationRisksContainer) {
-                inflationRisksContainer.innerHTML = renderRisks(polymarketData.inflationRisks);
-            }
-            if (polymarketData.geopoliticalRisks && geopoliticalRisksContainer) {
-                geopoliticalRisksContainer.innerHTML = renderRisks(polymarketData.geopoliticalRisks);
-            }
-        }
-
-        function getRiskClass(dir) {
-            return dir === 'up' ? 'risk-up' : 
-                   dir === 'down' ? 'risk-down' : 
-                   'risk-neutral';
-        }
-
-        function getRiskArrow(dir) {
-            return dir === 'up' ? '▲' : 
-                   dir === 'down' ? '▼' : 
-                   '→';
-        }
 
         function updateFXData(fxData) {
             if (!fxData || (!fxData.macro && !fxData.geo && !fxData.commodity)) return;
@@ -2692,58 +3048,34 @@
             const fxGeoContainer = document.getElementById('fxGeo');
             const fxCommodityContainer = document.getElementById('fxCommodity');
 
+            const renderFXPair = (pair) => `
+                <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                    <div class="fx-pair-left">
+                        <div class="fx-pair-label">${pair.label}</div>
+                        <div class="fx-pair-price">${pair.price}</div>
+                    </div>
+                    <div class="fx-pair-right" style="flex-direction:column;align-items:flex-end;gap:0;">
+                        <div class="fx-pair-change ${getFXClass(pair.dir)}">
+                            ${pair.change}%
+                        </div>
+                        <span class="${getFXClass(pair.dir)}" style="font-size:0.5rem;">${getFXArrow(pair.dir)}</span>
+                    </div>
+                </div>
+            `;
+
             // Update MACRO PLUMBING (10 pairs)
             if (fxData.macro && fxMacroContainer) {
-                fxMacroContainer.innerHTML = fxData.macro.map(pair => `
-                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
-                        <div class="fx-pair-left">
-                            <div class="fx-pair-label">${pair.label}</div>
-                            <div class="fx-pair-price">${pair.price}</div>
-                        </div>
-                        <div class="fx-pair-right">
-                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
-                                ${pair.change}%
-                            </div>
-                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
-                        </div>
-                    </div>
-                `).join('');
+                fxMacroContainer.innerHTML = fxData.macro.map(renderFXPair).join('');
             }
 
             // Update GEOPOLITICS (10 pairs)
             if (fxData.geo && fxGeoContainer) {
-                fxGeoContainer.innerHTML = fxData.geo.map(pair => `
-                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
-                        <div class="fx-pair-left">
-                            <div class="fx-pair-label">${pair.label}</div>
-                            <div class="fx-pair-price">${pair.price}</div>
-                        </div>
-                        <div class="fx-pair-right">
-                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
-                                ${pair.change}%
-                            </div>
-                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
-                        </div>
-                    </div>
-                `).join('');
+                fxGeoContainer.innerHTML = fxData.geo.map(renderFXPair).join('');
             }
 
             // Update COMMODITIES (10 pairs)
             if (fxData.commodity && fxCommodityContainer) {
-                fxCommodityContainer.innerHTML = fxData.commodity.map(pair => `
-                    <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
-                        <div class="fx-pair-left">
-                            <div class="fx-pair-label">${pair.label}</div>
-                            <div class="fx-pair-price">${pair.price}</div>
-                        </div>
-                        <div class="fx-pair-right">
-                            <div class="fx-pair-change ${getFXClass(pair.dir)}">
-                                ${pair.change}%
-                            </div>
-                            <span class="${getFXClass(pair.dir)}">${getFXArrow(pair.dir)}</span>
-                        </div>
-                    </div>
-                `).join('');
+                fxCommodityContainer.innerHTML = fxData.commodity.map(renderFXPair).join('');
             }
 
             updateSuperTicker();
@@ -2777,23 +3109,25 @@
                         <div class="commodity-item-label">${item.label} <span class="commodity-ticker">${item.ticker || ''}</span></div>
                         <div class="commodity-item-price">${item.price}</div>
                     </div>
-                    <div class="commodity-item-right">
+                    <div class="commodity-item-right" style="flex-direction:column;align-items:flex-end;gap:0;">
                         <div class="commodity-item-change ${getCommodityClass(item.dir)}">
                             ${item.change}%
                         </div>
-                        <span class="${getCommodityClass(item.dir)}">${getCommodityArrow(item.dir)}</span>
+                        <span class="${getCommodityClass(item.dir)}" style="font-size:0.5rem;">${getCommodityArrow(item.dir)}</span>
                     </div>
                 </div>
             `;
 
+            const sortAlpha = (arr) => [...arr].sort((a, b) => a.label.localeCompare(b.label));
+
             if (commodityData.metals && metalsContainer) {
-                metalsContainer.innerHTML = commodityData.metals.map(renderCommodity).join('');
+                metalsContainer.innerHTML = sortAlpha(commodityData.metals).map(renderCommodity).join('');
             }
             if (commodityData.energy && energyContainer) {
-                energyContainer.innerHTML = commodityData.energy.map(renderCommodity).join('');
+                energyContainer.innerHTML = sortAlpha(commodityData.energy).map(renderCommodity).join('');
             }
             if (commodityData.agriculture && agricultureContainer) {
-                agricultureContainer.innerHTML = commodityData.agriculture.map(renderCommodity).join('');
+                agricultureContainer.innerHTML = sortAlpha(commodityData.agriculture).map(renderCommodity).join('');
             }
 
             updateSuperTicker();
@@ -2862,6 +3196,11 @@
                 <div class="modal-loading">
                     <div class="modal-spinner"></div>
                     <div class="modal-loading-text">Analyzing with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Something great is about to happen - just a moment!</span></div>
+                    <div style="margin-top: 1.5rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 6px; max-width: 400px;">
+                        <p style="font-size: 0.7rem; color: #6a7585; line-height: 1.4; text-align: center; margin: 0;">
+                            <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.
+                        </p>
+                    </div>
                 </div>
             `;
 
@@ -2948,6 +3287,23 @@
             event.stopPropagation();
         }
 
+        function openInfoModal() {
+            document.getElementById('infoModal').style.display = 'flex';
+        }
+
+        function closeInfoModal(event) {
+            if (!event || event.target.id === 'infoModal') {
+                document.getElementById('infoModal').style.display = 'none';
+            }
+        }
+
+        // ESC key closes info modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeInfoModal();
+            }
+        });
+
         function searchSymbol() {
             const input = document.getElementById('symbolSearchInput');
             const symbol = input.value.trim().toUpperCase();
@@ -3025,6 +3381,73 @@
 
     <!-- TradingView Widget Library -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
+    <!-- Info/Legend Modal -->
+    <div id="infoModal" class="chart-modal-overlay" style="display: none;" onclick="closeInfoModal(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px;">
+            <button class="chart-close-btn" onclick="closeInfoModal()" style="top: 10px; right: 10px; position: absolute;">×</button>
+            <div class="modal-title">📖 LEGEND & KEY</div>
+            <div class="modal-analysis info-modal-scroll" style="max-height: 70vh; overflow-y: auto;">
+                
+                <h3 style="color: var(--accent-orange); margin-top: 0;">IMPACT DOTS (Ticker)</h3>
+                <p>🔴🔴🔴 = <strong>HIGH IMPACT</strong> - Major market mover</p>
+                <p>🔴🔴⚪ = <strong>MEDIUM IMPACT</strong> - Notable event</p>
+                <p>🔴⚪⚪ = <strong>LOW IMPACT</strong> - Minor news</p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">TRIPWIRE ALERTS (Rates Dashboard)</h3>
+                <p style="display:flex;align-items:center;gap:8px;font-size:1.05em;"><span style="display:inline-block;width:16px;height:3px;background:var(--accent-red);border-radius:1px;flex-shrink:0;"></span> <strong>Threshold Breached</strong> - Indicator crossed a key level</p>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;">Example: U6 Rate >8% signals rising unemployment stress</p>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;">Example: SOFR >5.5% signals liquidity tightening</p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">MARKET RISK</h3>
+                <p>🟢 <strong>10-30%</strong> = LOW RISK - Boring news, won't move markets</p>
+                <p>🟡 <strong>30-60%</strong> = MEDIUM RISK - Watch, might matter</p>
+                <p>🟠 <strong>60-85%</strong> = HIGH RISK - Markets reacting, pay attention</p>
+                <p>🔴 <strong>85-100%</strong> = CRITICAL RISK - Flash alert, all hands on deck</p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">HORIZON (Time to Impact)</h3>
+                <p>⚡ <strong>NOW</strong> = Immediate impact, act now!</p>
+                <p>📅 <strong>DAYS</strong> = Coming days, plan ahead</p>
+                <p>📆 <strong>WEEKS</strong> = Longer term, structural shift</p>
+                <p>➖ <strong>N/A</strong> = Not market-relevant</p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">REGIME INDICATORS</h3>
+                <p>🌟 <strong>GOLDILOCKS</strong> = Growth↑ Inflation↓<br>
+                   <em>Buy: Stocks, Tech, extend duration</em></p>
+                <p>🔥 <strong>REFLATIONARY</strong> = Growth↑ Inflation↑<br>
+                   <em>Buy: Commodities, Value, cyclicals</em></p>
+                <p>⚠️ <strong>STAGFLATION</strong> = Growth↓ Inflation↑<br>
+                   <em>Buy: Gold, TIPS, commodity producers only</em></p>
+                <p>❄️ <strong>DEFLATIONARY</strong> = Growth↓ Inflation↓<br>
+                   <em>Buy: Cash, Treasuries, USD, JPY</em></p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">DIRECTION</h3>
+                <p>🟢 <strong>RISK-ON</strong> = Buy risk assets (stocks, commodities, EM)</p>
+                <p>🔴 <strong>RISK-OFF</strong> = Sell risk assets, buy safe havens</p>
+                <p>⚪ <strong>NEUTRAL</strong> = Mixed signals, wait and see</p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">GAME THEORY PATTERNS</h3>
+                <p>🎲 <strong>Prisoner's Dilemma</strong> = Escalation spiral risk (tariffs, retaliation)</p>
+                <p>🐔 <strong>Chicken Game</strong> = Brinkmanship, high accident risk</p>
+                <p>🤝 <strong>Coordination Game</strong> = Collective action multiplies impact (G7/G20)</p>
+                <p>⚖️ <strong>Nash Equilibrium</strong> = Synchronized policy shock (central banks)</p>
+                
+                <h3 style="color: var(--accent-orange); margin-top: 1.5rem;">ASSET TAGS</h3>
+                <p><strong>FX</strong> = Currency markets affected</p>
+                <p><strong>GOLD/SILVER</strong> = Precious metals</p>
+                <p><strong>OIL/NATGAS</strong> = Energy commodities</p>
+                <p><strong>BONDS</strong> = Fixed income markets</p>
+                <p><strong>EQUITIES</strong> = Stock markets</p>
+                
+                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
