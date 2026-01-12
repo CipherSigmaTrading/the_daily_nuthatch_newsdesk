@@ -99,17 +99,20 @@ function updateMarketSnapshot(marketData) {
   const snapshot = {};
   
   for (const item of marketData) {
-    const val = parseFloat(item.value);
+    // Use rawValue (the actual number), not value (formatted string)
+    const val = item.rawValue;
+    if (val === undefined || val === null || isNaN(val)) continue;
+    
     switch (item.symbol) {
       case '^GSPC': snapshot.spx = val; break;
       case '^IXIC': snapshot.nasdaq = val; break;
       case '^DJI': snapshot.dow = val; break;
       case '^VIX': snapshot.vix = val; break;
-      // Yahoo Finance yields come as 37.5 meaning 3.75%, divide by 10
-      case '^TYX': snapshot.us30y = val / 10; break;
-      case '^TNX': snapshot.us10y = val / 10; break;
-      case '^FVX': snapshot.us5y = val / 10; break;
-      case '2YY=F': snapshot.us2y = val / 10; break; // Also needs normalization
+      // Yahoo Finance yields already come as percentage (4.5 = 4.5%)
+      case '^TYX': snapshot.us30y = val; break;
+      case '^TNX': snapshot.us10y = val; break;
+      case '^FVX': snapshot.us5y = val; break;
+      case '2YY=F': snapshot.us2y = val; break;
       case 'DX-Y.NYB': snapshot.dxy = val; break;
       case 'EURUSD=X': snapshot.eurusd = val; break;
       case 'GBPUSD=X': snapshot.gbpusd = val; break;
