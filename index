@@ -42,6 +42,36 @@
         html {
             overflow: hidden;
             height: 100vh;
+            /* Fluid typography - base font scales with viewport width */
+            font-size: clamp(11px, calc(10px + 0.35vw), 16px);
+        }
+        
+        /* 17-19 inch screens (1200-1599px) - tighter scaling */
+        @media (min-width: 1200px) and (max-width: 1599px) {
+            html {
+                font-size: clamp(11px, calc(9px + 0.4vw), 14px);
+            }
+        }
+        
+        /* Smaller laptops and tablets (768-1199px) */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            html {
+                font-size: clamp(10px, calc(8px + 0.5vw), 13px);
+            }
+        }
+        
+        /* Mobile screens */
+        @media (max-width: 767px) {
+            html {
+                font-size: clamp(10px, calc(9px + 0.6vw), 14px);
+            }
+        }
+        
+        /* Large screens (1600px+) */
+        @media (min-width: 1600px) {
+            html {
+                font-size: 16px;
+            }
         }
 
         /* Header */
@@ -643,11 +673,13 @@
             background: rgba(42, 48, 64, 0.3);
             border: 1px solid rgba(51, 153, 255, 0.25);
             border-radius: 4px;
-            padding: 0.4rem 0.5rem;
+            padding: 0.3rem 0.4rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             transition: all 0.2s ease;
+            gap: 0.25rem;
+            min-height: 2.2rem;
             min-width: 0;
             overflow: hidden;
         }
@@ -671,10 +703,10 @@
         }
 
         .macro-item-label {
-            font-size: 0.55rem;
+            font-size: clamp(0.45rem, 0.9vw, 0.55rem);
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
             font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
@@ -682,10 +714,11 @@
         }
 
         .macro-item-value {
-            font-size: 0.8rem;
+            font-size: clamp(0.6rem, 1.2vw, 0.8rem);
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             color: var(--accent-blue);
+            white-space: nowrap;
         }
 
         .macro-item-right {
@@ -697,8 +730,9 @@
         }
 
         .macro-item-change {
-            font-size: 0.6rem;
+            font-size: clamp(0.45rem, 0.9vw, 0.6rem);
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .macro-up {
@@ -1305,6 +1339,134 @@
         .col-prediction .column-content { scrollbar-color: rgba(187, 102, 255, 0.3) transparent; }
         .col-prediction .column-content::-webkit-scrollbar-thumb { background: rgba(187, 102, 255, 0.25); }
         .col-prediction .column-content::-webkit-scrollbar-thumb:hover { background: rgba(187, 102, 255, 0.5); }
+
+        /* Prediction Dashboard */
+        .prediction-dashboard {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(187, 102, 255, 0.3);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        .dashboard-section {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .dashboard-section:last-child {
+            border-bottom: none;
+        }
+        .dashboard-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-purple);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Sentiment Dashboard Grid */
+        .sentiment-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        .sentiment-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 6px 8px;
+            text-align: center;
+            border-left: 3px solid rgba(187, 102, 255, 0.6);
+        }
+        .sentiment-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .sentiment-value {
+            font-size: 0.85rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .sentiment-sub {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .sentiment-loading {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 16px;
+        }
+        
+        /* Polymarket Container with left violet scrollbar */
+        .polymarket-container {
+            max-height: 400px;
+            overflow-y: auto;
+            direction: rtl;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(187, 102, 255, 0.4) transparent;
+        }
+        .polymarket-container > * {
+            direction: ltr;
+        }
+        .polymarket-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .polymarket-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .polymarket-container::-webkit-scrollbar-thumb {
+            background: rgba(187, 102, 255, 0.4);
+            border-radius: 2px;
+        }
+        .polymarket-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(187, 102, 255, 0.7);
+        }
+        .polymarket-empty {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 16px;
+        }
+        .polymarket-item {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+        }
+        .polymarket-item:last-child {
+            margin-bottom: 0;
+        }
+        .polymarket-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .polymarket-category {
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+        .cat-macro { background: rgba(59, 130, 246, 0.3); color: #60a5fa; }
+        .cat-crypto { background: rgba(251, 191, 36, 0.3); color: #fbbf24; }
+        .cat-politics { background: rgba(239, 68, 68, 0.3); color: #f87171; }
+        .cat-geo { background: rgba(167, 139, 250, 0.3); color: #a78bfa; }
+        .cat-commodity { background: rgba(234, 179, 8, 0.3); color: #fde047; }
+        .cat-other { background: rgba(156, 163, 175, 0.3); color: #9ca3af; }
+        .polymarket-prob {
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .polymarket-question {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            line-height: 1.3;
+        }
 
         /* TradingView Chart Modal */
         .chart-modal-overlay {
@@ -2274,9 +2436,24 @@
         <div class="column col-prediction accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
                 <div class="column-title">PREDICTION MARKETS</div>
-                <div class="column-subtitle">Market Sentiment • Odds</div>
+                <div class="column-subtitle">Sentiment • Polymarket Odds</div>
             </div>
             <div class="column-content" id="predictionColumn">
+                <!-- Sentiment Dashboard -->
+                <div class="prediction-dashboard" id="predictionsDashboard">
+                    <div class="dashboard-section">
+                        <div class="dashboard-title">MARKET SENTIMENT</div>
+                        <div id="sentimentDashboard">
+                            <div class="sentiment-loading">Loading sentiment data...</div>
+                        </div>
+                    </div>
+                    <div class="dashboard-section">
+                        <div class="dashboard-title">POLYMARKET ODDS</div>
+                        <div id="polymarketList" class="polymarket-container">
+                            <div class="polymarket-empty">Loading prediction markets...</div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Prediction cards appear here -->
             </div>
         </div>
@@ -2729,6 +2906,9 @@
                 case 'commodity_update':
                     updateCommodityData(message.data);
                     break;
+                case 'prediction_update':
+                    updatePredictionData(message.data);
+                    break;
             }
         }
 
@@ -3051,14 +3231,14 @@
             const renderFXPair = (pair) => `
                 <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
                     <div class="fx-pair-left">
-                        <div class="fx-pair-label">${pair.label}</div>
-                        <div class="fx-pair-price">${pair.price}</div>
-                    </div>
-                    <div class="fx-pair-right" style="flex-direction:column;align-items:flex-end;gap:0;">
-                        <div class="fx-pair-change ${getFXClass(pair.dir)}">
-                            ${pair.change}%
+                        <div style="display:flex;align-items:center;gap:0.3rem;">
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}" style="font-size:0.65rem;">${pair.change}%</div>
                         </div>
-                        <span class="${getFXClass(pair.dir)}" style="font-size:0.5rem;">${getFXArrow(pair.dir)}</span>
+                        <div style="display:flex;align-items:center;gap:0.2rem;">
+                            <div class="fx-pair-price">${pair.price}</div>
+                            <span class="${getFXClass(pair.dir)}" style="font-size:0.55rem;">${getFXArrow(pair.dir)}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -3106,14 +3286,14 @@
             const renderCommodity = (item) => `
                 <div class="commodity-item" onclick="openChart('${item.tvSymbol || item.ticker || item.label}')" style="cursor: pointer;">
                     <div class="commodity-item-left">
-                        <div class="commodity-item-label">${item.label} <span class="commodity-ticker">${item.ticker || ''}</span></div>
-                        <div class="commodity-item-price">${item.price}</div>
-                    </div>
-                    <div class="commodity-item-right" style="flex-direction:column;align-items:flex-end;gap:0;">
-                        <div class="commodity-item-change ${getCommodityClass(item.dir)}">
-                            ${item.change}%
+                        <div style="display:flex;align-items:center;gap:0.3rem;">
+                            <div class="commodity-item-label">${item.label}</div>
+                            <div class="commodity-item-change ${getCommodityClass(item.dir)}" style="font-size:0.65rem;">${item.change}%</div>
                         </div>
-                        <span class="${getCommodityClass(item.dir)}" style="font-size:0.5rem;">${getCommodityArrow(item.dir)}</span>
+                        <div style="display:flex;align-items:center;gap:0.2rem;">
+                            <div class="commodity-item-price">${item.price}</div>
+                            <span class="${getCommodityClass(item.dir)}" style="font-size:0.55rem;">${getCommodityArrow(item.dir)}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -3149,6 +3329,91 @@
             return dir === 'up' ? 'market-up' : 
                    dir === 'down' ? 'market-down' : 
                    'market-neutral';
+        }
+
+        // ========================================================================
+        // PREDICTION MARKETS UPDATE
+        // ========================================================================
+        
+        function updatePredictionData(data) {
+            if (!data) return;
+            
+            const sentimentDashboard = document.getElementById('sentimentDashboard');
+            const polymarketList = document.getElementById('polymarketList');
+            
+            // Update sentiment dashboard
+            if (data.sentiment && sentimentDashboard) {
+                const s = data.sentiment;
+                sentimentDashboard.innerHTML = `
+                    <div class="sentiment-grid">
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">VIX REGIME</div>
+                            <div class="sentiment-value" style="color: ${s.vix.color}">${s.vix.regime}</div>
+                            <div class="sentiment-sub">${s.vix.value}</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">FEAR/GREED</div>
+                            <div class="sentiment-value" style="color: ${s.fearGreed.color}">${s.fearGreed.value}</div>
+                            <div class="sentiment-sub">${s.fearGreed.label}</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">2s10s CURVE</div>
+                            <div class="sentiment-value" style="color: ${s.curve.color}">${s.curve.signal}</div>
+                            <div class="sentiment-sub">${s.curve.value}</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">DOLLAR</div>
+                            <div class="sentiment-value" style="color: ${s.dollar.color}">${s.dollar.signal}</div>
+                            <div class="sentiment-sub">DXY ${s.dollar.value}</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">FED CUT ODDS</div>
+                            <div class="sentiment-value" style="color: #a78bfa">${s.rateCut.value}</div>
+                            <div class="sentiment-sub">Next Meeting</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">GOLD</div>
+                            <div class="sentiment-value" style="color: ${s.gold.color}">${s.gold.signal}</div>
+                            <div class="sentiment-sub">${s.gold.value}</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">OIL/WTI</div>
+                            <div class="sentiment-value" style="color: ${s.oil.color}">${s.oil.signal}</div>
+                            <div class="sentiment-sub">${s.oil.value}</div>
+                        </div>
+                        <div class="sentiment-item">
+                            <div class="sentiment-label">CREDIT</div>
+                            <div class="sentiment-value" style="color: ${s.credit.color}">${s.credit.signal}</div>
+                            <div class="sentiment-sub">Score: ${s.credit.value}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Update Polymarket odds
+            if (data.markets && polymarketList) {
+                if (data.markets.length === 0) {
+                    polymarketList.innerHTML = '<div class="polymarket-empty">Loading prediction markets...</div>';
+                    return;
+                }
+                
+                polymarketList.innerHTML = data.markets.map(market => {
+                    const probNum = parseFloat(market.probability);
+                    const probColor = probNum >= 70 ? '#22c55e' : probNum >= 50 ? '#eab308' : probNum >= 30 ? '#f97316' : '#ef4444';
+                    const dirArrow = market.direction === 'up' ? '▲' : market.direction === 'down' ? '▼' : '';
+                    const categoryClass = market.category.toLowerCase();
+                    
+                    return `
+                        <div class="polymarket-item">
+                            <div class="polymarket-header">
+                                <span class="polymarket-category cat-${categoryClass}">${market.category}</span>
+                                <span class="polymarket-prob" style="color: ${probColor}">${market.probability}% ${dirArrow}</span>
+                            </div>
+                            <div class="polymarket-question">${market.question}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
         // ========================================================================
