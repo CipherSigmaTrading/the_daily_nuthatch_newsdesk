@@ -55,6 +55,12 @@ let cachedMarketSnapshot = {
   data: {}
 };
 
+// Prediction markets cache for initial data send
+let cachedPredictionData = {
+  markets: [],
+  sentiment: null
+};
+
 // Function to get current market snapshot for AI context
 function getMarketSnapshotForAI() {
   if (!cachedMarketSnapshot.lastUpdate) {
@@ -93,25 +99,27 @@ function updateMarketSnapshot(marketData) {
   const snapshot = {};
   
   for (const item of marketData) {
+    const val = parseFloat(item.value);
     switch (item.symbol) {
-      case '^GSPC': snapshot.spx = item.value; break;
-      case '^IXIC': snapshot.nasdaq = item.value; break;
-      case '^DJI': snapshot.dow = item.value; break;
-      case '^VIX': snapshot.vix = item.value; break;
-      case '^TYX': snapshot.us30y = item.value; break;
-      case '^TNX': snapshot.us10y = item.value; break;
-      case '^FVX': snapshot.us5y = item.value; break;
-      case '2YY=F': snapshot.us2y = item.value; break;
-      case 'DX-Y.NYB': snapshot.dxy = item.value; break;
-      case 'EURUSD=X': snapshot.eurusd = item.value; break;
-      case 'GBPUSD=X': snapshot.gbpusd = item.value; break;
-      case 'USDJPY=X': snapshot.usdjpy = item.value; break;
-      case 'GC=F': snapshot.gold = item.value; break;
-      case 'SI=F': snapshot.silver = item.value; break;
-      case 'HG=F': snapshot.copper = item.value; break;
-      case 'CL=F': snapshot.wti = item.value; break;
-      case 'BZ=F': snapshot.brent = item.value; break;
-      case 'NG=F': snapshot.natgas = item.value; break;
+      case '^GSPC': snapshot.spx = val; break;
+      case '^IXIC': snapshot.nasdaq = val; break;
+      case '^DJI': snapshot.dow = val; break;
+      case '^VIX': snapshot.vix = val; break;
+      // Yahoo Finance yields come as 37.5 meaning 3.75%, divide by 10
+      case '^TYX': snapshot.us30y = val / 10; break;
+      case '^TNX': snapshot.us10y = val / 10; break;
+      case '^FVX': snapshot.us5y = val / 10; break;
+      case '2YY=F': snapshot.us2y = val / 10; break; // Also needs normalization
+      case 'DX-Y.NYB': snapshot.dxy = val; break;
+      case 'EURUSD=X': snapshot.eurusd = val; break;
+      case 'GBPUSD=X': snapshot.gbpusd = val; break;
+      case 'USDJPY=X': snapshot.usdjpy = val; break;
+      case 'GC=F': snapshot.gold = val; break;
+      case 'SI=F': snapshot.silver = val; break;
+      case 'HG=F': snapshot.copper = val; break;
+      case 'CL=F': snapshot.wti = val; break;
+      case 'BZ=F': snapshot.brent = val; break;
+      case 'NG=F': snapshot.natgas = val; break;
     }
   }
   
@@ -506,6 +514,15 @@ async function sendInitialData(ws) {
         commodities: commodityData
       }));
       console.log('📤 Sent initial market/macro/fx/commodity data');
+      
+      // Send cached prediction data if available
+      if (cachedPredictionData.markets.length > 0 || cachedPredictionData.sentiment) {
+        ws.send(JSON.stringify({
+          type: 'prediction_update',
+          data: cachedPredictionData
+        }));
+        console.log('🎯 Sent cached prediction data');
+      }
     } else {
       console.log('⚠️ Client disconnected before initial data could be sent');
     }
@@ -2772,6 +2789,216 @@ cron.schedule('*/60 * * * * *', async () => {
 });
 
 // ============================================================================
+// POLYMARKET API - PREDICTION MARKETS
+// ============================================================================
+
+const POLYMARKET_API = 'https://gamma-api.polymarket.com';
+
+// Keywords to filter for market-relevant predictions
+const MARKET_RELEVANT_KEYWORDS = [
+  'fed', 'rate', 'inflation', 'recession', 'gdp', 'unemployment', 'bitcoin', 'btc', 'ethereum', 'eth',
+  'trump', 'biden', 'election', 'president', 'congress', 'senate', 'china', 'russia', 'ukraine',
+  'war', 'oil', 'gold', 'stock', 'market', 's&p', 'nasdaq', 'dow', 'tariff', 'trade',
+  'crypto', 'sec', 'regulation', 'default', 'debt', 'treasury', 'powell', 'yellen'
+];
+
+async function fetchPolymarketData() {
+  try {
+    // Fetch active markets sorted by volume
+    const response = await axios.get(`${POLYMARKET_API}/markets`, {
+      params: {
+        closed: false,
+        limit: 50,
+        order: 'volume24hr',
+        ascending: false
+      },
+      timeout: 10000
+    });
+    
+    const markets = response.data || [];
+    
+    // Filter for market-relevant topics
+    const relevantMarkets = markets.filter(market => {
+      const text = (market.question || '').toLowerCase() + ' ' + (market.description || '').toLowerCase();
+      return MARKET_RELEVANT_KEYWORDS.some(keyword => text.includes(keyword));
+    });
+    
+    // Take top 15 relevant markets
+    const topMarkets = relevantMarkets.slice(0, 15).map(market => {
+      // Get the probability (best ask or mid price)
+      let probability = 0.5;
+      if (market.outcomePrices) {
+        try {
+          const prices = JSON.parse(market.outcomePrices);
+          probability = parseFloat(prices[0]) || 0.5;
+        } catch (e) {
+          probability = 0.5;
+        }
+      }
+      
+      // Determine direction based on recent change
+      let direction = 'neutral';
+      if (market.volume24hr > 10000) {
+        direction = probability > 0.5 ? 'up' : 'down';
+      }
+      
+      return {
+        id: market.id,
+        question: market.question || 'Unknown',
+        probability: (probability * 100).toFixed(1),
+        volume24h: market.volume24hr || 0,
+        direction: direction,
+        category: categorizePolymarket(market.question || '')
+      };
+    });
+    
+    return topMarkets;
+  } catch (error) {
+    console.error('Polymarket fetch error:', error.message);
+    return [];
+  }
+}
+
+function categorizePolymarket(question) {
+  const q = question.toLowerCase();
+  if (q.includes('fed') || q.includes('rate') || q.includes('inflation') || q.includes('recession')) return 'MACRO';
+  if (q.includes('bitcoin') || q.includes('btc') || q.includes('eth') || q.includes('crypto')) return 'CRYPTO';
+  if (q.includes('trump') || q.includes('biden') || q.includes('election') || q.includes('president')) return 'POLITICS';
+  if (q.includes('china') || q.includes('russia') || q.includes('ukraine') || q.includes('war')) return 'GEO';
+  if (q.includes('oil') || q.includes('gold') || q.includes('commodity')) return 'COMMODITY';
+  return 'OTHER';
+}
+
+// ============================================================================
+// SENTIMENT DASHBOARD - AGGREGATED MARKET INDICATORS
+// ============================================================================
+
+function calculateSentimentDashboard() {
+  // Use cached market data to calculate sentiment
+  const d = cachedMarketSnapshot.data || {};
+  const vix = d.vix ? parseFloat(d.vix) : 15;
+  const spx = d.spx ? parseFloat(d.spx) : 5000;
+  const us10y = d.us10y ? parseFloat(d.us10y) : 4.0;
+  const us2y = d.us2y ? parseFloat(d.us2y) : 4.5;
+  const us30y = d.us30y ? parseFloat(d.us30y) : 4.5;
+  const gold = d.gold ? parseFloat(d.gold) : 2000;
+  const dxy = d.dxy ? parseFloat(d.dxy) : 105;
+  const wti = d.wti ? parseFloat(d.wti) : 75;
+  
+  // VIX Regime
+  let vixRegime = 'CALM';
+  let vixColor = '#22c55e';
+  if (vix >= 30) { vixRegime = 'PANIC'; vixColor = '#ef4444'; }
+  else if (vix >= 25) { vixRegime = 'FEAR'; vixColor = '#f97316'; }
+  else if (vix >= 20) { vixRegime = 'CAUTION'; vixColor = '#eab308'; }
+  else if (vix >= 15) { vixRegime = 'NORMAL'; vixColor = '#3b82f6'; }
+  
+  // Yield Curve (2s10s) - ensure valid number
+  const curve = !isNaN(us10y) && !isNaN(us2y) ? us10y - us2y : -0.5;
+  const curveBp = Math.round(curve * 100);
+  let curveSignal = 'STEEP';
+  let curveColor = '#22c55e';
+  if (curve < -0.5) { curveSignal = 'INVERTED'; curveColor = '#ef4444'; }
+  else if (curve < 0) { curveSignal = 'FLAT'; curveColor = '#eab308'; }
+  else if (curve < 0.25) { curveSignal = 'FLAT'; curveColor = '#eab308'; }
+  
+  // Dollar Strength
+  let dollarSignal = 'NEUTRAL';
+  let dollarColor = '#3b82f6';
+  if (dxy >= 107) { dollarSignal = 'STRONG'; dollarColor = '#22c55e'; }
+  else if (dxy <= 100) { dollarSignal = 'WEAK'; dollarColor = '#ef4444'; }
+  
+  // Fear & Greed approximation (0-100)
+  let fearGreed = Math.max(0, Math.min(100, 100 - (vix * 2.5)));
+  if (curve < 0) fearGreed -= 10;
+  if (dxy > 107) fearGreed -= 5;
+  fearGreed = Math.max(0, Math.min(100, fearGreed));
+  
+  let fearGreedLabel = 'NEUTRAL';
+  let fearGreedColor = '#eab308';
+  if (fearGreed >= 75) { fearGreedLabel = 'EXTREME GREED'; fearGreedColor = '#22c55e'; }
+  else if (fearGreed >= 55) { fearGreedLabel = 'GREED'; fearGreedColor = '#84cc16'; }
+  else if (fearGreed >= 45) { fearGreedLabel = 'NEUTRAL'; fearGreedColor = '#eab308'; }
+  else if (fearGreed >= 25) { fearGreedLabel = 'FEAR'; fearGreedColor = '#f97316'; }
+  else { fearGreedLabel = 'EXTREME FEAR'; fearGreedColor = '#ef4444'; }
+  
+  // Rate Cut Probability estimation
+  let rateCutProb = 50;
+  if (us2y < 4.0) rateCutProb += 20;
+  if (vix > 25) rateCutProb += 15;
+  if (curve < -0.25) rateCutProb += 10;
+  rateCutProb = Math.max(0, Math.min(100, rateCutProb));
+  
+  // Gold Safe Haven demand (based on gold price level)
+  let goldSignal = 'NEUTRAL';
+  let goldColor = '#eab308';
+  if (gold >= 2600) { goldSignal = 'HAVEN BID'; goldColor = '#22c55e'; }
+  else if (gold >= 2400) { goldSignal = 'ELEVATED'; goldColor = '#84cc16'; }
+  else if (gold <= 1900) { goldSignal = 'RISK-ON'; goldColor = '#f97316'; }
+  
+  // Oil/Energy stress
+  let oilSignal = 'STABLE';
+  let oilColor = '#3b82f6';
+  if (wti >= 90) { oilSignal = 'SPIKE'; oilColor = '#ef4444'; }
+  else if (wti >= 80) { oilSignal = 'ELEVATED'; oilColor = '#f97316'; }
+  else if (wti <= 60) { oilSignal = 'CHEAP'; oilColor = '#22c55e'; }
+  
+  // Term Premium (30y - 10y spread)
+  const termPremium = !isNaN(us30y) && !isNaN(us10y) ? us30y - us10y : 0.5;
+  const termBp = Math.round(termPremium * 100);
+  let termSignal = 'NORMAL';
+  let termColor = '#3b82f6';
+  if (termPremium >= 0.5) { termSignal = 'STEEP'; termColor = '#22c55e'; }
+  else if (termPremium <= 0) { termSignal = 'FLAT'; termColor = '#eab308'; }
+  
+  // Credit Stress proxy (VIX + inverted curve = stress)
+  let creditScore = 100 - (vix * 2);
+  if (curve < 0) creditScore -= 20;
+  if (dxy > 107) creditScore -= 10;
+  creditScore = Math.max(0, Math.min(100, creditScore));
+  
+  let creditSignal = 'CALM';
+  let creditColor = '#22c55e';
+  if (creditScore <= 30) { creditSignal = 'STRESS'; creditColor = '#ef4444'; }
+  else if (creditScore <= 50) { creditSignal = 'TIGHT'; creditColor = '#f97316'; }
+  else if (creditScore <= 70) { creditSignal = 'NORMAL'; creditColor = '#3b82f6'; }
+  
+  return {
+    vix: { value: vix.toFixed(1), regime: vixRegime, color: vixColor },
+    curve: { value: curveBp + 'bp', signal: curveSignal, color: curveColor },
+    dollar: { value: dxy.toFixed(2), signal: dollarSignal, color: dollarColor },
+    fearGreed: { value: fearGreed.toFixed(0), label: fearGreedLabel, color: fearGreedColor },
+    rateCut: { value: rateCutProb.toFixed(0) + '%', signal: 'CUT ODDS' },
+    gold: { value: '$' + gold.toFixed(0), signal: goldSignal, color: goldColor },
+    oil: { value: '$' + wti.toFixed(1), signal: oilSignal, color: oilColor },
+    credit: { value: creditScore.toFixed(0), signal: creditSignal, color: creditColor }
+  };
+}
+
+// Prediction market update every 60 seconds
+cron.schedule('*/60 * * * * *', async () => {
+  try {
+    const [polymarketData, sentimentData] = await Promise.all([
+      fetchPolymarketData(),
+      Promise.resolve(calculateSentimentDashboard())
+    ]);
+    
+    // Cache for initial data send
+    cachedPredictionData = {
+      markets: polymarketData,
+      sentiment: sentimentData
+    };
+    
+    broadcast({ 
+      type: 'prediction_update', 
+      data: cachedPredictionData
+    });
+  } catch (error) {
+    console.error('Prediction update error:', error.message);
+  }
+});
+
+// ============================================================================
 // SERVER START
 // ============================================================================
 
@@ -2830,6 +3057,31 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
   setTimeout(() => {
     connectAlpacaNews();
   }, 3500);
+  
+  // Initial prediction markets fetch
+  setTimeout(async () => {
+    console.log('🎯 Initial prediction markets fetch...');
+    try {
+      const [polymarketData, sentimentData] = await Promise.all([
+        fetchPolymarketData(),
+        Promise.resolve(calculateSentimentDashboard())
+      ]);
+      
+      // Cache for new client connections
+      cachedPredictionData = {
+        markets: polymarketData,
+        sentiment: sentimentData
+      };
+      
+      broadcast({ 
+        type: 'prediction_update', 
+        data: cachedPredictionData
+      });
+      console.log(`📊 Polymarket: ${polymarketData.length} markets loaded`);
+    } catch (error) {
+      console.error('Initial prediction fetch error:', error.message);
+    }
+  }, 4000);
 });
 
 // Graceful shutdown and error handling
