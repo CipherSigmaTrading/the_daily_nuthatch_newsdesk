@@ -61,6 +61,495 @@ let cachedPredictionData = {
   sentiment: null
 };
 
+// ============================================================================
+// GAME THEORY ENGINE - Active Games Tracker
+// ============================================================================
+
+let activeGames = {
+  "chip_war": {
+    id: "chip_war",
+    title: "US-China Tech War",
+    emoji: "🔬",
+    players: ["US Commerce Dept", "Beijing/CCP"],
+    currentPhase: "ESCALATION",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "US",
+      action: "New export controls on AI chips to China",
+      type: "DEFECT",
+      date: "2026-01-10"
+    },
+    equilibriumStatus: "UNSTABLE",
+    statusColor: "yellow",
+    nextLikelyMove: "China restricts rare earth exports or retaliates on US firms",
+    keywords: ["chip", "semiconductor", "nvidia", "export control", "huawei", "smic", "asml", "rare earth"]
+  },
+  "hormuz_standoff": {
+    id: "hormuz_standoff",
+    title: "Strait of Hormuz",
+    emoji: "⛽",
+    players: ["Iran/Proxies", "US Navy/Allies"],
+    currentPhase: "BRINKMANSHIP",
+    phaseColor: "red",
+    lastMove: {
+      player: "Iran",
+      action: "Harassment of commercial tankers",
+      type: "DEFECT",
+      date: "2026-01-08"
+    },
+    equilibriumStatus: "CRITICAL",
+    statusColor: "red",
+    nextLikelyMove: "US Naval convoy escorts or sanctions tightening",
+    keywords: ["hormuz", "iran", "tanker", "gulf", "naval", "strait", "persian"]
+  },
+  "fed_vs_markets": {
+    id: "fed_vs_markets",
+    title: "Fed vs Markets",
+    emoji: "🏦",
+    players: ["Federal Reserve", "Bond Market/Equities"],
+    currentPhase: "STANDOFF",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "Fed",
+      action: "Hawkish hold, pushback on rate cut expectations",
+      type: "SIGNAL",
+      date: "2026-01-09"
+    },
+    equilibriumStatus: "SHIFTING",
+    statusColor: "yellow",
+    nextLikelyMove: "Markets test Fed resolve with rally or yields repricing",
+    keywords: ["fed", "powell", "fomc", "rate cut", "inflation", "cpi", "dot plot"]
+  },
+  "opec_price_war": {
+    id: "opec_price_war",
+    title: "OPEC+ vs Shale",
+    emoji: "🛢️",
+    players: ["OPEC+ (Saudi/Russia)", "US Shale Producers"],
+    currentPhase: "COORDINATION",
+    phaseColor: "green",
+    lastMove: {
+      player: "OPEC+",
+      action: "Extended production cuts through Q1",
+      type: "COOPERATE",
+      date: "2026-01-05"
+    },
+    equilibriumStatus: "STABLE",
+    statusColor: "green",
+    nextLikelyMove: "Hold pattern unless demand shock or shale ramp-up",
+    keywords: ["opec", "saudi", "oil production", "oil cut", "shale", "drilling"]
+  },
+  "taiwan_strait": {
+    id: "taiwan_strait",
+    title: "Taiwan Strait",
+    emoji: "🇹🇼",
+    players: ["PLA/Beijing", "Taiwan/US Alliance"],
+    currentPhase: "POSTURING",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "PLA",
+      action: "Large-scale military drills near Taiwan",
+      type: "SIGNAL",
+      date: "2026-01-07"
+    },
+    equilibriumStatus: "TENSE",
+    statusColor: "yellow",
+    nextLikelyMove: "US Freedom of Navigation op or arms sale announcement",
+    keywords: ["taiwan", "china", "pla", "tsmc", "strait", "invasion", "blockade"]
+  },
+  "russia_ukraine": {
+    id: "russia_ukraine",
+    title: "Russia-Ukraine War",
+    emoji: "⚔️",
+    players: ["Russia", "Ukraine/NATO"],
+    currentPhase: "ATTRITION",
+    phaseColor: "red",
+    lastMove: {
+      player: "Russia",
+      action: "Winter offensive push in Donbas",
+      type: "DEFECT",
+      date: "2026-01-11"
+    },
+    equilibriumStatus: "FROZEN CONFLICT",
+    statusColor: "yellow",
+    nextLikelyMove: "Ceasefire talks or new Western aid package",
+    keywords: ["ukraine", "russia", "donbas", "crimea", "nato", "zelensky", "putin", "sanctions"]
+  },
+  "iran_israel": {
+    id: "iran_israel",
+    title: "Iran-Israel Shadow War",
+    emoji: "🎯",
+    players: ["Iran/Proxies (Hezbollah, Hamas)", "Israel/IDF"],
+    currentPhase: "ESCALATION",
+    phaseColor: "red",
+    lastMove: {
+      player: "Israel",
+      action: "Strikes on Iranian proxy positions in Syria",
+      type: "DEFECT",
+      date: "2026-01-10"
+    },
+    equilibriumStatus: "VOLATILE",
+    statusColor: "red",
+    nextLikelyMove: "Proxy retaliation or Iranian nuclear program acceleration",
+    keywords: ["iran", "israel", "hezbollah", "hamas", "gaza", "beirut", "tehran", "idf", "mossad", "proxy", "missile", "strike"]
+  },
+  "eu_energy_crisis": {
+    id: "eu_energy_crisis",
+    title: "EU Energy Security",
+    emoji: "🇪🇺",
+    players: ["EU/Germany", "Russia/Gazprom"],
+    currentPhase: "ADAPTATION",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "EU",
+      action: "LNG import diversification and storage mandates",
+      type: "COOPERATE",
+      date: "2026-01-08"
+    },
+    equilibriumStatus: "STABILIZING",
+    statusColor: "yellow",
+    nextLikelyMove: "Winter demand spike test or new pipeline disputes",
+    keywords: ["eu energy", "lng", "gazprom", "nord stream", "gas storage", "german", "energy crisis", "ttf", "european gas"]
+  },
+  "ecb_inflation": {
+    id: "ecb_inflation",
+    title: "ECB vs Inflation",
+    emoji: "💶",
+    players: ["ECB/Lagarde", "Eurozone Bond Markets"],
+    currentPhase: "STANDOFF",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "ECB",
+      action: "Held rates, signaled data-dependency",
+      type: "SIGNAL",
+      date: "2026-01-09"
+    },
+    equilibriumStatus: "SHIFTING",
+    statusColor: "yellow",
+    nextLikelyMove: "Markets price rate cuts, ECB pushback on dovish expectations",
+    keywords: ["ecb", "lagarde", "eurozone", "eu inflation", "bund", "european rates", "euro rate"]
+  },
+  "us_tariff_war": {
+    id: "us_tariff_war",
+    title: "US Tariff War",
+    emoji: "🏛️",
+    players: ["US Trade Policy", "China/EU/World"],
+    currentPhase: "ESCALATION",
+    phaseColor: "red",
+    lastMove: {
+      player: "US",
+      action: "Liberation Day tariffs: 60%+ on China, 10-50% global",
+      type: "DEFECT",
+      date: "2026-01-10"
+    },
+    equilibriumStatus: "CRITICAL",
+    statusColor: "red",
+    nextLikelyMove: "Retaliatory tariffs from China/EU or negotiation pivot",
+    keywords: ["tariff", "trade war", "liberation day", "reciprocal", "import duty", "customs", "wto", "trade deal"]
+  },
+  "india_pakistan": {
+    id: "india_pakistan",
+    title: "India-Pakistan Kashmir",
+    emoji: "☢️",
+    players: ["India/Modi", "Pakistan/ISI"],
+    currentPhase: "BRINKMANSHIP",
+    phaseColor: "red",
+    lastMove: {
+      player: "Pakistan-linked",
+      action: "Kashmir attack on Indian forces",
+      type: "DEFECT",
+      date: "2026-01-08"
+    },
+    equilibriumStatus: "CRITICAL",
+    statusColor: "red",
+    nextLikelyMove: "Indian surgical strike or diplomatic ultimatum",
+    keywords: ["india", "pakistan", "kashmir", "modi", "nuclear", "loc", "surgical strike", "islamabad", "delhi"]
+  },
+  "sudan_civil_war": {
+    id: "sudan_civil_war",
+    title: "Sudan Civil War",
+    emoji: "🌍",
+    players: ["SAF (Military)", "RSF (Paramilitaries)"],
+    currentPhase: "CONFLICT",
+    phaseColor: "red",
+    lastMove: {
+      player: "RSF",
+      action: "Gold mining region seizure for war funding",
+      type: "DEFECT",
+      date: "2026-01-09"
+    },
+    equilibriumStatus: "UNSTABLE",
+    statusColor: "red",
+    nextLikelyMove: "SAF counteroffensive or external powers arm both sides",
+    keywords: ["sudan", "saf", "rsf", "khartoum", "darfur", "gold", "humanitarian", "africa conflict"]
+  },
+  "north_korea_nuclear": {
+    id: "north_korea_nuclear",
+    title: "North Korea Nuclear",
+    emoji: "🚀",
+    players: ["DPRK/Kim Jong Un", "US/Japan/South Korea"],
+    currentPhase: "ESCALATION",
+    phaseColor: "red",
+    lastMove: {
+      player: "DPRK",
+      action: "ICBM test launch with new warhead design",
+      type: "DEFECT",
+      date: "2026-01-07"
+    },
+    equilibriumStatus: "CRITICAL",
+    statusColor: "red",
+    nextLikelyMove: "US-Japan-SK joint exercises or new sanctions package",
+    keywords: ["north korea", "dprk", "kim jong un", "icbm", "nuclear test", "pyongyang", "korean peninsula"]
+  },
+  "syria_power_vacuum": {
+    id: "syria_power_vacuum",
+    title: "Syria Power Vacuum",
+    emoji: "🏚️",
+    players: ["Turkey/Rebels", "Israel/Iran/Russia"],
+    currentPhase: "FRAGMENTATION",
+    phaseColor: "red",
+    lastMove: {
+      player: "Israel",
+      action: "Expanded buffer zone operations post-Assad",
+      type: "DEFECT",
+      date: "2026-01-11"
+    },
+    equilibriumStatus: "VOLATILE",
+    statusColor: "red",
+    nextLikelyMove: "Turkish-Kurdish clashes or Iran proxy repositioning",
+    keywords: ["syria", "assad", "damascus", "turkey", "kurds", "sdf", "hts", "aleppo", "idlib"]
+  },
+  "russia_shadow_fleet": {
+    id: "russia_shadow_fleet",
+    title: "Russia Shadow Fleet",
+    emoji: "🚢",
+    players: ["Russia/Dark Fleet", "G7/Sanctions Coalition"],
+    currentPhase: "CAT AND MOUSE",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "G7",
+      action: "Sanctioned 183 vessels and lowered oil price cap",
+      type: "DEFECT",
+      date: "2026-01-10"
+    },
+    equilibriumStatus: "SHIFTING",
+    statusColor: "yellow",
+    nextLikelyMove: "Russia uses new intermediaries or insurance workarounds",
+    keywords: ["shadow fleet", "dark fleet", "tanker", "oil cap", "sanctions evasion", "maritime", "insurance", "ofac"]
+  },
+  "brics_dedollarization": {
+    id: "brics_dedollarization",
+    title: "BRICS De-Dollarization",
+    emoji: "🪙",
+    players: ["BRICS+ (China/Russia/Saudi)", "US Dollar System"],
+    currentPhase: "COORDINATION",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "BRICS",
+      action: "Central bank gold purchases hit 900 tons in 2025",
+      type: "COOPERATE",
+      date: "2026-01-08"
+    },
+    equilibriumStatus: "SHIFTING",
+    statusColor: "yellow",
+    nextLikelyMove: "New bilateral currency swap deals or SWIFT alternative expansion",
+    keywords: ["brics", "dedollarization", "gold reserves", "yuan", "ruble", "petrodollar", "swift alternative", "reserve currency"]
+  },
+  "arctic_resource_race": {
+    id: "arctic_resource_race",
+    title: "Arctic Resource Race",
+    emoji: "❄️",
+    players: ["Russia/China", "NATO/Arctic Council"],
+    currentPhase: "POSTURING",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "Russia",
+      action: "New military base on Northern Sea Route",
+      type: "DEFECT",
+      date: "2026-01-06"
+    },
+    equilibriumStatus: "TENSE",
+    statusColor: "yellow",
+    nextLikelyMove: "NATO Arctic exercise or territorial claim disputes",
+    keywords: ["arctic", "northern sea route", "greenland", "polar", "icebreaker", "svalbard", "arctic council"]
+  },
+  "south_china_sea": {
+    id: "south_china_sea",
+    title: "South China Sea",
+    emoji: "🌊",
+    players: ["China/Coast Guard", "Philippines/US/ASEAN"],
+    currentPhase: "SKIRMISHING",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "China",
+      action: "Water cannon attacks on Philippine vessels",
+      type: "DEFECT",
+      date: "2026-01-09"
+    },
+    equilibriumStatus: "TENSE",
+    statusColor: "yellow",
+    nextLikelyMove: "US freedom of navigation patrol or new base construction",
+    keywords: ["south china sea", "spratly", "scarborough", "philippines", "nine dash", "coast guard", "reclamation"]
+  },
+  "venezuela_crisis": {
+    id: "venezuela_crisis",
+    title: "Venezuela Crisis",
+    emoji: "🇻🇪",
+    players: ["Maduro Regime", "US/Opposition"],
+    currentPhase: "STANDOFF",
+    phaseColor: "yellow",
+    lastMove: {
+      player: "US",
+      action: "Threatened military intervention if election fraud continues",
+      type: "SIGNAL",
+      date: "2026-01-10"
+    },
+    equilibriumStatus: "UNSTABLE",
+    statusColor: "yellow",
+    nextLikelyMove: "Maduro seeks Russia/China backing or refugee exodus accelerates",
+    keywords: ["venezuela", "maduro", "caracas", "guaido", "pdvsa", "oil sanctions", "intervention"]
+  },
+  "iran_regime_unrest": {
+    id: "iran_regime_unrest",
+    title: "Iran Regime Stability",
+    emoji: "🇮🇷",
+    players: ["Islamic Republic/IRGC", "Protesters/Diaspora/West"],
+    currentPhase: "SUPPRESSION",
+    phaseColor: "red",
+    lastMove: {
+      player: "Regime",
+      action: "Crackdown on Women Life Freedom protests continues",
+      type: "DEFECT",
+      date: "2026-01-11"
+    },
+    equilibriumStatus: "CRITICAL",
+    statusColor: "red",
+    nextLikelyMove: "Economic collapse accelerates unrest or regime consolidates via external conflict",
+    keywords: ["iran protest", "tehran", "irgc", "khamenei", "women life freedom", "rial", "sanctions", "regime change", "iranian unrest", "mahsa amini"]
+  }
+};
+
+// Cache for game theory updates
+let cachedGameTheoryData = {
+  games: activeGames,
+  lastUpdate: new Date().toISOString()
+};
+
+// Function to update a specific game based on news
+async function updateGameWithAI(gameId, relevantHeadlines) {
+  const game = activeGames[gameId];
+  if (!game || relevantHeadlines.length === 0) return null;
+
+  try {
+    const prompt = `You are a game theory analyst tracking the "${game.title}" strategic game.
+
+CURRENT STATE:
+${JSON.stringify(game, null, 2)}
+
+LATEST RELEVANT NEWS (last few hours):
+${relevantHeadlines.map(h => `- ${h}`).join('\n')}
+
+TASK: Analyze if any news represents a NEW MOVE in this game.
+
+If YES, respond with ONLY valid JSON (no markdown):
+{
+  "newMove": true,
+  "player": "Which player moved",
+  "action": "Brief description of the move (max 10 words)",
+  "type": "DEFECT or COOPERATE or SIGNAL",
+  "newPhase": "SETUP or ESCALATION or BRINKMANSHIP or CONFLICT or ATTRITION or STANDOFF or COORDINATION or POSTURING",
+  "phaseColor": "green or yellow or red",
+  "equilibriumStatus": "STABLE or SHIFTING or UNSTABLE or CRITICAL or TENSE or FROZEN CONFLICT",
+  "statusColor": "green or yellow or red", 
+  "nextLikelyMove": "Predicted opponent response (max 15 words)"
+}
+
+If NO significant new move, respond with:
+{"newMove": false}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return null;
+
+    // Parse JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    if (result.newMove) {
+      // Update the game state
+      activeGames[gameId] = {
+        ...game,
+        currentPhase: result.newPhase || game.currentPhase,
+        phaseColor: result.phaseColor || game.phaseColor,
+        lastMove: {
+          player: result.player,
+          action: result.action,
+          type: result.type,
+          date: new Date().toISOString().split('T')[0]
+        },
+        equilibriumStatus: result.equilibriumStatus || game.equilibriumStatus,
+        statusColor: result.statusColor || game.statusColor,
+        nextLikelyMove: result.nextLikelyMove || game.nextLikelyMove
+      };
+      
+      console.log(`♟️ GAME UPDATE: ${game.title} - New ${result.type} move by ${result.player}`);
+      return activeGames[gameId];
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Game theory update error for ${gameId}:`, error.message);
+    return null;
+  }
+}
+
+// Check recent news against all active games
+async function runGameTheoryEngine() {
+  console.log('♟️ Game Theory Engine scanning for strategic moves...');
+  
+  // Get recent headlines from cached cards
+  const recentHeadlines = recentCards
+    .slice(0, 30)
+    .map(card => card.headline?.toLowerCase() || '');
+  
+  let updatesFound = 0;
+  
+  for (const [gameId, game] of Object.entries(activeGames)) {
+    // Find headlines matching this game's keywords
+    const relevantHeadlines = recentCards
+      .slice(0, 30)
+      .filter(card => {
+        const text = (card.headline + ' ' + (card.implications || []).join(' ')).toLowerCase();
+        return game.keywords.some(kw => text.includes(kw));
+      })
+      .map(card => card.headline);
+    
+    if (relevantHeadlines.length > 0) {
+      const updated = await updateGameWithAI(gameId, relevantHeadlines.slice(0, 5));
+      if (updated) updatesFound++;
+    }
+  }
+  
+  // Update cache
+  cachedGameTheoryData = {
+    games: activeGames,
+    lastUpdate: new Date().toISOString()
+  };
+  
+  // Broadcast to clients
+  broadcast({
+    type: 'game_theory_update',
+    data: cachedGameTheoryData
+  });
+  
+  console.log(`♟️ Game Theory Engine complete: ${updatesFound} games updated`);
+}
+
 // Function to get current market snapshot for AI context
 function getMarketSnapshotForAI() {
   if (!cachedMarketSnapshot.lastUpdate) {
@@ -131,6 +620,277 @@ function updateMarketSnapshot(marketData) {
     data: snapshot
   };
 }
+
+// ============================================================================
+// GAME THEORY ENGINE (The "Strategic Brain")
+// ============================================================================
+// Detects strategic interaction patterns in headlines
+
+function detectGameTheoryPattern(text) {
+  const t = text.toLowerCase();
+  
+  // PATTERN 1: GAME OF CHICKEN (Brinkmanship)
+  if (t.match(/brinksmanship|standoff|shutdown|default|red line|ultimatum|threaten to|unless.*will|deadline/)) {
+    return {
+      name: "GAME OF CHICKEN",
+      emoji: "🐔",
+      insight: "Both players signaling commitment to crash. The one with less to lose wins. High accident risk.",
+      nextMove: "Watch for 'Signal of Commitment' (burning bridges)"
+    };
+  }
+
+  // PATTERN 2: PRISONER'S DILEMMA (Retaliation cycles)
+  if (t.match(/tariff|trade war|sanction|retaliat|counter-measure|tit-for-tat|arms race|export ban|import ban/)) {
+    return {
+      name: "PRISONER'S DILEMMA",
+      emoji: "⛓️",
+      insight: "Nash Equilibrium is mutual defection. Expect immediate retaliation unless binding agreement forced.",
+      nextMove: "Expect 'Tit-for-Tat' response within 24-48h"
+    };
+  }
+
+  // PATTERN 3: COORDINATION GAME (Keynesian Beauty Contest)
+  if (t.match(/central bank|concerted|joint|g7|g20|opec|agreement|accord|consensus|coordinated/)) {
+    return {
+      name: "COORDINATION GAME",
+      emoji: "🤝",
+      insight: "Success depends on synchronicity. If one major player defects (cheats), equilibrium collapses.",
+      nextMove: "Watch for defection signals from weakest member"
+    };
+  }
+
+  // PATTERN 4: ZERO-SUM GAME (Territory/Market Share)
+  if (t.match(/market share|territory|annex|banned|blockade|seize|confiscate|exclusive|monopoly/)) {
+    return {
+      name: "ZERO-SUM CONFLICT",
+      emoji: "⚔️",
+      insight: "Pure conflict. My win = your loss. Negotiation unlikely; resolution requires force or capitulation.",
+      nextMove: "Monitor for escalation or third-party intervention"
+    };
+  }
+
+  // PATTERN 5: REPUTATION GAME (Credibility)
+  if (t.match(/credibility|pledge|commit|whatever it takes|defend|peg|anchor|promise|vow/)) {
+    return {
+      name: "REPUTATION GAME",
+      emoji: "🎭",
+      insight: "Actor fighting 'Time Inconsistency.' If they blink now, they lose power for future moves.",
+      nextMove: "Watch for costly signals proving commitment"
+    };
+  }
+
+  // PATTERN 6: SIGNALING GAME (Information Asymmetry)
+  if (t.match(/signal|posturing|bluff|warning|demonstrate|show of force|exercise|drill/)) {
+    return {
+      name: "SIGNALING GAME",
+      emoji: "📡",
+      insight: "Costly signal to reveal private information. Question: Is this cheap talk or binding commitment?",
+      nextMove: "Assess if signal is credible (costly to fake)"
+    };
+  }
+
+  return null;
+}
+
+// ============================================================================
+// QUARTERLY REGIME ENGINE (4-PHASE: BULLISH/DISTRIBUTION/BEARISH/ACCUMULATION)
+// ============================================================================
+// Tracks Q-Open, Q-High, Q-Low for all assets to determine regime + momentum
+
+let quarterlyCache = {};
+
+async function fetchQuarterlyLevels() {
+  console.log('🗓️  Calculating Quarterly Regime for ALL Assets...');
+  
+  // Combine all asset lists into one master list
+  const ALL_ASSETS = [
+    ...MARKET_SYMBOLS.map(s => ({ symbol: s, type: 'MARKET' })),
+    ...FX_PAIRS.map(s => ({ symbol: s.symbol, label: s.label, type: 'FX' })),
+    ...COMMODITIES.filter((c, i, arr) => arr.findIndex(x => x.symbol === c.symbol) === i) // Dedupe
+      .map(s => ({ symbol: s.symbol, label: s.label, type: 'COMMODITY' }))
+  ];
+  
+  const now = new Date();
+  const qMonth = Math.floor(now.getMonth() / 3) * 3; // 0 (Jan), 3 (Apr), 6 (Jul), 9 (Oct)
+  const qYear = now.getFullYear();
+  
+  let successCount = 0;
+  
+  // Process sequentially with delay to avoid rate limits
+  for (const item of ALL_ASSETS) {
+    try {
+      await new Promise(r => setTimeout(r, 150)); // 150ms delay between requests
+      
+      const res = await axios.get(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${item.symbol}?interval=1d&range=3mo`,
+        { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' } }
+      );
+      
+      const result = res.data?.chart?.result?.[0];
+      if (!result || !result.indicators?.quote?.[0]) continue;
+      
+      const quotes = result.indicators.quote[0];
+      const timestamps = result.timestamp || [];
+      
+      if (timestamps.length === 0) continue;
+      
+      // Find Q-Open (first trading day of quarter)
+      let qOpenPrice = null;
+      let qOpenIdx = -1;
+      for (let i = 0; i < timestamps.length; i++) {
+        const date = new Date(timestamps[i] * 1000);
+        if (date.getMonth() === qMonth && date.getFullYear() === qYear) {
+          qOpenPrice = quotes.open[i];
+          qOpenIdx = i;
+          break;
+        }
+      }
+      
+      // Fallback: use first available price if quarter just started
+      if (qOpenPrice === null && quotes.open[0]) {
+        qOpenPrice = quotes.open[0];
+        qOpenIdx = 0;
+      }
+      
+      if (!qOpenPrice) continue;
+      
+      // Calculate Q-High and Q-Low from Q-Open date onwards
+      let qHigh = qOpenPrice;
+      let qLow = qOpenPrice;
+      for (let i = qOpenIdx; i < quotes.high.length; i++) {
+        if (quotes.high[i] && quotes.high[i] > qHigh) qHigh = quotes.high[i];
+        if (quotes.low[i] && quotes.low[i] < qLow) qLow = quotes.low[i];
+      }
+      
+      // Current price (last close)
+      const currentPrice = quotes.close[quotes.close.length - 1] || result.meta?.regularMarketPrice;
+      if (!currentPrice) continue;
+      
+      // Dynamic volatility buffer based on asset class
+      let volBuffer = 0.05; // Default 5% for equities
+      const sym = item.symbol;
+      if (sym.includes('BTC') || sym.includes('ETH')) volBuffer = 0.15; // Crypto: 15%
+      else if (item.type === 'FX') volBuffer = 0.03; // FX: 3%
+      else if (sym.includes('CL=F') || sym.includes('BZ=F') || sym.includes('NG=F')) volBuffer = 0.10; // Energy: 10%
+      else if (sym.includes('GC=F') || sym.includes('SI=F')) volBuffer = 0.06; // Precious metals: 6%
+      else if (sym.includes('HG=F') || sym.includes('ALI=F')) volBuffer = 0.08; // Industrial metals: 8%
+      else if (sym.match(/Z[WCSLOMR]=F|KC=F|CC=F|SB=F|CT=F|LE=F|HE=F|GF=F|OJ=F|LBS=F/)) volBuffer = 0.12; // Agri: 12%
+      else if (sym.startsWith('^')) volBuffer = 0.05; // Indices: 5%
+      
+      // Calculate 4-phase regime with proper momentum thresholds
+      const aboveQOpen = currentPrice > qOpenPrice;
+      const distFromHigh = qHigh > 0 ? ((qHigh - currentPrice) / qHigh) * 100 : 0;
+      const distFromLow = qLow > 0 ? ((currentPrice - qLow) / qLow) * 100 : 0;
+      const distFromOpenPct = ((currentPrice - qOpenPrice) / qOpenPrice) * 100;
+      
+      // Momentum thresholds: 5% drawdown = falling, 5% from lows = rising
+      const isFalling = distFromHigh >= 5; // More than 5% off quarterly high
+      const isRising = distFromLow >= 5;   // More than 5% off quarterly low
+      
+      let regime, emoji, signal;
+      if (aboveQOpen && !isFalling) {
+        regime = 'BULLISH';
+        emoji = '🟢';
+        signal = 'Trend intact, buy dips';
+      } else if (aboveQOpen && isFalling) {
+        regime = 'DISTRIBUTION';
+        emoji = '🟡';
+        signal = 'Watch for Q-Open breakdown';
+      } else if (!aboveQOpen && !isRising) {
+        regime = 'BEARISH';
+        emoji = '🔴';
+        signal = 'Trend down, sell rallies';
+      } else {
+        regime = 'ACCUMULATION';
+        emoji = '🟡';
+        signal = 'Watch for Q-Open breakout';
+      }
+      
+      quarterlyCache[item.symbol] = {
+        open: qOpenPrice,
+        high: qHigh,
+        low: qLow,
+        current: currentPrice,
+        support: qOpenPrice * (1 - volBuffer),
+        resistance: qOpenPrice * (1 + volBuffer),
+        regime,
+        emoji,
+        signal,
+        label: item.label || item.symbol,
+        distFromOpen: distFromOpenPct // Store as number, format on output
+      };
+      
+      successCount++;
+    } catch (e) {
+      // Skip failed assets silently
+    }
+  }
+  
+  console.log(`✅ Quarterly Regime calculated for ${successCount}/${ALL_ASSETS.length} assets`);
+}
+
+// Helper to escape special regex characters
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Smart Asset Matcher - finds symbol from headline text
+function matchAssetFromText(text) {
+  const t = text.toLowerCase();
+  
+  // Search Commodities first (more specific matches)
+  const foundCommodity = COMMODITIES.find(c => {
+    const labelLower = c.label.toLowerCase();
+    const escaped = escapeRegex(labelLower);
+    try {
+      return t.includes(labelLower) || t.match(new RegExp(`\\b${escaped}\\b`, 'i'));
+    } catch (e) {
+      return t.includes(labelLower);
+    }
+  });
+  if (foundCommodity) return foundCommodity.symbol;
+  
+  // Search FX pairs
+  const foundFX = FX_PAIRS.find(fx => {
+    const labelNoSlash = fx.label.replace('/', '').toLowerCase();
+    const labelWithSlash = fx.label.toLowerCase();
+    return t.includes(labelNoSlash) || t.includes(labelWithSlash);
+  });
+  if (foundFX) return foundFX.symbol;
+  
+  // Manual fallbacks for common slang/aliases
+  if (t.match(/\bs&p\b|spx|spy\b/)) return '^GSPC';
+  if (t.match(/nasdaq|qqq\b|tech.*index/)) return '^IXIC';
+  if (t.match(/dow\b|djia/)) return '^DJI';
+  if (t.match(/russell|small.?cap|iwm\b/)) return '^RUT';
+  if (t.match(/10.?year|10y|ten.?year/)) return '^TNX';
+  if (t.match(/2.?year|2y|two.?year/)) return '2YY=F';
+  if (t.match(/\bdxy\b|dollar.*index|usd.*index/)) return 'DX-Y.NYB';
+  if (t.match(/\bvix\b|volatility.*index|fear.*index/)) return '^VIX';
+  if (t.match(/\bwti\b|crude.*oil|oil.*price/)) return 'CL=F';
+  if (t.match(/\bbrent\b/)) return 'BZ=F';
+  if (t.match(/\bnat.*gas\b|natural.*gas/)) return 'NG=F';
+  if (t.match(/\bgold\b/)) return 'GC=F';
+  if (t.match(/\bsilver\b/)) return 'SI=F';
+  if (t.match(/\bcopper\b/)) return 'HG=F';
+  if (t.match(/\bwheat\b/)) return 'ZW=F';
+  if (t.match(/\bcorn\b/)) return 'ZC=F';
+  if (t.match(/\bsoy\b|soybean/)) return 'ZS=F';
+  if (t.match(/\bcoffee\b/)) return 'KC=F';
+  if (t.match(/\bcocoa\b/)) return 'CC=F';
+  if (t.match(/\bbtc\b|bitcoin/)) return 'BTC-USD';
+  if (t.match(/\beth\b|ethereum/)) return 'ETH-USD';
+  if (t.match(/eur.*usd|euro.*dollar/)) return 'EURUSD=X';
+  if (t.match(/usd.*jpy|dollar.*yen/)) return 'USDJPY=X';
+  if (t.match(/gbp.*usd|pound.*dollar|cable/)) return 'GBPUSD=X';
+  if (t.match(/usd.*cnh|yuan|renminbi/)) return 'CNH=X';
+  
+  return null;
+}
+
+// Run on startup (15s delay for arrays to initialize) and every 6 hours
+setTimeout(fetchQuarterlyLevels, 15000);
+setInterval(fetchQuarterlyLevels, 6 * 60 * 60 * 1000);
 
 // ============================================================================
 // KEY LEVELS COMPUTATION ENGINE
@@ -237,13 +997,13 @@ function computeKeyLevels(category, text) {
   
   // GEOPOLITICS - Safe haven levels
   if (category === 'geo' || text.match(/war|conflict|tension|sanction|military/i)) {
-    // Gold is always relevant for geopolitical risk
+    // Gold - use dynamic round number resistance (next $50 increment above current price)
     if (d.gold && !isNaN(parseFloat(d.gold))) {
       const gold = parseFloat(d.gold);
-      const resistances = [2700, 2800, 2900, 3000];
-      const nextResist = resistances.find(r => r > gold) || resistances[resistances.length - 1];
-      const dist = distTo(gold, nextResist);
-      levels.push(`Gold: $${gold.toFixed(0)} | R1: $${nextResist} (+${Math.abs(dist.pct)}%)`);
+      // Calculate next $50 round number above current price as resistance
+      const nextR1 = Math.ceil(gold / 50) * 50;
+      const dist = distTo(gold, nextR1);
+      levels.push(`Gold: $${gold.toFixed(0)} | Next resist: $${nextR1} (+${Math.abs(dist.pct)}%)`);
     }
     // USD/JPY only relevant for Japan/Asia-specific geo stories
     const isJapanRelated = text.match(/japan|japanese|tokyo|boj|yen|nikkei|asia.*tension|china.*taiwan|korea/i);
@@ -272,10 +1032,10 @@ function computeKeyLevels(category, text) {
     }
     if (d.gold && !isNaN(parseFloat(d.gold))) {
       const gold = parseFloat(d.gold);
-      const supports = [2600, 2700, 2800];
-      const nearestSupport = supports.filter(s => s < gold).pop() || supports[0];
-      const dist = distTo(gold, nearestSupport);
-      levels.push(`Gold: $${gold.toFixed(0)} | S1: $${nearestSupport} (${Math.abs(dist.pts)} pts)`);
+      // Calculate previous $50 round number below current price as support
+      const prevS1 = Math.floor(gold / 50) * 50;
+      const dist = distTo(gold, prevS1);
+      levels.push(`Gold: $${gold.toFixed(0)} | Support: $${prevS1} (${Math.abs(dist.pts)} pts)`);
     }
     if (d.copper && !isNaN(parseFloat(d.copper))) {
       const copper = parseFloat(d.copper);
@@ -319,7 +1079,17 @@ function computeKeyLevels(category, text) {
     levels.push(`VIX: ${vix.toFixed(1)} | Triggers: 15 (calm) / 25 (fear) / 35 (panic)`);
   }
   
-  return levels.slice(0, 3);
+  // QUARTERLY REGIME - Smart asset matching + 4-phase regime
+  const matchedSymbol = matchAssetFromText(text);
+  if (matchedSymbol && quarterlyCache[matchedSymbol]) {
+    const q = quarterlyCache[matchedSymbol];
+    const qOpenFormatted = q.open >= 100 ? q.open.toFixed(0) : q.open >= 1 ? q.open.toFixed(2) : q.open.toFixed(4);
+    const distFormatted = q.distFromOpen.toFixed(1);
+    const sign = q.distFromOpen >= 0 ? '+' : '';
+    levels.push(`${q.emoji} Q-REGIME: ${q.regime} (${sign}${distFormatted}% vs Q-Open ${qOpenFormatted}) | ${q.signal}`);
+  }
+  
+  return levels.slice(0, 4); // Allow up to 4 levels now with quarterly regime
 }
 
 // Serve static files with cache control
@@ -387,30 +1157,75 @@ app.post('/api/analyze-headline', async (req, res) => {
     // Get live market data for accuracy grounding
     const marketContext = getMarketSnapshotForAI();
 
-    const prompt = `You are an expert financial analyst at a top investment bank. Analyze this news headline and provide institutional-grade insights.
+    // Detect category for specialist desk routing
+    const combinedText = (headline + " " + (implications || []).join(" ")).toLowerCase();
+    let specialistInstruction = "";
+
+    if (combinedText.match(/war|conflict|invade|strike|missile|china|taiwan|russia|ukraine|iran|israel|nato|sanction|military|defense|weapon/)) {
+      // GEOPOLITICS SPECIALIST
+      specialistInstruction = `ROLE: Geostrategic Analyst (Defense Intelligence perspective)
+FOCUS: Chokepoints (Hormuz/Suez/Malacca), supply chain shocks, escalation ladders, safe-haven flows.`;
+    } 
+    else if (combinedText.match(/fed|rate|yield|bond|treasury|powell|fomc|inflation|cpi|liquidity|qt|qe|curve/)) {
+      // RATES & PLUMBING SPECIALIST
+      specialistInstruction = `ROLE: Fixed Income Portfolio Manager
+FOCUS: Yield curve impact (2s10s), Fed reaction function, liquidity (RRP/TGA), credit spreads.`;
+    }
+    else if (combinedText.match(/oil|gold|copper|gas|wheat|corn|metal|mining|energy|opec|drilling|commodity/)) {
+      // COMMODITIES SPECIALIST
+      specialistInstruction = `ROLE: Senior Commodities Trader (Physical markets)
+FOCUS: Supply/demand imbalance, inventory levels, arb windows, input cost inflation.`;
+    }
+    else if (combinedText.match(/currency|fx|forex|dollar|yen|euro|yuan|intervention|carry trade|exchange rate/)) {
+      // FX SPECIALIST
+      specialistInstruction = `ROLE: Global Macro FX Strategist
+FOCUS: Rate differentials, capital flows, intervention risk, Dollar Smile positioning.`;
+    }
+    else {
+      // GENERAL MARKET STRATEGIST
+      specialistInstruction = `ROLE: Cross-Asset Strategist
+FOCUS: Risk-On/Risk-Off regime, sector rotation, volatility, key levels.`;
+    }
+
+    const prompt = `${specialistInstruction}
 
 ${marketContext}
 
 HEADLINE: "${headline}"
 SOURCE: ${source || 'Unknown'}
-${implications?.length ? `CURRENT IMPLICATIONS:\n${implications.join('\n')}` : ''}
+${implications?.length ? `CONTEXT: ${implications.join(' | ')}` : ''}
 
-STRICT ACCURACY RULES:
-1. Use the LIVE MARKET DATA above as your ground truth for current prices.
-2. Do NOT invent or hallucinate price levels. If you don't know a specific level, write "verify current level" instead of guessing.
-3. When mentioning key levels, reference them relative to CURRENT prices shown above (e.g., "Gold at $2,650, resistance at $2,680 is 30 points away").
-4. If the headline mentions a price that conflicts with the live data, flag it as potentially outdated or incorrect.
+RULES:
+• Use LIVE DATA above as ground truth. Never invent prices.
+• Be DETAILED: provide thorough professional analysis (2-3 sentences per bullet)
+• Include specific numbers and distances from current levels
+• FORMATTING: Put **ticker symbols**, **asset names**, **prices**, and **support/resistance levels** in **bold** using **double asterisks**
+  Example: "**SPX** likely tests **5800** support, currently **45 points** above"
 
-Provide a detailed analysis covering:
+PROVIDE (each section on its own line, with detailed bullets below):
 
-1. **MARKET IMPACT** - How this affects specific asset classes (equities, bonds, FX, commodities)
-2. **TRADING IMPLICATIONS** - Actionable insights for institutional traders
-3. **SECOND-ORDER EFFECTS** - What happens next if this trend continues
-4. **POSITIONING** - How to position portfolios in response
-5. **KEY LEVELS TO WATCH** - Specific price levels BASED ON CURRENT DATA above (include distance from current price)
-6. **TIMELINE** - When we'll know more and expected duration of impact
+**IMPACT**
+- Which assets move and why (2-3 detailed bullets with specific reasoning)
 
-Format your response in clear sections with bullet points. Be specific with numbers and asset names. Cross-reference all levels against the live market data provided.`;
+**TRADE**
+- Actionable positioning ideas with entry/exit logic (2-3 bullets)
+
+**2ND ORDER**
+- Knock-on effects and what happens next (2 bullets)
+
+**KEY LEVELS**
+- Specific support/resistance prices to watch with current distance (2-3 bullets)
+
+**TIMELINE**
+- When we'll know more, key dates/events ahead (1-2 bullets)
+
+**GAME THEORY**
+- ALWAYS include this section. Identify the strategic game at play:
+  - Who are the players? (Fed vs markets, OPEC vs shale, US vs China, etc.)
+  - What is their payoff matrix?
+  - What game pattern? (Chicken, Prisoner's Dilemma, Coordination, Zero-Sum, Reputation, Signaling)
+  - What is the likely Nash equilibrium or next strategic move?
+  - If no clear strategic interaction, note "Low strategic complexity - straightforward market reaction"`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -427,6 +1242,115 @@ Format your response in clear sections with bullet points. Be specific with numb
   } catch (error) {
     console.error('Gemini analysis error:', error.message);
     res.status(500).json({ error: 'Failed to analyze headline. Please try again.' });
+  }
+});
+
+// Gemini AI game theory analysis endpoint
+app.post('/api/analyze-game', async (req, res) => {
+  try {
+    const { gameId, title, emoji, players, currentPhase, lastMove, equilibriumStatus, nextLikelyMove } = req.body;
+    
+    if (!title) {
+      return res.status(400).json({ error: 'Game title is required' });
+    }
+
+    // Ensure we have fresh market data for accuracy
+    const cacheAge = cachedMarketSnapshot.lastUpdate ? (Date.now() - cachedMarketSnapshot.lastUpdate) / 1000 : Infinity;
+    if (cacheAge > 60) {
+      try {
+        const freshMarketData = await fetchMarketData();
+        updateMarketSnapshot(freshMarketData);
+        console.log('📊 Refreshed market snapshot for game analysis');
+      } catch (e) {
+        console.warn('⚠️ Could not refresh market data for AI:', e.message);
+      }
+    }
+
+    const marketContext = getMarketSnapshotForAI();
+
+    const prompt = `ROLE: Senior Geopolitical Strategist & Game Theorist
+You are analyzing a live strategic conflict from the perspective of a hedge fund's political risk desk.
+
+${marketContext}
+
+CONFLICT: ${emoji} ${title}
+PLAYERS: ${players.join(' vs ')}
+CURRENT PHASE: ${currentPhase}
+EQUILIBRIUM STATUS: ${equilibriumStatus}
+LAST MOVE: ${lastMove.player} - ${lastMove.action} (${lastMove.type}) on ${lastMove.date}
+PREDICTED NEXT MOVE: ${nextLikelyMove}
+
+PROVIDE COMPREHENSIVE ANALYSIS:
+
+**STATECRAFT ANALYSIS**
+- What are each player's strategic objectives and constraints?
+- What instruments of national power are being deployed? (Diplomatic, Information, Military, Economic - DIME framework)
+- What are the red lines and escalation thresholds?
+(3-4 detailed bullets)
+
+**GAME THEORY FRAMEWORK**
+- What type of game is this? (Prisoner's Dilemma, Chicken, Coordination, Zero-Sum, Repeated Game, Signaling, Reputation)
+- What is the payoff matrix for each player?
+- What is the Nash equilibrium, if one exists?
+- Are there commitment devices or credible threats in play?
+- Is this a one-shot or iterated game? How does reputation affect strategy?
+(4-5 detailed bullets with strategic reasoning)
+
+**SOCIOECONOMIC IMPLICATIONS**
+- Who bears the costs? (Populations, industries, supply chains)
+- What are the distributional effects? (Winners vs losers domestically and internationally)
+- Impact on global trade flows, FDI, and capital allocation
+- Second-order effects on inflation, employment, consumer confidence
+(3-4 bullets)
+
+**GEOPOLITICAL RIPPLE EFFECTS**
+- How do other powers (China, EU, Russia, India, Gulf States) respond or reposition?
+- Alliance dynamics and coalition building
+- Precedent-setting for future conflicts
+- Impact on international institutions and norms
+(3-4 bullets)
+
+**MACRO MARKET HEADWINDS**
+- Which asset classes are most exposed? (Equities, Fixed Income, FX, Commodities)
+- Specific tickers and instruments to watch with current levels
+- Correlation shifts and potential contagion
+- Volatility regime implications (VIX, MOVE index)
+(3-4 bullets with specific prices/levels from live data above)
+
+**META HEADWINDS & WILDCARDS**
+- What could accelerate escalation or de-escalation?
+- Black swan scenarios and tail risks
+- Signaling misinterpretation risks
+- Timing considerations (elections, summits, seasonal factors)
+(3-4 bullets)
+
+**TRADING PLAYBOOK**
+- Specific hedges and positioning ideas
+- Entry/exit triggers and key levels
+- Timeframe for resolution or next inflection point
+(2-3 actionable bullets)
+
+RULES:
+• Use LIVE DATA above as ground truth. Never invent prices.
+• Be DETAILED and SPECIFIC - this is for institutional decision-making
+• FORMATTING: Put **ticker symbols**, **asset names**, **prices**, and **key levels** in **bold**
+• Think like a hedge fund risk committee briefing`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    const analysis = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!analysis) {
+      throw new Error('No analysis generated');
+    }
+
+    res.json({ success: true, analysis });
+  } catch (error) {
+    console.error('Gemini game analysis error:', error.message);
+    res.status(500).json({ error: 'Failed to analyze conflict. Please try again.' });
   }
 });
 
@@ -492,23 +1416,42 @@ async function sendInitialData(ws) {
     }
     console.log('📤 Done sending recent cards');
     
-    // Now fetch and send market/macro/fx/commodity data (slower, but cards already delivered)
-    const [marketData, macroData, fxData, commodityData] = await Promise.all([
+    // Send game theory data immediately
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'game_theory_update',
+        data: cachedGameTheoryData
+      }));
+      console.log('♟️ Sent game theory data');
+    }
+    
+    // Fetch ALL data in parallel including FRESH sentiment (avoid stale cache on republish)
+    const [marketData, macroData, fxData, commodityData, polymarketData] = await Promise.all([
       fetchMarketData(),
       fetchMacroData(),
       fetchFXData(),
-      fetchCommodityData()
+      fetchCommodityData(),
+      fetchPolymarketData()
     ]);
     
-    // Cache market data for AI accuracy
+    // Cache market data for AI accuracy and calculate FRESH sentiment
     updateMarketSnapshot(marketData);
+    const freshSentiment = calculateSentimentDashboard();
+    
+    // Update cached prediction data with fresh values
+    cachedPredictionData = {
+      markets: polymarketData,
+      sentiment: freshSentiment
+    };
     
     console.log(`📊 Macro data: ${macroData.yields.length} yields, ${macroData.indicators.length} indicators`);
     console.log(`📈 Market data: ${marketData.length} assets`);
     console.log(`💱 FX data: ${fxData.macro.length} macro, ${fxData.geo.length} geo, ${fxData.commodity.length} commodity`);
     console.log(`🏭 Commodity data: ${commodityData.metals.length} metals, ${commodityData.energy.length} energy, ${commodityData.agriculture.length} agriculture`);
+    console.log(`🎯 Sentiment: VIX=${freshSentiment?.vix?.value || 'N/A'}, F&G=${freshSentiment?.fearGreed?.value || 'N/A'}`);
     
     if (ws.readyState === WebSocket.OPEN) {
+      // Send market/macro/fx/commodity data
       ws.send(JSON.stringify({
         type: 'initial',
         market: marketData,
@@ -516,18 +1459,16 @@ async function sendInitialData(ws) {
         fx: fxData,
         commodities: commodityData
       }));
-      console.log('📤 Sent initial market/macro/fx/commodity data');
       
-      // Send cached prediction data if available
-      if (cachedPredictionData.markets.length > 0 || cachedPredictionData.sentiment) {
-        ws.send(JSON.stringify({
-          type: 'prediction_update',
-          data: cachedPredictionData
-        }));
-        console.log('🎯 Sent cached prediction data');
-      }
+      // Send FRESH prediction/sentiment data (not stale cache)
+      ws.send(JSON.stringify({
+        type: 'prediction_update',
+        data: cachedPredictionData
+      }));
+      
+      console.log('📤 Sent initial market/macro/fx/commodity/sentiment data');
     } else {
-      console.log('⚠️ Client disconnected before initial data could be sent');
+      console.log('⚠️ Client disconnected before data could be sent');
     }
   } catch (error) {
     console.error('Initial data error:', error.message);
@@ -543,9 +1484,6 @@ const RSS_FEEDS = [
   // ============ WIRE SERVICES - FASTEST SOURCES ============
   { url: 'https://www.prnewswire.com/rss/news-releases-list.rss', category: 'breaking', name: 'PR Newswire' },
   { url: 'https://www.prnewswire.com/rss/financial-services-latest-news-list.rss', category: 'macro', name: 'PR Newswire Finance' },
-  { url: 'https://rss.globenewswire.com/rssfeed/', category: 'breaking', name: 'GlobeNewswire' },
-  { url: 'https://www.globenewswire.com/RssFeed/subjectcode/25-EAN/feedTitle/GlobeNewswire%20-%20Earnings', category: 'breaking', name: 'GlobeNewswire Earnings' },
-  { url: 'https://www.globenewswire.com/RssFeed/subjectcode/23-MAC/feedTitle/GlobeNewswire%20-%20M%26A', category: 'breaking', name: 'GlobeNewswire M&A' },
   { url: 'https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeGVtRWw==', category: 'breaking', name: 'BusinessWire' },
   { url: 'https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFxYXQ==', category: 'macro', name: 'BusinessWire Earnings' },
   
@@ -592,6 +1530,10 @@ const RSS_FEEDS = [
   { url: 'https://www.militarytimes.com/arc/outboundfeeds/rss/', category: 'geo', name: 'Military Times' },
   { url: 'https://breakingdefense.com/feed/', category: 'geo', name: 'Breaking Defense' },
   { url: 'https://news.usni.org/feed', category: 'geo', name: 'USNI News' },
+  { url: 'https://www.defenseone.com/rss/all/', category: 'geo', name: 'Defense One' },
+  // DoD Official blocked (403) - use Defense One/Breaking Defense instead
+  { url: 'https://realcleardefense.com/index.xml', category: 'geo', name: 'RealClearDefense' },
+  { url: 'https://defence-blog.com/feed/', category: 'geo', name: 'Defence Blog' },
   
   // NEW GEOPOLITICAL INTELLIGENCE SOURCES
   { url: 'https://thediplomat.com/feed/', category: 'geo', name: 'The Diplomat' },
@@ -1100,6 +2042,40 @@ function generateUltimateImplications(headline, category, description = '') {
     };
   }
   
+  // ========== TABLOID/CRIME/SENSATIONAL FILTER ==========
+  // Filter out sensational crime stories, tabloid content, non-market news
+  const isTabloidCrime = text.match(/\b(teen|teenager|student|child|children|kid|boy|girl|toddler|infant|baby)\b/i) &&
+                         text.match(/\b(abuse|abused|assault|assaulted|rape|raped|murder|murdered|kill|killed|torture|tortured|molest|molested|kidnap|kidnapped|soak|drink urine|genitals|sexual|stabbed|stabbing|beaten|bully|bullied)\b/i) ||
+                         text.match(/\b(probation|sentenced|jail|prison|arraigned|indicted|pleaded guilty|convicted)\b/i) &&
+                         !text.match(/\b(ceo|cfo|executive|banker|trader|fraud|insider trading|sec|doj|money laundering|embezzle|bribe|corruption|cartel|antitrust)\b/i) ||
+                         text.match(/\b(celebrity|influencer|tiktok|instagram|youtube|viral video|reality tv|kardashian|bachelor|dating show)\b/i) &&
+                         !text.match(/\b(stock|ipo|revenue|earnings|acquisition|market cap)\b/i) ||
+                         text.match(/\b(pet|dog|cat|animal|zoo|wildlife|puppy|kitten)\b/i) &&
+                         !text.match(/\b(stock|company|earnings|acquisition|veterinary.*ipo)\b/i) ||
+                         text.match(/\b(wedding|divorce|affair|cheating|relationship|dating|married|engagement)\b/i) &&
+                         !text.match(/\b(merger|acquisition|ceo|executive|billionaire.*divorce)\b/i) ||
+                         text.match(/\b(recipe|cooking|restaurant review|food critic|chef|michelin)\b/i) &&
+                         !text.match(/\b(stock|ipo|earnings|acquisition|bankruptcy)\b/i) ||
+                         text.match(/\b(sports|football|soccer|basketball|baseball|hockey|tennis|golf|olympics|athlete|championship|tournament|coach|player)\b/i) &&
+                         !text.match(/\b(stock|ipo|earnings|acquisition|broadcast rights|tv deal|stadium.*bond|betting.*regulation)\b/i);
+  
+  if (isTabloidCrime) {
+    return {
+      implications: [],
+      tags: ['TABLOID'],
+      sensitivity: 'LOW',
+      assets: [],
+      direction: 'NEUTRAL',
+      impact: 0,
+      horizon: 'N/A',
+      confidence: 0,
+      technicalLevels: [],
+      nextEvents: [],
+      regime: null,
+      skipStory: true  // Filter out entirely - not market relevant
+    };
+  }
+  
   // ========== ROUTINE PRICE UPDATE FILTER ==========
   // Stories like "Gold rises" or "Oil falls" are routine updates, not actionable news
   const isRoutinePriceUpdate = text.match(/\b(gold|oil|silver|copper|wheat|corn)\b.*(rises?|falls?|edges?|ticks?|gains?|drops?|inches?|climbs?|dips?|steady|unchanged|flat)/i) ||
@@ -1601,8 +2577,12 @@ function generateUltimateImplications(headline, category, description = '') {
     analysis.nextEvents.push('Pullback to support', 'Check breadth');
   }
   
-  // CIRCUIT BREAKER
-  if (text.match(/circuit.?breaker|halt|suspend|trading.?stop/)) {
+  // CIRCUIT BREAKER - must have actual trading/market halt context, not general "halt" usage
+  // Avoid false positives on positive legal rulings like "clears to resume work"
+  const positiveResolution = text.match(/clear|approv|lift|allow|restor|permit|authoriz|greenlight/i);
+  const isActualMarketHalt = text.match(/circuit.?breaker|trading.?halt|market.?halt|suspend.*trad|trading.?stop|market.?suspend/);
+  
+  if (isActualMarketHalt && !positiveResolution) {
     analysis.implications.push('CIRCUIT BREAKER: Extreme stress, liquidity crisis');
     analysis.implications.push('Expect volatility expansion, gap risk');
     analysis.implications.push('Fed response likely if systemic');
@@ -1769,39 +2749,22 @@ function generateUltimateImplications(headline, category, description = '') {
     analysis.nextEvents.push('If persistent: expect yield curve bear steepening');
   }
   
-  // LAYER 3: GAME THEORY INSIGHTS
-  // Add strategic interaction analysis
-  let gameTheoryInsight = null;
+  // ========== LAYER 3: GAME THEORY INSIGHTS (UPGRADED) ==========
+  // Run the Game Theory Engine for strategic pattern detection
+  const gameTheory = detectGameTheoryPattern(text);
   
-  // Prisoner's Dilemma patterns
-  if (text.match(/tariff|trade war|retaliat/) || 
-      (text.match(/sanction/) && text.match(/counter/))) {
-    gameTheoryInsight = 'Game Theory: Prisoner\'s Dilemma - both sides worse off if they retaliate';
-    analysis.confidence += 10;
-  }
-  
-  // Coordination Game patterns
-  if (text.match(/g7|g20|coordinated|joint action|alliance/)) {
-    gameTheoryInsight = 'Game Theory: Coordination Game - collective action multiplies impact';
+  if (gameTheory) {
+    // Add the Pattern Name as a tag
+    analysis.tags.push(gameTheory.name);
+    
+    // Add the Strategic Insight to the Implications list (at the top)
+    analysis.implications.unshift(`${gameTheory.emoji} ${gameTheory.name}: ${gameTheory.insight}`);
+    
+    // Add specific "Next Moves" based on the game
+    analysis.nextEvents.unshift(gameTheory.nextMove);
+    
+    // Boost Confidence because we identified the structural mechanic
     analysis.confidence += 15;
-  }
-  
-  // Chicken Game / Brinkmanship
-  if (text.match(/brinksmanship|standoff|red line/) ||
-      (text.match(/threat/) && text.match(/escalat/))) {
-    gameTheoryInsight = 'Game Theory: Chicken Game - both sides testing resolve, high accident risk';
-    analysis.confidence += 5;
-  }
-  
-  // Nash Equilibrium / Dominant Strategy
-  if (text.match(/central bank/) && text.match(/all|coordinated|simultaneous/)) {
-    gameTheoryInsight = 'Game Theory: Nash Equilibrium - synchronized policy is dominant strategy';
-    analysis.confidence += 10;
-  }
-  
-  // Add game theory to implications if detected
-  if (gameTheoryInsight) {
-    analysis.implications.push(gameTheoryInsight);
   }
   
   // LAYER 4: ENHANCED CONFIDENCE SCORING
@@ -1887,22 +2850,37 @@ const MARKET_SYMBOLS = [
 
 async function fetchMarketData() {
   const marketData = [];
-
-  for (const symbol of MARKET_SYMBOLS) {
+  
+  // Use rate-limited individual fetches with proper delays
+  const pLimit = (await import('p-limit')).default;
+  const limit = pLimit(2); // Max 2 concurrent requests
+  
+  const fetchSymbol = async (symbol) => {
     try {
       const response = await axios.get(
         `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`,
-        { params: { interval: '1m', range: '1d' }, timeout: 5000 }
+        { 
+          params: { interval: '1d', range: '5d' },
+          timeout: 8000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        }
       );
 
-      const result = response.data.chart.result[0];
+      const result = response.data?.chart?.result?.[0];
+      if (!result) return null;
+      
       const quote = result.meta;
       const current = quote.regularMarketPrice;
-      const previous = quote.previousClose;
+      const previous = quote.previousClose || quote.chartPreviousClose;
+      
+      if (!current || !previous) return null;
+      
       const change = current - previous;
       const changePercent = (change / previous) * 100;
 
-      marketData.push({
+      return {
         symbol,
         label: getMarketLabel(symbol),
         value: formatValue(symbol, current),
@@ -1911,11 +2889,22 @@ async function fetchMarketData() {
         rawValue: current,
         rawChange: change,
         rawChangePercent: changePercent
-      });
-    } catch (error) {
-      // Skip failed symbol
+      };
+    } catch (err) {
+      return null;
     }
+  };
+
+  // Fetch all symbols with rate limiting
+  const results = await Promise.all(
+    MARKET_SYMBOLS.map(symbol => limit(() => fetchSymbol(symbol)))
+  );
+  
+  for (const result of results) {
+    if (result) marketData.push(result);
   }
+  
+  console.log(`📈 Fetched ${marketData.length}/${MARKET_SYMBOLS.length} market quotes`);
 
   return marketData;
 }
@@ -2137,14 +3126,14 @@ const COMMODITIES = [
   { symbol: 'ZNC=F', label: 'Zinc', category: 'metals', unit: '$/mt' },
   
   // === ENERGY (8) ===
-  { symbol: 'CL=F', label: 'WTI Crude', category: 'energy', unit: '$/bbl' },
+  { symbol: 'CL=F', label: 'WTI', category: 'energy', unit: '$/bbl' },
   { symbol: 'BZ=F', label: 'Brent', category: 'energy', unit: '$/bbl' },
   { symbol: 'NG=F', label: 'Nat Gas', category: 'energy', unit: '$/mmBtu' },
   { symbol: 'RB=F', label: 'Gasoline', category: 'energy', unit: '$/gal' },
   { symbol: 'HO=F', label: 'Heating Oil', category: 'energy', unit: '$/gal' },
-  { symbol: 'NG=F', label: 'Propane', category: 'energy', unit: '$/gal' },
-  { symbol: 'URA', label: 'Uranium ETF', category: 'energy', unit: '$' },
-  { symbol: 'XLE', label: 'Energy ETF', category: 'energy', unit: '$' },
+  { symbol: 'PRN23.NYM', label: 'Propane', category: 'energy', unit: '$/gal' },
+  { symbol: 'URA', label: 'URA', category: 'energy', unit: '$' },
+  { symbol: 'XLE', label: 'XLE', category: 'energy', unit: '$' },
   
   // === AGRICULTURE (16) ===
   { symbol: 'ZW=F', label: 'Wheat', category: 'agriculture', unit: '¢/bu' },
@@ -2254,7 +3243,7 @@ async function fetchCommodityData() {
 
     if (commodityData.energy.length === 0) {
       commodityData.energy = [
-        { label: 'WTI Crude', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
+        { label: 'WTI', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
         { label: 'Brent', ticker: 'BZ=F', tvSymbol: 'NYMEX:BZ1!', price: '76.20', change: '-0.38', dir: 'down', unit: '$/bbl' },
         { label: 'Nat Gas', ticker: 'NG=F', tvSymbol: 'NYMEX:NG1!', price: '3.25', change: '+1.20', dir: 'up', unit: '$/mmBtu' },
         { label: 'Gasoline', ticker: 'RB=F', tvSymbol: 'NYMEX:RB1!', price: '2.15', change: '-0.25', dir: 'down', unit: '$/gal' },
@@ -2300,14 +3289,14 @@ async function fetchCommodityData() {
       { label: 'Nickel', ticker: 'NI', tvSymbol: 'LME:NI1!', price: '16500', change: '-0.30', dir: 'down', unit: '$/mt' }
     ];
     commodityData.energy = [
-      { label: 'WTI Crude', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
+      { label: 'WTI', ticker: 'CL=F', tvSymbol: 'NYMEX:CL1!', price: '72.50', change: '-0.45', dir: 'down', unit: '$/bbl' },
       { label: 'Brent', ticker: 'BZ=F', tvSymbol: 'NYMEX:BZ1!', price: '76.20', change: '-0.38', dir: 'down', unit: '$/bbl' },
       { label: 'Nat Gas', ticker: 'NG=F', tvSymbol: 'NYMEX:NG1!', price: '3.25', change: '+1.20', dir: 'up', unit: '$/mmBtu' },
       { label: 'Gasoline', ticker: 'RB=F', tvSymbol: 'NYMEX:RB1!', price: '2.15', change: '-0.25', dir: 'down', unit: '$/gal' },
       { label: 'Heating Oil', ticker: 'HO=F', tvSymbol: 'NYMEX:HO1!', price: '2.35', change: '-0.18', dir: 'down', unit: '$/gal' },
       { label: 'Propane', ticker: 'PN', tvSymbol: 'NYMEX:PN1!', price: '0.85', change: '+0.08', dir: 'up', unit: '$/gal' },
-      { label: 'URA ETF', ticker: 'URA', tvSymbol: 'AMEX:URA', price: '28.50', change: '+0.65', dir: 'up', unit: '$' },
-      { label: 'XLE ETF', ticker: 'XLE', tvSymbol: 'AMEX:XLE', price: '92.30', change: '-0.22', dir: 'down', unit: '$' }
+      { label: 'URA', ticker: 'URA', tvSymbol: 'AMEX:URA', price: '28.50', change: '+0.65', dir: 'up', unit: '$' },
+      { label: 'XLE', ticker: 'XLE', tvSymbol: 'AMEX:XLE', price: '92.30', change: '-0.22', dir: 'down', unit: '$' }
     ];
     commodityData.agriculture = [
       { label: 'Wheat', ticker: 'ZW=F', tvSymbol: 'CBOT:ZW1!', price: '580', change: '+0.45', dir: 'up', unit: '¢/bu' },
@@ -2797,12 +3786,34 @@ cron.schedule('*/60 * * * * *', async () => {
 
 const POLYMARKET_API = 'https://gamma-api.polymarket.com';
 
-// Keywords to filter for market-relevant predictions
+// Keywords to filter for market-relevant predictions (exclude sports/entertainment)
 const MARKET_RELEVANT_KEYWORDS = [
-  'fed', 'rate', 'inflation', 'recession', 'gdp', 'unemployment', 'bitcoin', 'btc', 'ethereum', 'eth',
-  'trump', 'biden', 'election', 'president', 'congress', 'senate', 'china', 'russia', 'ukraine',
-  'war', 'oil', 'gold', 'stock', 'market', 's&p', 'nasdaq', 'dow', 'tariff', 'trade',
-  'crypto', 'sec', 'regulation', 'default', 'debt', 'treasury', 'powell', 'yellen'
+  // Macro/Fed
+  'fed', 'fomc', 'rate', 'inflation', 'recession', 'gdp', 'unemployment', 'cpi', 'pce', 'jobs',
+  'powell', 'yellen', 'treasury', 'default', 'debt ceiling', 'shutdown',
+  // Crypto
+  'bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'sec', 'etf',
+  // Politics/Elections
+  'trump', 'biden', 'election', 'president', 'congress', 'senate', 'governor', 'primary',
+  // Geopolitics/Statecraft
+  'china', 'russia', 'ukraine', 'taiwan', 'iran', 'israel', 'nato', 'war', 'invasion', 'sanctions',
+  'tariff', 'trade war', 'xi jinping', 'putin', 'zelensky', 'kim jong', 'north korea',
+  // Markets/Commodities
+  'oil', 'gold', 'stock', 'market', 's&p', 'nasdaq', 'dow', 'vix', 'crash', 'rally',
+  // Central Banks
+  'ecb', 'boj', 'bank of england', 'lagarde', 'ueda',
+  // Tech/Regulation
+  'ai', 'openai', 'nvidia', 'antitrust', 'regulation', 'tiktok ban'
+];
+
+// Keywords to EXCLUDE (sports, entertainment, non-market noise)
+const EXCLUDE_KEYWORDS = [
+  'nfl', 'nba', 'mlb', 'nhl', 'super bowl', 'world series', 'playoffs', 'championship',
+  'oscars', 'grammy', 'emmy', 'golden globe', 'movie', 'film', 'album', 'song',
+  'tiktok star', 'influencer', 'youtube', 'twitch', 'streamer', 'celebrity',
+  'bachelor', 'love island', 'reality tv', 'kardashian', 'taylor swift', 'concert',
+  'wrestling', 'ufc', 'boxing', 'fight', 'bout', 'match', 'game score',
+  'survivor', 'big brother', 'american idol', 'the voice'
 ];
 
 async function fetchPolymarketData() {
@@ -2820,14 +3831,18 @@ async function fetchPolymarketData() {
     
     const markets = response.data || [];
     
-    // Filter for market-relevant topics
+    // Filter for market-relevant topics and exclude sports/entertainment
     const relevantMarkets = markets.filter(market => {
       const text = (market.question || '').toLowerCase() + ' ' + (market.description || '').toLowerCase();
-      return MARKET_RELEVANT_KEYWORDS.some(keyword => text.includes(keyword));
+      // Must match at least one relevant keyword
+      const isRelevant = MARKET_RELEVANT_KEYWORDS.some(keyword => text.includes(keyword));
+      // Must NOT match any excluded keywords
+      const isExcluded = EXCLUDE_KEYWORDS.some(keyword => text.includes(keyword));
+      return isRelevant && !isExcluded;
     });
     
-    // Take top 15 relevant markets
-    const topMarkets = relevantMarkets.slice(0, 15).map(market => {
+    // Take top 20 relevant markets
+    const topMarkets = relevantMarkets.slice(0, 20).map(market => {
       // Get the probability (best ask or mid price)
       let probability = 0.5;
       if (market.outcomePrices) {
@@ -2847,6 +3862,7 @@ async function fetchPolymarketData() {
       
       return {
         id: market.id,
+        slug: market.slug || market.id,
         question: market.question || 'Unknown',
         probability: (probability * 100).toFixed(1),
         volume24h: market.volume24hr || 0,
@@ -2981,6 +3997,7 @@ function calculateSentimentDashboard() {
 // Prediction market update every 60 seconds
 cron.schedule('*/60 * * * * *', async () => {
   try {
+    console.log('🎯 Prediction/sentiment update cycle...');
     const [polymarketData, sentimentData] = await Promise.all([
       fetchPolymarketData(),
       Promise.resolve(calculateSentimentDashboard())
@@ -2992,6 +4009,8 @@ cron.schedule('*/60 * * * * *', async () => {
       sentiment: sentimentData
     };
     
+    console.log(`📊 Sentiment: VIX=${sentimentData?.vix?.value || 'N/A'}, F&G=${sentimentData?.fearGreed?.value || 'N/A'}`);
+    
     broadcast({ 
       type: 'prediction_update', 
       data: cachedPredictionData
@@ -2999,6 +4018,11 @@ cron.schedule('*/60 * * * * *', async () => {
   } catch (error) {
     console.error('Prediction update error:', error.message);
   }
+});
+
+// Game Theory Engine update every 30 minutes
+cron.schedule('*/30 * * * *', async () => {
+  await runGameTheoryEngine();
 });
 
 // ============================================================================
@@ -3061,7 +4085,19 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
     connectAlpacaNews();
   }, 3500);
   
-  // Initial prediction markets fetch
+  // Fetch market data FIRST so sentiment dashboard has real data
+  setTimeout(async () => {
+    console.log('📈 Initial market data fetch for sentiment...');
+    try {
+      const marketData = await fetchMarketData();
+      updateMarketSnapshot(marketData);
+      console.log(`📈 Market snapshot updated: ${marketData.length} assets`);
+    } catch (error) {
+      console.error('Initial market fetch error:', error.message);
+    }
+  }, 4000);
+  
+  // Initial prediction markets fetch (after market data is loaded)
   setTimeout(async () => {
     console.log('🎯 Initial prediction markets fetch...');
     try {
@@ -3084,7 +4120,7 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
     } catch (error) {
       console.error('Initial prediction fetch error:', error.message);
     }
-  }, 4000);
+  }, 5000);
 });
 
 // Graceful shutdown and error handling
