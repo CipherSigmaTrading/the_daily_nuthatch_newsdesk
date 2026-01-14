@@ -30,6 +30,7 @@
             --accent-yellow: #ffbb33;
             --accent-blue: #3399ff;
             --accent-purple: #bb66ff;
+            --accent-moss: #8fbc8f;
             --accent-orange: #D4714A;
         }
 
@@ -92,7 +93,7 @@
         }
 
         .logo {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 1.5rem;
             font-weight: 700;
             letter-spacing: -0.5px;
@@ -109,30 +110,90 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
         }
 
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--accent-red);
-            animation: blink 1.5s ease-in-out infinite;
+        /* Gradient pulsing text for CONNECT */
+        .connect-text {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #6b7280, #9ca3af, #d1d5db, #9ca3af, #6b7280);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-pulse-gray 2s ease-in-out infinite;
+        }
+        
+        .connect-text.connected {
+            background: linear-gradient(90deg, #22c55e, #4ade80, #86efac, #4ade80, #22c55e);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-pulse-green 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes gradient-pulse-gray {
+            0%, 100% { 
+                background-position: 0% 50%;
+                opacity: 0.5;
+            }
+            50% { 
+                background-position: 100% 50%;
+                opacity: 1;
+            }
+        }
+        
+        @keyframes gradient-pulse-green {
+            0%, 100% { 
+                background-position: 0% 50%;
+                opacity: 0.8;
+            }
+            50% { 
+                background-position: 100% 50%;
+                opacity: 1;
+            }
         }
 
-        .status-dot.connected {
-            background: var(--accent-green);
+        /* GLOBAL WATCHTOWER CLOCK */
+        .global-clock-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            min-width: 140px;
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        .global-clock-city {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.65rem;
+            color: var(--accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .global-clock-time {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .clock-visible {
+            opacity: 1 !important;
         }
 
         .time-display {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 0.9rem;
             color: var(--text-secondary);
             letter-spacing: 1px;
@@ -144,7 +205,7 @@
             color: var(--accent-orange);
             padding: 0.5rem 1rem;
             border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -169,15 +230,16 @@
         /* News Ticker (Top) */
         .news-ticker {
             background: var(--bg-card);
-            padding: 1rem 2rem;
+            padding: 0.5rem 2rem;
             overflow: hidden;
             position: relative;
-            height: 70px;
+            height: 47px;
             display: flex;
             align-items: center;
             border-bottom: 1px solid var(--border);
-            box-shadow: inset 25px 0 20px -20px rgba(0, 0, 0, 0.6),
-                        inset -25px 0 20px -20px rgba(0, 0, 0, 0.6);
+            box-shadow: inset 40px 0 35px -25px rgba(0, 0, 0, 0.8),
+                        inset -40px 0 35px -25px rgba(0, 0, 0, 0.8),
+                        inset 0 0 40px rgba(107, 139, 164, 0.1);
         }
 
         .news-ticker-content {
@@ -194,21 +256,21 @@
 
         .ticker-item {
             display: flex;
-            gap: 1.5rem;
+            gap: 1rem;
             align-items: center;
-            font-size: 1.3rem;
+            font-size: 1rem;
         }
 
         .ticker-time {
             color: var(--accent-orange);
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: 0.9rem;
         }
 
         .ticker-text {
             color: var(--text-primary);
             font-weight: 500;
-            font-size: 1.3rem;
+            font-size: 1rem;
         }
         
         .ticker-text.top-story {
@@ -232,6 +294,12 @@
         @keyframes topStoryPulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
+        }
+        
+        @keyframes highlight-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.6); }
+            50% { box-shadow: 0 0 20px 5px rgba(168, 85, 247, 0.4); }
+            100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
         }
         
         .ticker-item.top-story {
@@ -259,18 +327,20 @@
         /* Market Ticker (Bottom) */
         .market-ticker {
             background: var(--bg-card);
-            padding: 0.75rem 2rem;
+            padding: 0.25rem 2rem;
             overflow-x: auto;
             overflow-y: hidden;
             position: relative;
-            height: 60px;
+            height: 32px;
             display: flex;
             align-items: center;
             scrollbar-width: none;
             -ms-overflow-style: none;
             cursor: grab;
-            box-shadow: inset 25px 0 20px -20px rgba(0, 0, 0, 0.6),
-                        inset -25px 0 20px -20px rgba(0, 0, 0, 0.6);
+            box-shadow: inset 40px 0 35px -25px rgba(0, 0, 0, 0.8),
+                        inset -40px 0 35px -25px rgba(0, 0, 0, 0.8),
+                        inset 0 0 35px rgba(107, 139, 164, 0.12);
+            border-bottom: 1px solid var(--accent-orange);
         }
 
         .market-ticker::-webkit-scrollbar {
@@ -308,7 +378,7 @@
             padding: 0.5rem;
             color: var(--text-primary);
             font-size: 0.9rem;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
         }
 
         .ticker-search-popup input:focus {
@@ -365,31 +435,31 @@
 
         .market-ticker-item {
             display: flex;
-            gap: 0.75rem;
+            gap: 0.4rem;
             align-items: center;
-            font-size: 1.2rem;
+            font-size: 0.7rem;
         }
 
         .market-ticker-label {
             color: var(--text-secondary);
             font-weight: 600;
-            min-width: 100px;
+            min-width: 55px;
             text-align: right;
-            font-size: 1.1rem;
+            font-size: 0.65rem;
         }
 
         .market-ticker-value {
             color: var(--text-primary);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-weight: 700;
-            margin-left: 0.2rem;
-            font-size: 1.2rem;
+            margin-left: 0.1rem;
+            font-size: 0.7rem;
         }
 
         .market-ticker-change {
-            font-size: 1rem;
+            font-size: 0.6rem;
             font-weight: 600;
-            margin-left: 0.2rem;
+            margin-left: 0.1rem;
         }
 
         .market-ticker-up {
@@ -402,6 +472,349 @@
 
         .market-ticker-neutral {
             color: var(--text-dim);
+        }
+
+        /* ========================================
+           RESPONSIVE TYPOGRAPHY SYSTEM
+           Fluid scaling for tickers & dashboards
+           ======================================== */
+        
+        /* Large Desktop 1920px+ (21"+ monitors) */
+        @media (min-width: 1920px) {
+            /* Column Headers - LARGEST */
+            .column-title { font-size: 1.6rem; }
+            .column-subtitle { font-size: 0.85rem; }
+            /* Tickers */
+            .news-ticker { height: 49px; padding: 0.65rem 2.5rem; }
+            .ticker-item { font-size: 1.35rem; gap: 1.75rem; }
+            .ticker-time { font-size: 1.25rem; }
+            .ticker-text { font-size: 1.35rem; }
+            .market-ticker { height: 65px; }
+            .market-ticker-item { font-size: 1.25rem; gap: 0.85rem; }
+            .market-ticker-label { font-size: 1.15rem; min-width: 110px; }
+            .market-ticker-value { font-size: 1.25rem; }
+            .market-ticker-change { font-size: 1.05rem; }
+            /* Card Content - PROMINENT */
+            .card-headline { font-size: 1.2rem; font-weight: 700; }
+            .card-implications { font-size: 0.95rem; }
+            .card-implications li { font-size: 0.95rem; }
+            .next-events-title { font-size: 0.85rem; }
+            .next-event-item { font-size: 0.88rem; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 1rem; }
+            .macro-dashboard-subtitle { font-size: 0.85rem; }
+            .commodity-dashboard-title { font-size: 1rem; }
+            .commodity-dashboard-subtitle { font-size: 0.85rem; }
+            .fx-dashboard-title { font-size: 1rem; }
+            .fx-dashboard-subtitle { font-size: 0.85rem; }
+            .dashboard-title { font-size: 1rem; }
+            .dashboard-section-subtitle { font-size: 0.85rem; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.85rem; }
+            .fx-column-title { font-size: 0.85rem; }
+            .commodity-column-subtitle { font-size: 0.75rem; }
+            .fx-column-subtitle { font-size: 0.75rem; }
+            /* Dashboard Values - Readable */
+            .macro-item-label { font-size: 0.7rem; }
+            .macro-item-value { font-size: 0.95rem; }
+            .macro-item-change { font-size: 0.75rem; }
+            .commodity-item-label { font-size: 0.7rem; }
+            .commodity-item-price { font-size: 0.95rem; }
+            .commodity-item-change { font-size: 0.75rem; }
+            .fx-pair-label { font-size: 0.7rem; }
+            .fx-pair-price { font-size: 0.95rem; }
+            .fx-pair-change { font-size: 0.75rem; }
+            .cb-rate-item { font-size: 0.7rem; }
+        }
+
+        /* Standard Desktop 1600-1919px (19-21" monitors) */
+        @media (min-width: 1600px) and (max-width: 1919px) {
+            /* Column Headers - LARGEST */
+            .column-title { font-size: 1.45rem; }
+            .column-subtitle { font-size: 0.78rem; }
+            /* Tickers */
+            .news-ticker { height: 44px; padding: 0.6rem 2rem; }
+            .ticker-item { font-size: 1.2rem; gap: 1.4rem; }
+            .ticker-time { font-size: 1.1rem; }
+            .ticker-text { font-size: 1.2rem; }
+            .market-ticker { height: 58px; }
+            .market-ticker-item { font-size: 1.1rem; gap: 0.7rem; }
+            .market-ticker-label { font-size: 1rem; min-width: 95px; }
+            .market-ticker-value { font-size: 1.1rem; }
+            .market-ticker-change { font-size: 0.95rem; }
+            /* Card Content - PROMINENT */
+            .card-headline { font-size: 1.05rem; font-weight: 700; }
+            .card-implications { font-size: 0.85rem; }
+            .card-implications li { font-size: 0.85rem; }
+            .next-events-title { font-size: 0.78rem; }
+            .next-event-item { font-size: 0.8rem; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 0.88rem; }
+            .macro-dashboard-subtitle { font-size: 0.78rem; }
+            .commodity-dashboard-title { font-size: 0.88rem; }
+            .commodity-dashboard-subtitle { font-size: 0.78rem; }
+            .fx-dashboard-title { font-size: 0.88rem; }
+            .fx-dashboard-subtitle { font-size: 0.78rem; }
+            .dashboard-title { font-size: 0.88rem; }
+            .dashboard-section-subtitle { font-size: 0.78rem; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.78rem; }
+            .fx-column-title { font-size: 0.78rem; }
+            .commodity-column-subtitle { font-size: 0.68rem; }
+            .fx-column-subtitle { font-size: 0.68rem; }
+            /* Dashboard Values - Readable */
+            .macro-item-label { font-size: 0.62rem; }
+            .macro-item-value { font-size: 0.85rem; }
+            .macro-item-change { font-size: 0.68rem; }
+            .macro-grid-item { padding: 0.2rem 0.25rem; min-height: 1.6rem; }
+            .commodity-item-label { font-size: 0.62rem; }
+            .commodity-item-price { font-size: 0.85rem; }
+            .commodity-item-change { font-size: 0.68rem; }
+            .commodity-item { padding: 0.28rem 0.38rem; }
+            .fx-pair-label { font-size: 0.62rem; }
+            .fx-pair-price { font-size: 0.85rem; }
+            .fx-pair-change { font-size: 0.68rem; }
+            .fx-pair-item { padding: 0.28rem 0.38rem; }
+            .cb-rate-item { font-size: 0.6rem; }
+            .cb-rate-value { font-size: 0.65rem; }
+        }
+
+        /* Compact Desktop 1400-1599px (17-19" monitors / 20" screens) */
+        @media (min-width: 1400px) and (max-width: 1599px) {
+            /* Column Headers - LARGEST - Significantly boosted for 20" screens */
+            .column-title { font-size: 1.8rem !important; }
+            .column-subtitle { font-size: 1.0rem !important; }
+            /* Tickers */
+            .news-ticker { height: 40px !important; padding: 0.5rem 1.75rem !important; }
+            .ticker-item { font-size: 1.05rem !important; gap: 1.2rem !important; }
+            .ticker-time { font-size: 0.95rem !important; }
+            .ticker-text { font-size: 1.05rem !important; }
+            .market-ticker { height: 52px !important; }
+            .market-ticker-item { font-size: 0.95rem !important; gap: 0.6rem !important; }
+            .market-ticker-label { font-size: 0.88rem !important; min-width: 85px !important; }
+            .market-ticker-value { font-size: 0.95rem !important; }
+            .market-ticker-change { font-size: 0.85rem !important; }
+            /* Card Content - Headlines MUCH LARGER than bullet points */
+            .card-headline { font-size: 1.15rem !important; font-weight: 700 !important; }
+            .card-implications { font-size: 0.7rem !important; }
+            .card-implications li { font-size: 0.7rem !important; }
+            .next-events-title { font-size: 0.72rem !important; }
+            .next-event-item { font-size: 0.75rem !important; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 0.78rem !important; }
+            .macro-dashboard-subtitle { font-size: 0.7rem !important; }
+            .commodity-dashboard-title { font-size: 0.78rem !important; }
+            .commodity-dashboard-subtitle { font-size: 0.7rem !important; }
+            .fx-dashboard-title { font-size: 0.78rem !important; }
+            .fx-dashboard-subtitle { font-size: 0.7rem !important; }
+            .dashboard-title { font-size: 0.78rem !important; }
+            .dashboard-section-subtitle { font-size: 0.7rem !important; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.7rem !important; }
+            .fx-column-title { font-size: 0.7rem !important; }
+            .commodity-column-subtitle { font-size: 0.6rem !important; }
+            .fx-column-subtitle { font-size: 0.6rem !important; }
+            /* Dashboard Values - Compact but Readable */
+            .macro-item-label { font-size: 0.58rem !important; }
+            .macro-item-value { font-size: 0.78rem !important; }
+            .macro-item-change { font-size: 0.62rem !important; }
+            .macro-grid-item { padding: 0.18rem 0.22rem !important; min-height: 1.5rem !important; gap: 0.1rem !important; }
+            .commodity-item-label { font-size: 0.58rem !important; }
+            .commodity-item-price { font-size: 0.78rem !important; }
+            .commodity-item-change { font-size: 0.62rem !important; }
+            .commodity-item { padding: 0.25rem 0.32rem !important; }
+            .fx-pair-label { font-size: 0.58rem !important; }
+            .fx-pair-price { font-size: 0.78rem !important; }
+            .fx-pair-change { font-size: 0.62rem !important; }
+            .fx-pair-item { padding: 0.25rem 0.32rem !important; }
+            .cb-rate-item { font-size: 0.55rem !important; }
+            .cb-rate-value { font-size: 0.58rem !important; }
+        }
+
+        /* Small Desktop 1200-1399px (15-17" monitors) */
+        @media (min-width: 1200px) and (max-width: 1399px) {
+            /* Column Headers - LARGEST - Significantly boosted */
+            .column-title { font-size: 1.45rem; }
+            .column-subtitle { font-size: 0.82rem; }
+            /* Tickers */
+            .news-ticker { height: 36px; padding: 0.45rem 1.5rem; }
+            .ticker-item { font-size: 0.95rem; gap: 1rem; }
+            .ticker-time { font-size: 0.85rem; }
+            .ticker-text { font-size: 0.95rem; }
+            .market-ticker { height: 48px; }
+            .market-ticker-item { font-size: 0.85rem; gap: 0.5rem; }
+            .market-ticker-label { font-size: 0.78rem; min-width: 75px; }
+            .market-ticker-value { font-size: 0.85rem; }
+            .market-ticker-change { font-size: 0.75rem; }
+            /* Card Content - Headlines MUCH LARGER than bullet points */
+            .card-headline { font-size: 1.05rem; font-weight: 700; }
+            .card-implications { font-size: 0.65rem; }
+            .card-implications li { font-size: 0.65rem; }
+            .next-events-title { font-size: 0.65rem; }
+            .next-event-item { font-size: 0.68rem; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 0.72rem; }
+            .macro-dashboard-subtitle { font-size: 0.62rem; }
+            .commodity-dashboard-title { font-size: 0.72rem; }
+            .commodity-dashboard-subtitle { font-size: 0.62rem; }
+            .fx-dashboard-title { font-size: 0.72rem; }
+            .fx-dashboard-subtitle { font-size: 0.62rem; }
+            .dashboard-title { font-size: 0.72rem; }
+            .dashboard-section-subtitle { font-size: 0.62rem; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.62rem; }
+            .fx-column-title { font-size: 0.62rem; }
+            .commodity-column-subtitle { font-size: 0.55rem; }
+            .fx-column-subtitle { font-size: 0.55rem; }
+            /* Dashboard Values - Compact but Readable */
+            .macro-item-label { font-size: 0.55rem; }
+            .macro-item-value { font-size: 0.72rem; }
+            .macro-item-change { font-size: 0.58rem; }
+            .macro-grid-item { padding: 0.15rem 0.18rem; min-height: 1.4rem; gap: 0.08rem; }
+            .commodity-item-label { font-size: 0.55rem; }
+            .commodity-item-price { font-size: 0.72rem; }
+            .commodity-item-change { font-size: 0.58rem; }
+            .commodity-item { padding: 0.22rem 0.28rem; }
+            .fx-pair-label { font-size: 0.55rem; }
+            .fx-pair-price { font-size: 0.72rem; }
+            .fx-pair-change { font-size: 0.58rem; }
+            .fx-pair-item { padding: 0.22rem 0.28rem; }
+            .cb-rate-item { font-size: 0.5rem; }
+            .cb-rate-value { font-size: 0.55rem; }
+        }
+
+        /* Tablet Landscape 768-1199px */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            /* Column Headers */
+            .column-title { font-size: 1.15rem; }
+            .column-subtitle { font-size: 0.62rem; }
+            /* Tickers */
+            .news-ticker { height: 34px; padding: 0.4rem 1.25rem; }
+            .ticker-item { font-size: 0.88rem; gap: 0.9rem; }
+            .ticker-time { font-size: 0.78rem; }
+            .ticker-text { font-size: 0.88rem; }
+            .top-story-badge { font-size: 0.65rem; padding: 0.2rem 0.4rem; }
+            .market-ticker { height: 44px; }
+            .market-ticker-item { font-size: 0.78rem; gap: 0.4rem; }
+            .market-ticker-label { font-size: 0.7rem; min-width: 65px; }
+            .market-ticker-value { font-size: 0.78rem; }
+            .market-ticker-change { font-size: 0.68rem; }
+            /* Card Content - PROMINENT */
+            .card-headline { font-size: 0.92rem; font-weight: 700; }
+            .card-implications { font-size: 0.75rem; }
+            .card-implications li { font-size: 0.75rem; }
+            .next-events-title { font-size: 0.65rem; }
+            .next-event-item { font-size: 0.68rem; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 0.75rem; }
+            .macro-dashboard-subtitle { font-size: 0.62rem; }
+            .commodity-dashboard-title { font-size: 0.75rem; }
+            .commodity-dashboard-subtitle { font-size: 0.62rem; }
+            .fx-dashboard-title { font-size: 0.75rem; }
+            .fx-dashboard-subtitle { font-size: 0.62rem; }
+            .dashboard-title { font-size: 0.75rem; }
+            .dashboard-section-subtitle { font-size: 0.62rem; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.62rem; }
+            .fx-column-title { font-size: 0.62rem; }
+            .commodity-column-subtitle { font-size: 0.55rem; }
+            .fx-column-subtitle { font-size: 0.55rem; }
+            /* Dashboard Values - Readable for tablet */
+            .macro-item-label { font-size: 0.62rem; }
+            .macro-item-value { font-size: 0.8rem; }
+            .macro-item-change { font-size: 0.65rem; }
+            .commodity-item-label { font-size: 0.62rem; }
+            .commodity-item-price { font-size: 0.8rem; }
+            .commodity-item-change { font-size: 0.65rem; }
+            .fx-pair-label { font-size: 0.62rem; }
+            .fx-pair-price { font-size: 0.8rem; }
+            .fx-pair-change { font-size: 0.65rem; }
+        }
+
+        /* Mobile Portrait <768px */
+        @media (max-width: 767px) {
+            /* Column Headers */
+            .column-title { font-size: 1.25rem; }
+            .column-subtitle { font-size: 0.72rem; }
+            /* Tickers */
+            .news-ticker { height: 31px; padding: 0.35rem 1rem; }
+            .ticker-item { font-size: 0.82rem; gap: 0.8rem; }
+            .ticker-time { font-size: 0.72rem; }
+            .ticker-text { font-size: 0.82rem; }
+            .top-story-badge { font-size: 0.6rem; padding: 0.15rem 0.35rem; }
+            .market-ticker { height: 40px; padding: 0.5rem 1rem; }
+            .market-ticker-item { font-size: 0.72rem; gap: 0.35rem; }
+            .market-ticker-label { font-size: 0.65rem; min-width: 55px; }
+            .market-ticker-value { font-size: 0.72rem; }
+            .market-ticker-change { font-size: 0.62rem; }
+            /* Card Content - PROMINENT */
+            .card-headline { font-size: 1.05rem; font-weight: 700; }
+            .card-implications { font-size: 0.85rem; }
+            .card-implications li { font-size: 0.85rem; }
+            .next-events-title { font-size: 0.75rem; }
+            .next-event-item { font-size: 0.78rem; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 0.92rem; }
+            .macro-dashboard-subtitle { font-size: 0.72rem; }
+            .commodity-dashboard-title { font-size: 0.92rem; }
+            .commodity-dashboard-subtitle { font-size: 0.72rem; }
+            .fx-dashboard-title { font-size: 0.92rem; }
+            .fx-dashboard-subtitle { font-size: 0.72rem; }
+            .dashboard-title { font-size: 0.92rem; }
+            .dashboard-section-subtitle { font-size: 0.72rem; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.72rem; }
+            .fx-column-title { font-size: 0.72rem; }
+            .commodity-column-subtitle { font-size: 0.62rem; }
+            .fx-column-subtitle { font-size: 0.62rem; }
+            /* Dashboard Values - larger on mobile */
+            .macro-item-label { font-size: 0.72rem; }
+            .macro-item-value { font-size: 0.88rem; }
+            .macro-item-change { font-size: 0.68rem; }
+            .commodity-item-label { font-size: 0.72rem; }
+            .commodity-item-price { font-size: 0.88rem; }
+            .commodity-item-change { font-size: 0.68rem; }
+            .fx-pair-label { font-size: 0.72rem; }
+            .fx-pair-price { font-size: 0.88rem; }
+            .fx-pair-change { font-size: 0.68rem; }
+        }
+
+        /* Small Mobile <480px */
+        @media (max-width: 479px) {
+            /* Column Headers */
+            .column-title { font-size: 1.15rem; }
+            .column-subtitle { font-size: 0.65rem; }
+            /* Tickers */
+            .news-ticker { height: 29px; padding: 0.25rem 0.75rem; }
+            .ticker-item { font-size: 0.75rem; gap: 0.6rem; }
+            .ticker-time { font-size: 0.65rem; }
+            .ticker-text { font-size: 0.75rem; }
+            .top-story-badge { font-size: 0.55rem; padding: 0.12rem 0.3rem; }
+            .market-ticker { height: 36px; padding: 0.4rem 0.75rem; }
+            .market-ticker-item { font-size: 0.65rem; gap: 0.3rem; }
+            .market-ticker-label { font-size: 0.58rem; min-width: 48px; }
+            .market-ticker-value { font-size: 0.65rem; }
+            .market-ticker-change { font-size: 0.55rem; }
+            /* Card Content - PROMINENT */
+            .card-headline { font-size: 0.95rem; font-weight: 700; }
+            .card-implications { font-size: 0.78rem; }
+            .card-implications li { font-size: 0.78rem; }
+            .next-events-title { font-size: 0.68rem; }
+            .next-event-item { font-size: 0.72rem; }
+            /* Dashboard Titles - SMALLER than column */
+            .macro-dashboard-title { font-size: 0.85rem; }
+            .macro-dashboard-subtitle { font-size: 0.65rem; }
+            .commodity-dashboard-title { font-size: 0.85rem; }
+            .commodity-dashboard-subtitle { font-size: 0.65rem; }
+            .fx-dashboard-title { font-size: 0.85rem; }
+            .fx-dashboard-subtitle { font-size: 0.65rem; }
+            .dashboard-title { font-size: 0.85rem; }
+            .dashboard-section-subtitle { font-size: 0.65rem; }
+            /* Dashboard Column Titles & Subtitles - Match dashboard-section-subtitle */
+            .commodity-column-title { font-size: 0.65rem; }
+            .fx-column-title { font-size: 0.65rem; }
+            .commodity-column-subtitle { font-size: 0.58rem; }
+            .fx-column-subtitle { font-size: 0.58rem; }
         }
 
         /* Main Grid - 4 Columns */
@@ -433,19 +846,21 @@
         }
 
         .column-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 1.5rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1.2px;
             margin-bottom: 0.25rem;
+            text-align: center;
         }
 
         .column-subtitle {
-            font-size: 0.65rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            text-align: center;
         }
 
         .col-breaking .column-title { color: var(--accent-red); }
@@ -453,7 +868,7 @@
         .col-geo .column-title { color: var(--accent-purple); }
         .col-commodity .column-title { color: var(--accent-yellow); }
         .col-fx .column-title { color: #00D9FF; }
-        .col-prediction .column-title { color: var(--accent-purple); }
+        .col-prediction .column-title { color: var(--accent-moss); }
         .col-market .column-title { color: var(--accent-green); }
 
         /* Refresh button */
@@ -499,6 +914,7 @@
             padding: 1rem;
             padding-bottom: 4rem;
             overflow-y: auto;
+            overflow-x: hidden;
             flex: 1;
             /* Thin CSS3 scrollbars */
             scrollbar-width: thin;
@@ -545,15 +961,14 @@
         }
 
         .card-headline {
-            font-size: 0.85rem;
-            font-weight: 600;
+            /* font-size and font-weight set by responsive breakpoints */
             color: var(--text-primary);
             margin-bottom: 0.75rem;
             line-height: 1.4;
         }
 
         .card-implications {
-            font-size: 0.75rem;
+            /* font-size set by responsive breakpoints */
             color: var(--text-secondary);
             line-height: 1.3;
             margin-bottom: 0.5rem;
@@ -625,7 +1040,7 @@
             color: var(--text-primary);
             margin-bottom: 0.25rem;
             line-height: 1.4;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             background: rgba(0, 0, 0, 0.3);
             padding: 0.35rem 0.5rem;
             border-radius: 4px;
@@ -653,17 +1068,17 @@
         }
 
         .macro-dashboard-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+            /* font-size set by responsive breakpoints */
             font-weight: 700;
             color: var(--accent-blue);
             text-transform: uppercase;
-            letter-spacing: 1.2px;
+            letter-spacing: 1px;
             margin-bottom: 0.3rem;
             text-align: center;
         }
         .macro-dashboard-subtitle {
-            font-size: 0.7rem;
+            /* font-size set by responsive breakpoints */
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -703,7 +1118,9 @@
 
         .macro-grid-item:hover {
             border-color: var(--accent-blue);
-            background: rgba(51, 153, 255, 0.1);
+            background: rgba(51, 153, 255, 0.15);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(51, 153, 255, 0.2);
         }
 
         .macro-grid-item.tripwire-hit {
@@ -720,7 +1137,7 @@
         }
 
         .macro-item-label {
-            font-size: 0.8rem;
+            /* font-size set by responsive breakpoints */
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.2px;
@@ -731,8 +1148,8 @@
         }
 
         .macro-item-value {
-            font-size: 1rem;
-            font-family: 'JetBrains Mono', monospace;
+            /* font-size set by responsive breakpoints */
+            font-family: 'IBM Plex Sans', sans-serif;
             font-weight: 700;
             color: var(--accent-blue);
             white-space: nowrap;
@@ -741,13 +1158,14 @@
         .macro-item-right {
             text-align: right;
             display: flex;
-            align-items: center;
-            gap: 0.2rem;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.1rem;
             flex-shrink: 0;
         }
 
         .macro-item-change {
-            font-size: 0.8rem;
+            /* font-size set by responsive breakpoints */
             font-weight: 600;
             white-space: nowrap;
         }
@@ -778,13 +1196,22 @@
         }
 
         .commodity-dashboard-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+            /* font-size set by responsive breakpoints */
             font-weight: 700;
             color: var(--accent-yellow);
             text-transform: uppercase;
-            letter-spacing: 1.2px;
+            letter-spacing: 1px;
             margin-bottom: 0.3rem;
+            text-align: center;
+        }
+        
+        .commodity-dashboard-subtitle {
+            /* font-size set by responsive breakpoints */
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
             text-align: center;
         }
 
@@ -815,7 +1242,7 @@
         }
 
         .commodity-column-title {
-            font-size: 0.85rem;
+            /* font-size set by responsive breakpoints */
             color: var(--accent-yellow);
             text-transform: uppercase;
             letter-spacing: 0.8px;
@@ -825,7 +1252,7 @@
         }
 
         .commodity-column-subtitle {
-            font-size: 0.7rem;
+            /* font-size set by responsive breakpoints - matches .dashboard-section-subtitle */
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -860,7 +1287,7 @@
         }
 
         .commodity-item-label {
-            font-size: 0.8rem;
+            /* font-size set by responsive breakpoints */
             color: var(--text-secondary);
             font-weight: 600;
         }
@@ -873,8 +1300,8 @@
         }
 
         .commodity-item-price {
-            font-size: 1rem;
-            font-family: 'JetBrains Mono', monospace;
+            /* font-size set by responsive breakpoints */
+            font-family: 'IBM Plex Sans', sans-serif;
             font-weight: 700;
             color: var(--accent-yellow);
         }
@@ -887,7 +1314,7 @@
         }
 
         .commodity-item-change {
-            font-size: 0.8rem;
+            /* font-size set by responsive breakpoints */
             font-weight: 600;
         }
 
@@ -916,13 +1343,22 @@
         }
 
         .fx-dashboard-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+            /* font-size set by responsive breakpoints */
             font-weight: 700;
             color: #00D9FF;
             text-transform: uppercase;
-            letter-spacing: 1.2px;
+            letter-spacing: 1px;
             margin-bottom: 0.3rem;
+            text-align: center;
+        }
+        
+        .fx-dashboard-subtitle {
+            /* font-size set by responsive breakpoints */
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
             text-align: center;
         }
 
@@ -959,7 +1395,7 @@
         }
 
         .fx-column-title {
-            font-size: 0.85rem;
+            /* font-size set by responsive breakpoints */
             color: #00D9FF;
             text-transform: uppercase;
             letter-spacing: 0.8px;
@@ -969,7 +1405,7 @@
         }
 
         .fx-column-subtitle {
-            font-size: 0.7rem;
+            /* font-size set by responsive breakpoints - matches .dashboard-section-subtitle */
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1006,14 +1442,14 @@
         }
 
         .fx-pair-label {
-            font-size: 0.8rem;
+            /* font-size set by responsive breakpoints */
             color: var(--text-secondary);
             font-weight: 600;
         }
 
         .fx-pair-price {
-            font-size: 1rem;
-            font-family: 'JetBrains Mono', monospace;
+            /* font-size set by responsive breakpoints */
+            font-family: 'IBM Plex Sans', sans-serif;
             font-weight: 700;
             color: #00D9FF;
         }
@@ -1026,7 +1462,7 @@
         }
 
         .fx-pair-change {
-            font-size: 0.8rem;
+            /* font-size set by responsive breakpoints */
             font-weight: 600;
         }
 
@@ -1097,7 +1533,7 @@
         }
 
         .cb-rate-value {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-weight: 700;
             color: #00D9FF;
         }
@@ -1298,7 +1734,7 @@
         }
 
         .next-events-title {
-            font-size: 0.6rem;
+            /* font-size set by responsive breakpoints */
             color: var(--accent-blue);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1307,11 +1743,11 @@
         }
 
         .next-event-item {
-            font-size: 0.65rem;
+            /* font-size set by responsive breakpoints */
             color: var(--text-secondary);
             margin-left: 0.5rem;
             margin-bottom: 0.1rem;
-            line-height: 1.2;
+            line-height: 1.3;
         }
 
         .next-event-item:before {
@@ -1341,7 +1777,7 @@
         .market-value {
             font-size: 1rem;
             font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
         }
 
         .market-change {
@@ -1392,37 +1828,37 @@
         .col-fx .column-content::-webkit-scrollbar-thumb { background: rgba(0, 217, 255, 0.25); }
         .col-fx .column-content::-webkit-scrollbar-thumb:hover { background: rgba(0, 217, 255, 0.5); }
         
-        .col-prediction .column-content { scrollbar-color: rgba(187, 102, 255, 0.3) transparent; }
-        .col-prediction .column-content::-webkit-scrollbar-thumb { background: rgba(187, 102, 255, 0.25); }
-        .col-prediction .column-content::-webkit-scrollbar-thumb:hover { background: rgba(187, 102, 255, 0.5); }
+        .col-prediction .column-content { scrollbar-color: rgba(143, 188, 143, 0.3) transparent; }
+        .col-prediction .column-content::-webkit-scrollbar-thumb { background: rgba(143, 188, 143, 0.25); }
+        .col-prediction .column-content::-webkit-scrollbar-thumb:hover { background: rgba(143, 188, 143, 0.5); }
 
-        /* Prediction Dashboard */
+        /* Prediction Dashboard - Mossy Green Theme */
         .prediction-dashboard {
-            background: linear-gradient(135deg, rgba(187, 102, 255, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
-            border: 1px solid rgba(187, 102, 255, 0.35);
+            background: linear-gradient(135deg, rgba(143, 188, 143, 0.12) 0%, rgba(85, 120, 85, 0.08) 100%);
+            border: 1px solid #8fbc8f;
             border-radius: 8px;
             margin-bottom: 12px;
             overflow: hidden;
         }
         .dashboard-section {
             padding: 10px;
-            border-bottom: 1px solid rgba(187, 102, 255, 0.15);
+            border-bottom: 1px solid rgba(143, 188, 143, 0.15);
         }
         .dashboard-section:last-child {
             border-bottom: none;
         }
         .dashboard-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+            /* font-size set by responsive breakpoints */
             font-weight: 700;
-            color: var(--accent-purple);
+            color: var(--accent-moss);
             text-transform: uppercase;
             letter-spacing: 1.2px;
             margin-bottom: 0.3rem;
             text-align: center;
         }
         .dashboard-section-subtitle {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1441,7 +1877,7 @@
             border-radius: 6px;
             padding: 6px 8px;
             text-align: center;
-            border-left: 3px solid rgba(187, 102, 255, 0.6);
+            border-left: 3px solid rgba(143, 188, 143, 0.6);
         }
         .sentiment-label {
             font-size: 0.6rem;
@@ -1467,25 +1903,10 @@
             padding: 16px;
         }
         
-        /* Polymarket Container with right violet scrollbar */
+        /* Polymarket Container - no scrollbar, show all */
         .polymarket-container {
-            max-height: 500px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(187, 102, 255, 0.4) transparent;
-        }
-        .polymarket-container::-webkit-scrollbar {
-            width: 4px;
-        }
-        .polymarket-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .polymarket-container::-webkit-scrollbar-thumb {
-            background: rgba(187, 102, 255, 0.4);
-            border-radius: 2px;
-        }
-        .polymarket-container::-webkit-scrollbar-thumb:hover {
-            background: rgba(187, 102, 255, 0.7);
+            max-height: none;
+            overflow-y: visible;
         }
         .polymarket-empty {
             font-size: 0.75rem;
@@ -1494,6 +1915,14 @@
             padding: 16px;
         }
         
+        /* Game Theory Dashboard Container - for GEOPOLITICS column */
+        .game-theory-dashboard-container {
+            background: linear-gradient(135deg, rgba(187, 102, 255, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+            border: 1px solid #a855f7;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            padding: 10px;
+        }
         /* Game Theory Engine Styles */
         .game-theory-section {
             margin-top: 1rem;
@@ -1501,20 +1930,8 @@
             padding-top: 1rem;
         }
         .game-theory-container {
-            max-height: 500px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(187, 102, 255, 0.4) transparent;
-        }
-        .game-theory-container::-webkit-scrollbar {
-            width: 4px;
-        }
-        .game-theory-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .game-theory-container::-webkit-scrollbar-thumb {
-            background: rgba(187, 102, 255, 0.4);
-            border-radius: 2px;
+            max-height: none;
+            overflow-y: visible;
         }
         .game-theory-loading {
             font-size: 0.75rem;
@@ -1623,12 +2040,172 @@
             content: "→ ";
         }
         
+        /* Strategic Intelligence Panel Styles */
+        
+        /* Full-width legend buttons */
+        .statecraft-legend-btn {
+            width: 100%;
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            border-radius: 4px;
+            padding: 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+            animation: purplePulse 3s ease-in-out infinite;
+        }
+        .statecraft-legend-btn:hover {
+            background: rgba(168, 85, 247, 0.25);
+            border-color: rgba(168, 85, 247, 0.6);
+            box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+            transform: translateY(-1px);
+        }
+        .statecraft-legend-btn .legend-text {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Statecraft Section Labels - centered, bigger */
+        .statecraft-section-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            padding: 8px 0 12px 0;
+            margin-top: 8px;
+        }
+        .statecraft-section-label:first-of-type {
+            margin-top: 0;
+        }
+        
+        .strategic-intel-container {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            padding: 10px;
+        }
+        .strategic-intel-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #a855f7;
+            text-align: center;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+        .strategic-intel-subtitle {
+            font-size: 0.65rem;
+            color: #6a7585;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 10px;
+        }
+        .strategic-intel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .intel-widget {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .intel-widget:hover {
+            border-color: rgba(168, 85, 247, 0.6);
+            background: rgba(168, 85, 247, 0.15);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+        }
+        .intel-widget-header {
+            font-size: 0.6rem;
+            color: #6a7585;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .intel-widget-value {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #e6e8eb;
+            margin-bottom: 2px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .intel-widget-sub {
+            font-size: 0.55rem;
+            color: #5a6070;
+            text-transform: uppercase;
+        }
+        .intel-meter {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-top: 6px;
+            border-radius: 2px;
+        }
+        .intel-meter-fill {
+            height: 100%;
+            width: 0%;
+            background: #22c55e;
+            transition: width 0.5s ease, background 0.5s ease;
+            border-radius: 2px;
+        }
+        .intel-fragmentation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 6px 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            transition: all 0.3s ease;
+        }
+        .intel-fragmentation:hover {
+            background: rgba(168, 85, 247, 0.15);
+            box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+        }
+        .intel-frag-label {
+            color: #6a7585;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .intel-frag-value {
+            color: #22c55e;
+            font-weight: 700;
+        }
+        .intel-frag-hits {
+            color: #5a6070;
+            font-size: 0.6rem;
+        }
+        
         .game-analyze-btn {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
             background: linear-gradient(135deg, rgba(212, 113, 74, 0.2), rgba(212, 113, 74, 0.1));
-            border: 1px solid rgba(212, 113, 74, 0.5);
+            border: 1px solid rgba(212, 113, 74, 0.4);
             border-radius: 4px;
             padding: 6px 10px;
             margin-top: 8px;
@@ -1638,36 +2215,74 @@
             font-weight: 600;
             color: var(--accent-orange);
             text-transform: uppercase;
+            animation: orangePulse 3s ease-in-out infinite;
             letter-spacing: 0.5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        @keyframes orangePulse {
+            0%, 100% {
+                border-color: rgba(212, 113, 74, 0.4);
+                box-shadow: 0 0 3px rgba(212, 113, 74, 0.15);
+            }
+            50% {
+                border-color: rgba(212, 113, 74, 0.6);
+                box-shadow: 0 0 6px rgba(212, 113, 74, 0.25);
+            }
         }
         .game-analyze-btn:hover {
             background: linear-gradient(135deg, rgba(212, 113, 74, 0.3), rgba(212, 113, 74, 0.2));
             border-color: var(--accent-orange);
+            box-shadow: 0 0 8px rgba(212, 113, 74, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        /* Blue pulse for KNOW MORE button */
+        @keyframes bluePulse {
+            0%, 100% {
+                border-color: rgba(59, 130, 246, 0.4);
+                box-shadow: 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+            50% {
+                border-color: rgba(59, 130, 246, 0.6);
+                box-shadow: 0 0 6px rgba(59, 130, 246, 0.25);
+            }
+        }
+        .know-more-btn {
+            background: transparent;
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            cursor: pointer;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            animation: bluePulse 3s ease-in-out infinite;
+            transition: all 0.2s ease;
+        }
+        .know-more-btn:hover {
+            background: rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
             transform: translateY(-1px);
         }
         .game-analyze-btn-icon {
             font-size: 0.8rem;
         }
         
-        .polymarket-item-link {
-            text-decoration: none;
-            color: inherit;
-            display: block;
-        }
-        .polymarket-item-link:hover .polymarket-item {
-            border-left-color: var(--accent-orange);
-            background: rgba(212, 113, 74, 0.15);
-        }
-        .polymarket-item-link:hover .polymarket-question {
-            color: var(--text-primary);
-        }
         .polymarket-item {
+            cursor: pointer;
             background: rgba(0, 0, 0, 0.3);
-            border-left: 3px solid rgba(187, 102, 255, 0.6);
+            border-left: 3px solid rgba(143, 188, 143, 0.6);
             border-radius: 6px;
             padding: 8px 10px;
-            margin-bottom: 6px;
             transition: all 0.2s ease;
+        }
+        .polymarket-item:hover {
+            border-left-color: var(--accent-orange);
+            background: rgba(212, 113, 74, 0.15);
         }
         .polymarket-item:last-child {
             margin-bottom: 0;
@@ -1685,12 +2300,12 @@
             border-radius: 3px;
             text-transform: uppercase;
         }
-        .cat-macro { background: rgba(139, 92, 246, 0.25); color: #93c5fd; }
-        .cat-crypto { background: rgba(139, 92, 246, 0.25); color: #fcd34d; }
-        .cat-politics { background: rgba(139, 92, 246, 0.25); color: #fca5a5; }
-        .cat-geo { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; }
-        .cat-commodity { background: rgba(139, 92, 246, 0.25); color: #fde68a; }
-        .cat-other { background: rgba(139, 92, 246, 0.25); color: #d1d5db; }
+        .cat-macro { background: rgba(143, 188, 143, 0.25); color: #93c5fd; }
+        .cat-crypto { background: rgba(143, 188, 143, 0.25); color: #fcd34d; }
+        .cat-politics { background: rgba(143, 188, 143, 0.25); color: #fca5a5; }
+        .cat-geo { background: rgba(143, 188, 143, 0.25); color: #c4b5fd; }
+        .cat-commodity { background: rgba(143, 188, 143, 0.25); color: #fde68a; }
+        .cat-other { background: rgba(143, 188, 143, 0.25); color: #d1d5db; }
         .polymarket-prob {
             font-size: 0.85rem;
             font-weight: 700;
@@ -1864,6 +2479,190 @@
 
             #gameLegendModal .modal-title {
                 font-size: 1rem;
+            }
+        }
+
+        /* Intel Legend Modal specific styles - match Games Legend */
+        #intelLegendModal .chart-modal-content {
+            height: auto;
+            max-height: 85vh;
+            padding: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-color: #9333ea;
+        }
+
+        #intelLegendModal .modal-title {
+            flex-shrink: 0;
+            padding-bottom: 0.5rem;
+        }
+
+        #intelLegendModal .modal-analysis {
+            flex: 1;
+            overflow-y: auto;
+            max-height: none;
+            scrollbar-width: thin;
+            scrollbar-color: #a855f7 var(--bg-column);
+            padding: 0 0.5rem;
+        }
+
+        #intelLegendModal .modal-analysis::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #intelLegendModal .modal-analysis::-webkit-scrollbar-track {
+            background: var(--bg-column);
+            border-radius: 3px;
+        }
+
+        #intelLegendModal .modal-analysis::-webkit-scrollbar-thumb {
+            background: #a855f7;
+            border-radius: 3px;
+        }
+
+        @media (max-width: 768px) {
+            #intelLegendModal .chart-modal-content {
+                width: 94%;
+                max-height: 80vh;
+                padding: 0.75rem;
+                margin: 1rem;
+            }
+
+            #intelLegendModal .modal-analysis {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #intelLegendModal .chart-modal-content {
+                width: 96%;
+                max-height: 85vh;
+                padding: 0.5rem;
+            }
+
+            #intelLegendModal .modal-analysis {
+                font-size: 0.8rem;
+                padding: 0.25rem;
+            }
+
+            #intelLegendModal .modal-title {
+                font-size: 1rem;
+            }
+        }
+
+        /* Individual Intel Widget Modal styles */
+        #revRiskModal .chart-modal-content,
+        #liarModal .chart-modal-content,
+        #paperRockModal .chart-modal-content,
+        #mercantilismModal .chart-modal-content,
+        #vassalModal .chart-modal-content {
+            height: auto;
+            max-height: 85vh;
+            width: 90%;
+            max-width: 650px;
+            padding: 1.5rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #revRiskModal .modal-title,
+        #liarModal .modal-title,
+        #paperRockModal .modal-title,
+        #mercantilismModal .modal-title,
+        #vassalModal .modal-title {
+            flex-shrink: 0;
+            padding-bottom: 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        #revRiskModal .modal-analysis,
+        #liarModal .modal-analysis,
+        #paperRockModal .modal-analysis,
+        #mercantilismModal .modal-analysis,
+        #vassalModal .modal-analysis {
+            flex: 1;
+            overflow-y: auto;
+            max-height: none;
+            scrollbar-width: thin;
+            padding: 0 0.5rem;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+        }
+
+        #revRiskModal .modal-analysis::-webkit-scrollbar,
+        #liarModal .modal-analysis::-webkit-scrollbar,
+        #paperRockModal .modal-analysis::-webkit-scrollbar,
+        #mercantilismModal .modal-analysis::-webkit-scrollbar,
+        #vassalModal .modal-analysis::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #revRiskModal .modal-analysis::-webkit-scrollbar-track,
+        #liarModal .modal-analysis::-webkit-scrollbar-track,
+        #paperRockModal .modal-analysis::-webkit-scrollbar-track,
+        #mercantilismModal .modal-analysis::-webkit-scrollbar-track,
+        #vassalModal .modal-analysis::-webkit-scrollbar-track {
+            background: var(--bg-column);
+            border-radius: 3px;
+        }
+
+        #revRiskModal .modal-analysis::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 3px; }
+        #liarModal .modal-analysis::-webkit-scrollbar-thumb { background: #f59e0b; border-radius: 3px; }
+        #paperRockModal .modal-analysis::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
+        #mercantilismModal .modal-analysis::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 3px; }
+        #vassalModal .modal-analysis::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 3px; }
+
+        @media (max-width: 768px) {
+            #revRiskModal .chart-modal-content,
+            #liarModal .chart-modal-content,
+            #paperRockModal .chart-modal-content,
+            #mercantilismModal .chart-modal-content,
+            #vassalModal .chart-modal-content {
+                width: 94%;
+                max-height: 80vh;
+                padding: 1rem;
+            }
+            
+            #revRiskModal .modal-analysis,
+            #liarModal .modal-analysis,
+            #paperRockModal .modal-analysis,
+            #mercantilismModal .modal-analysis,
+            #vassalModal .modal-analysis {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #revRiskModal .chart-modal-content,
+            #liarModal .chart-modal-content,
+            #paperRockModal .chart-modal-content,
+            #mercantilismModal .chart-modal-content,
+            #vassalModal .chart-modal-content {
+                width: 96%;
+                max-height: 85vh;
+                padding: 0.75rem;
+            }
+            
+            #revRiskModal .modal-title,
+            #liarModal .modal-title,
+            #paperRockModal .modal-title,
+            #mercantilismModal .modal-title,
+            #vassalModal .modal-title {
+                font-size: 1rem;
+            }
+            
+            #revRiskModal .modal-analysis,
+            #liarModal .modal-analysis,
+            #paperRockModal .modal-analysis,
+            #mercantilismModal .modal-analysis,
+            #vassalModal .modal-analysis {
+                font-size: 0.8rem;
             }
         }
 
@@ -2091,7 +2890,7 @@
             background: var(--bg-column);
             border: 1px solid var(--border);
             color: var(--text-secondary);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 0.55rem;
             font-weight: 600;
             text-transform: uppercase;
@@ -2207,7 +3006,7 @@
             color: var(--text-secondary);
             padding: 0.5rem 1rem;
             border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 0.65rem;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -2464,6 +3263,25 @@
                 display: none;
             }
             
+            /* Global clock centered on mobile */
+            .global-clock-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-width: auto;
+            }
+            
+            .global-clock-city {
+                font-size: 0.55rem;
+                letter-spacing: 1.5px;
+            }
+            
+            .global-clock-time {
+                font-size: 0.75rem;
+            }
+            
             .info-button {
                 padding: 0.35rem 0.6rem;
                 font-size: 11px !important;
@@ -2491,33 +3309,38 @@
             color: var(--accent-orange);
         }
 
-        /* Deep Analysis Button */
+        /* Deep Analysis Button - Full width, centered like Game Theory Legend */
         .deep-analysis-btn {
             cursor: pointer;
             background: linear-gradient(135deg, rgba(32, 178, 170, 0.15), rgba(32, 178, 170, 0.05));
-            border: 1px solid;
-            border-image: linear-gradient(90deg, #20b2aa, #00d9ff, #20b2aa) 1;
+            border: 1px solid rgba(32, 178, 170, 0.4);
             border-radius: 4px;
-            padding: 4px 8px !important;
+            padding: 6px 10px;
+            margin-top: 8px;
             transition: all 0.2s ease;
             animation: borderPulse 3s ease-in-out infinite;
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            box-sizing: border-box;
         }
         
         @keyframes borderPulse {
             0%, 100% {
-                border-image: linear-gradient(90deg, #20b2aa, #00d9ff, #20b2aa) 1;
-                box-shadow: 0 0 5px rgba(32, 178, 170, 0.3);
+                border-color: rgba(32, 178, 170, 0.4);
+                box-shadow: 0 0 3px rgba(32, 178, 170, 0.15);
             }
             50% {
-                border-image: linear-gradient(90deg, #00d9ff, #20b2aa, #00d9ff) 1;
-                box-shadow: 0 0 12px rgba(0, 217, 255, 0.5);
+                border-color: rgba(0, 217, 255, 0.5);
+                box-shadow: 0 0 6px rgba(0, 217, 255, 0.25);
             }
         }
         
         .deep-analysis-btn:hover {
             background: linear-gradient(135deg, rgba(32, 178, 170, 0.3), rgba(32, 178, 170, 0.15));
-            box-shadow: 0 0 15px rgba(32, 178, 170, 0.6);
+            box-shadow: 0 0 8px rgba(32, 178, 170, 0.3);
             transform: translateY(-1px);
         }
         
@@ -2549,17 +3372,17 @@
         @keyframes purplePulse {
             0%, 100% {
                 border-image: linear-gradient(90deg, #9333ea, #a855f7, #9333ea) 1;
-                box-shadow: 0 0 5px rgba(147, 51, 234, 0.3);
+                box-shadow: 0 0 3px rgba(147, 51, 234, 0.15);
             }
             50% {
                 border-image: linear-gradient(90deg, #a855f7, #9333ea, #a855f7) 1;
-                box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+                box-shadow: 0 0 6px rgba(168, 85, 247, 0.25);
             }
         }
         
         .game-legend-btn:hover {
             background: linear-gradient(135deg, rgba(147, 51, 234, 0.3), rgba(139, 92, 246, 0.15));
-            box-shadow: 0 0 15px rgba(147, 51, 234, 0.6);
+            box-shadow: 0 0 8px rgba(147, 51, 234, 0.3);
             transform: translateY(-1px);
         }
         
@@ -2656,7 +3479,7 @@
         }
 
         .modal-title {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 0.8rem;
             color: var(--accent-orange);
             text-transform: uppercase;
@@ -2726,7 +3549,7 @@
 
         .thinking-status {
             margin-top: 1.5rem;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             font-size: 0.7rem;
             color: #00ff00;
             line-height: 1.6;
@@ -2752,7 +3575,7 @@
 
         .modal-analysis h1, .modal-analysis h2, .modal-analysis h3 {
             color: var(--accent-orange);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
             margin-top: 1.5rem;
             margin-bottom: 0.75rem;
             font-size: 0.9rem;
@@ -2801,7 +3624,7 @@
             padding-left: 0;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Sans', sans-serif;
         }
         
         .analysis-section-header:first-of-type {
@@ -2843,10 +3666,12 @@
     <div class="header">
         <div class="logo">THE DAILY NUTHATCH // NEWSDESK</div>
         <div class="connection-status">
-            <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">CONNECTING...</span>
+            <span class="connect-text" id="statusText">CONNECTED</span>
         </div>
-        <div class="time-display" id="currentTime">00:00:00 UTC</div>
+        <div class="global-clock-container">
+            <div class="global-clock-city clock-visible" id="clockCity">ZULU</div>
+            <div class="global-clock-time clock-visible" id="clockTime">--:--:--</div>
+        </div>
         <button class="info-button" onclick="openInfoModal()">INFO</button>
     </div>
 
@@ -2872,8 +3697,8 @@
 
     <!-- Mobile Tab Navigation (hidden on desktop) -->
     <div class="mobile-tabs" id="mobileTabs">
-        <button class="mobile-tab active" data-column="breaking">NEWS</button>
-        <button class="mobile-tab" data-column="macro">MACRO</button>
+        <button class="mobile-tab active" data-column="breaking">WIRE</button>
+        <button class="mobile-tab" data-column="macro">RISK</button>
         <button class="mobile-tab" data-column="geo">GEO</button>
         <button class="mobile-tab" data-column="commodity">COMMOD</button>
         <button class="mobile-tab" data-column="fx">FX</button>
@@ -2882,7 +3707,7 @@
 
     <!-- Accordion Toggle Row (for medium screens 768-1199px) -->
     <div class="accordion-toggle-row" id="accordionToggle">
-        <button class="accordion-toggle-btn active" data-row="1">ROW 1: NEWS / MACRO / GEO</button>
+        <button class="accordion-toggle-btn active" data-row="1">ROW 1: WIRE / RISK / GEO</button>
         <button class="accordion-toggle-btn" data-row="2">ROW 2: COMMOD / FX / PRED</button>
     </div>
 
@@ -2890,16 +3715,16 @@
     <div class="main-grid">
         <div class="column col-breaking accordion-expanded" data-accordion-row="1">
             <div class="column-header">
-                <div class="column-title">NEWS <span class="refresh-btn" onclick="manualRefresh()" title="Refresh now">↻</span></div>
-                <div class="column-subtitle">Top events • Fastest feed</div>
+                <div class="column-title">THE WIRE <span class="refresh-btn" onclick="manualRefresh()" title="Refresh now">↻</span></div>
+                <div class="column-subtitle">Signal • Velocity • Filter</div>
             </div>
             <div class="column-content" id="breakingColumn"></div>
         </div>
 
         <div class="column col-macro accordion-expanded" data-accordion-row="1">
             <div class="column-header">
-                <div class="column-title">MACRO PLUMBING</div>
-                <div class="column-subtitle">Rates • Liquidity • Credit</div>
+                <div class="column-title">SYSTEMIC RISK</div>
+                <div class="column-subtitle">Collateral • Plumbing</div>
             </div>
             <div class="column-content" id="macroColumn"></div>
         </div>
@@ -2907,37 +3732,98 @@
         <div class="column col-geo accordion-expanded" data-accordion-row="1">
             <div class="column-header">
                 <div class="column-title">GEOPOLITICS</div>
-                <div class="column-subtitle">State moves • Escalation</div>
+                <div class="column-subtitle">Friction • Alliances</div>
             </div>
-            <div class="column-content" id="geoColumn"></div>
+            <div class="column-content" id="geoColumn">
+                <!-- Unified STATECRAFT Section -->
+                <div class="game-theory-dashboard-container" id="statecraftDashboard">
+                    <div class="dashboard-title" style="color: #a855f7;">STATECRAFT</div>
+                    <div class="dashboard-section-subtitle">Strategic Intel • Active Games</div>
+                    
+                    <!-- Intel Legend Button (full width) -->
+                    <div class="statecraft-legend-btn" onclick="openIntelLegend()">
+                        <span class="legend-text">INTEL LEGEND</span>
+                    </div>
+                    
+                    <!-- Strategic Intelligence Widgets (Top) -->
+                    <div class="statecraft-section-label">SIGNALS • RISK METRICS</div>
+                    <div class="strategic-intel-grid">
+                        <div class="intel-widget" id="widget-rev-risk" onclick="openIntelDetailModal('revRiskModal')">
+                            <div class="intel-widget-header">REVOLUTION RISK</div>
+                            <div class="intel-widget-value" id="val-rev-risk">CALCULATING</div>
+                            <div class="intel-widget-sub">Bread + Fuel x DXY</div>
+                            <div class="intel-meter"><div class="intel-meter-fill" id="meter-rev"></div></div>
+                        </div>
+                        <div class="intel-widget" id="widget-liar" onclick="openIntelDetailModal('liarModal')">
+                            <div class="intel-widget-header">LIAR'S POKER</div>
+                            <div class="intel-widget-value" id="val-liar">CALCULATING</div>
+                            <div class="intel-widget-sub">Narrative vs Money</div>
+                        </div>
+                        <div class="intel-widget" id="widget-war-eco" onclick="openIntelDetailModal('paperRockModal')">
+                            <div class="intel-widget-header">PAPER VS ROCK</div>
+                            <div class="intel-widget-value" id="val-war-eco">CALCULATING</div>
+                            <div class="intel-widget-sub">Stocks / Commodities</div>
+                        </div>
+                        <div class="intel-widget" id="widget-vassal" onclick="openIntelDetailModal('vassalModal')">
+                            <div class="intel-widget-header">VASSAL DETECTOR</div>
+                            <div class="intel-widget-value" id="val-vassal">CALCULATING</div>
+                            <div class="intel-widget-sub">KRW Correlation</div>
+                        </div>
+                    </div>
+                    <div class="intel-fragmentation" id="widget-frag" onclick="openIntelDetailModal('mercantilismModal')">
+                        <span class="intel-frag-label">MERCANTILISM:</span>
+                        <span class="intel-frag-value" id="val-frag">OPEN TRADE</span>
+                        <span class="intel-frag-hits" id="val-frag-hits">(0 signals)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:9px;color:#6a7585;">
+                        <span>🎯</span>
+                        <span>Click "Revolution Risk" for deep-dive details</span>
+                    </div>
+                    
+                    <!-- Section Divider -->
+                    <div style="border-top: 1px solid rgba(168, 85, 247, 0.25); margin: 12px 0;"></div>
+                    
+                    <!-- Games Legend Button (full width) -->
+                    <div class="statecraft-legend-btn" onclick="openGameLegend()">
+                        <span class="legend-text">GAMES LEGEND</span>
+                    </div>
+                    
+                    <!-- Game Theory Section (Below) -->
+                    <div class="statecraft-section-label">GAME THEORY • CONFLICTS</div>
+                    <div id="gameTheoryList" class="game-theory-container">
+                        <div class="game-theory-loading">Loading strategic games...</div>
+                    </div>
+                </div>
+                <!-- Geo cards appear below -->
+            </div>
         </div>
 
         <div class="column col-commodity accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
                 <div class="column-title">COMMODITIES</div>
-                <div class="column-subtitle">Metals • Energy • Agriculture</div>
+                <div class="column-subtitle">Energy • Inputs • Metals</div>
             </div>
             <div class="column-content" id="commodityColumn">
                 <!-- Commodities Dashboard Pinned at Top - 32 COMMODITIES -->
                 <div class="commodity-dashboard-container" id="commodityDashboard">
-                    <div class="commodity-dashboard-title">📦 COMMODITY DASHBOARD</div>
+                    <div class="commodity-dashboard-title">SCARCITY GAUGE</div>
                     <div class="commodity-grid-3col">
                         <!-- Column 1: METALS (8) -->
                         <div class="commodity-grid-column">
                             <div class="commodity-column-title">METALS</div>
-                            <div class="commodity-column-subtitle">Precious • Base</div>
+                            <div class="commodity-column-subtitle">Base & Precious</div>
                             <div id="commodityMetals"></div>
                         </div>
                         <!-- Column 2: ENERGY (8) -->
                         <div class="commodity-grid-column">
                             <div class="commodity-column-title">ENERGY</div>
-                            <div class="commodity-column-subtitle">Oil • Gas • Power</div>
+                            <div class="commodity-column-subtitle">Flow & Storage</div>
                             <div id="commodityEnergy"></div>
                         </div>
                         <!-- Column 3: AGRICULTURE (16) -->
                         <div class="commodity-grid-column">
                             <div class="commodity-column-title">AGRICULTURE</div>
-                            <div class="commodity-column-subtitle">Grains • Softs • Meats</div>
+                            <div class="commodity-column-subtitle">Grains, Calories & Proteins</div>
                             <div id="commodityAgriculture"></div>
                         </div>
                     </div>
@@ -2952,96 +3838,36 @@
 
         <div class="column col-fx accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
-                <div class="column-title">FX & CURRENCIES</div>
-                <div class="column-subtitle">30 Pairs • Central Banks • Live</div>
+                <div class="column-title">SOVEREIGN FX</div>
+                <div class="column-subtitle">Flows • Devaluation</div>
             </div>
             <div class="column-content" id="fxColumn">
                 <!-- FX Pairs Dashboard Pinned at Top - 30 PAIRS -->
                 <div class="fx-dashboard-container" id="fxDashboard">
-                    <div class="fx-dashboard-title">💱 FX DASHBOARD</div>
+                    <div class="fx-dashboard-title">VALUE DASHBOARD</div>
                     <div class="fx-grid-3col">
-                        <!-- Column 1: MACRO PLUMBING (10 pairs) -->
+                        <!-- Column 1: RESERVES (10 pairs) -->
                         <div class="fx-grid-column">
-                            <div class="fx-column-title">MACRO PLUMBING</div>
-                            <div class="fx-column-subtitle">Rates • Liquidity</div>
+                            <div class="fx-column-title">RESERVES</div>
+                            <div class="fx-column-subtitle">Core • Liquidity</div>
                             <div id="fxMacro"></div>
                         </div>
-                        <!-- Column 2: GEOPOLITICS (10 pairs) -->
+                        <!-- Column 2: FRICTION ZONES (10 pairs) -->
                         <div class="fx-grid-column">
-                            <div class="fx-column-title">GEOPOLITICS</div>
-                            <div class="fx-column-subtitle">State • Escalation</div>
+                            <div class="fx-column-title">FRICTION ZONES</div>
+                            <div class="fx-column-subtitle">Conflict Proxies</div>
                             <div id="fxGeo"></div>
                         </div>
-                        <!-- Column 3: COMMODITIES (10 pairs) -->
+                        <!-- Column 3: RESOURCE BLOC (10 pairs) -->
                         <div class="fx-grid-column">
-                            <div class="fx-column-title">COMMODITIES</div>
-                            <div class="fx-column-subtitle">Oil • Metals • Ag</div>
+                            <div class="fx-column-title">RESOURCE BLOC</div>
+                            <div class="fx-column-subtitle">Commodity Currencies</div>
                             <div id="fxCommodity"></div>
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:4px 8px;font-size:9px;color:#6a7585;border-top:1px solid rgba(255,255,255,0.05);">
                         <span>📈</span>
                         <span>Click pair for TradingView chart (e.g. EUR/USD)</span>
-                    </div>
-                </div>
-                <!-- Central Bank Rates Section -->
-                <div class="cb-rates-container">
-                    <div class="cb-rates-title">🏦 CENTRAL BANK RATES</div>
-                    <div id="cbRates">
-                        <div class="cb-rate-item">
-                            <div class="cb-rate-left">
-                                <span class="cb-rate-bank">Fed</span>
-                                <span class="cb-rate-currency">(USD)</span>
-                            </div>
-                            <div class="cb-rate-right">
-                                <span class="cb-rate-value">4.50%</span>
-                                <span class="cb-rate-next" id="fed-next">→ Jan 29</span>
-                            </div>
-                        </div>
-                        <div class="cb-rate-item">
-                            <div class="cb-rate-left">
-                                <span class="cb-rate-bank">ECB</span>
-                                <span class="cb-rate-currency">(EUR)</span>
-                            </div>
-                            <div class="cb-rate-right">
-                                <span class="cb-rate-value">3.00%</span>
-                                <span class="cb-rate-next" id="ecb-next">→ Jan 30</span>
-                            </div>
-                        </div>
-                        <div class="cb-rate-item">
-                            <div class="cb-rate-left">
-                                <span class="cb-rate-bank">BOE</span>
-                                <span class="cb-rate-currency">(GBP)</span>
-                            </div>
-                            <div class="cb-rate-right">
-                                <span class="cb-rate-value">4.50%</span>
-                                <span class="cb-rate-next" id="boe-next">→ Feb 6</span>
-                            </div>
-                        </div>
-                        <div class="cb-rate-item">
-                            <div class="cb-rate-left">
-                                <span class="cb-rate-bank">BOJ</span>
-                                <span class="cb-rate-currency">(JPY)</span>
-                            </div>
-                            <div class="cb-rate-right">
-                                <span class="cb-rate-value">0.75%</span>
-                                <span class="cb-rate-next" id="boj-next">→ Jan 23</span>
-                            </div>
-                        </div>
-                        <div class="cb-rate-item">
-                            <div class="cb-rate-left">
-                                <span class="cb-rate-bank">RBA</span>
-                                <span class="cb-rate-currency">(AUD)</span>
-                            </div>
-                            <div class="cb-rate-right">
-                                <span class="cb-rate-value">3.60%</span>
-                                <span class="cb-rate-next" id="rba-next">→ Feb 3</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:4px 8px;font-size:9px;color:#6a7585;border-top:1px solid rgba(255,255,255,0.05);">
-                        <span>🏦</span>
-                        <span>Next meeting dates (e.g. Fed → Jan 29)</span>
                     </div>
                 </div>
                 <!-- FX news cards appear below -->
@@ -3051,14 +3877,14 @@
         <div class="column col-prediction accordion-collapsed" data-accordion-row="2">
             <div class="column-header">
                 <div class="column-title">PREDICTIONS</div>
-                <div class="column-subtitle">Sentiment • Odds • Game Theory</div>
+                <div class="column-subtitle">Probabilities • Tail Risk</div>
             </div>
             <div class="column-content" id="predictionColumn">
                 <!-- Sentiment Dashboard -->
                 <div class="prediction-dashboard" id="predictionsDashboard">
                     <div class="dashboard-section">
                         <div class="dashboard-title">MARKET SENTIMENT</div>
-                        <div class="dashboard-section-subtitle">VIX • Fear/Greed • Yields • Dollar</div>
+                        <div class="dashboard-section-subtitle">VIX • Fear/Greed • Yields</div>
                         <div id="sentimentDashboard">
                             <div class="sentiment-loading">Loading sentiment data...</div>
                         </div>
@@ -3076,20 +3902,6 @@
                         <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#6a7585;">
                             <span>🎯</span>
                             <span>Click for Polymarket (e.g. Fed Cut 65%)</span>
-                        </div>
-                    </div>
-                    <div class="dashboard-section game-theory-section">
-                        <div class="dashboard-title">♟️ ACTIVE GAMES</div>
-                        <div class="dashboard-section-subtitle">20 Conflicts • Nash Equilibrium • Moves</div>
-                        <div class="game-legend-btn" onclick="openGameLegend()">
-                            <span class="game-legend-text">📖 GAME THEORY LEGEND →</span>
-                        </div>
-                        <div id="gameTheoryList" class="game-theory-container">
-                            <div class="game-theory-loading">Loading strategic games...</div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#6a7585;">
-                            <span>🔴</span>
-                            <span>UNSTABLE = equilibrium shifting (e.g. Taiwan Strait)</span>
                         </div>
                     </div>
                 </div>
@@ -3126,16 +3938,100 @@
         const cardDataStore = {};
 
         // ========================================================================
-        // TIME DISPLAY
+        // GLOBAL WATCHTOWER ENGINE
         // ========================================================================
-        
-        function updateTime() {
+
+        const GLOBAL_CITIES = [
+            // EAST -> WEST (Following the Sun)
+            { label: 'AUCKLAND', timeZone: 'Pacific/Auckland' },
+            { label: 'SYDNEY', timeZone: 'Australia/Sydney' },
+            { label: 'TOKYO', timeZone: 'Asia/Tokyo' },
+            { label: 'HONG KONG', timeZone: 'Asia/Hong_Kong' },
+            { label: 'BANGKOK', timeZone: 'Asia/Bangkok' },
+            { label: 'DELHI', timeZone: 'Asia/Kolkata' },
+            { label: 'TEHRAN', timeZone: 'Asia/Tehran' },
+            { label: 'MOSCOW', timeZone: 'Europe/Moscow' },
+            { label: 'CAIRO', timeZone: 'Africa/Cairo' },
+            { label: 'CAPE TOWN', timeZone: 'Africa/Johannesburg' },
+            { label: 'BERLIN', timeZone: 'Europe/Berlin' },
+            { label: 'LONDON', timeZone: 'Europe/London' },
+            { label: 'SAO PAULO', timeZone: 'America/Sao_Paulo' },
+            { label: 'NEW YORK', timeZone: 'America/New_York' },
+            { label: 'CHICAGO', timeZone: 'America/Chicago' },
+            { label: 'LOS ANGELES', timeZone: 'America/Los_Angeles' },
+            { label: 'HAWAII', timeZone: 'Pacific/Honolulu' }
+        ];
+
+        let cityIndex = 0;
+
+        function initGlobalClock() {
+            const cityEl = document.getElementById('clockCity');
+            const timeEl = document.getElementById('clockTime');
+            
+            // Update time every second for current city
+            setInterval(() => {
+                const city = GLOBAL_CITIES[cityIndex];
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('en-US', {
+                    timeZone: city.timeZone,
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                if (cityEl.classList.contains('clock-visible')) {
+                    timeEl.textContent = timeString;
+                }
+            }, 1000);
+
+            // City cycle loop
+            function cycleCity() {
+                // Fade out
+                cityEl.classList.remove('clock-visible');
+                timeEl.classList.remove('clock-visible');
+
+                setTimeout(() => {
+                    // Swap city
+                    cityIndex = (cityIndex + 1) % GLOBAL_CITIES.length;
+                    const city = GLOBAL_CITIES[cityIndex];
+                    
+                    cityEl.textContent = city.label;
+                    
+                    const now = new Date();
+                    timeEl.textContent = now.toLocaleTimeString('en-US', {
+                        timeZone: city.timeZone,
+                        hour12: false, 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit'
+                    });
+
+                    // Fade in
+                    cityEl.classList.add('clock-visible');
+                    timeEl.classList.add('clock-visible');
+
+                    setTimeout(cycleCity, 3500);
+                    
+                }, 1500);
+            }
+
+            // Start first cycle
+            const city = GLOBAL_CITIES[cityIndex];
+            cityEl.textContent = city.label;
             const now = new Date();
-            const utcString = now.toISOString().substr(11, 8);
-            document.getElementById('currentTime').textContent = utcString + ' UTC';
+            timeEl.textContent = now.toLocaleTimeString('en-US', {
+                timeZone: city.timeZone,
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            setTimeout(cycleCity, 3500);
         }
-        setInterval(updateTime, 1000);
-        updateTime();
+
+        document.addEventListener('DOMContentLoaded', initGlobalClock);
 
         // ========================================================================
         // CENTRAL BANK MEETING DATE AUTO-UPDATER
@@ -3305,6 +4201,19 @@
         let marketTickerData = [];
         const seenTickerHeadlines = new Set();
 
+        // Convert ALL CAPS text to Title Case
+        function toTitleCase(str) {
+            if (!str) return str;
+            // Check if string is mostly uppercase (>70% caps)
+            const upperCount = (str.match(/[A-Z]/g) || []).length;
+            const letterCount = (str.match(/[A-Za-z]/g) || []).length;
+            if (letterCount > 0 && upperCount / letterCount > 0.7) {
+                // Convert to title case - lowercase everything then capitalize first letter of each word
+                return str.toLowerCase().replace(/(?:^|\s|[-"'(])\w/g, match => match.toUpperCase());
+            }
+            return str;
+        }
+
         // TOP BADGE TRIGGER WORDS - Must match at least one
         const TOP_TRIGGERS = [
             // Tier 1 - Immediate Alerts
@@ -3413,10 +4322,11 @@
             ticker.innerHTML = doubled.map(item => {
                 const topStoryBadge = item.isTopStory ? '<span class="top-story-badge">TOP</span>' : '';
                 const topStoryClass = item.isTopStory ? 'top-story' : '';
+                const displayText = toTitleCase(item.text);
                 const tickerContent = `
                     <span class="ticker-time">${item.time} UTC</span>
                     ${topStoryBadge}
-                    <span class="ticker-text ${topStoryClass}">${item.text}</span>
+                    <span class="ticker-text ${topStoryClass}">${displayText}</span>
                     <div class="ticker-impact">
                         ${Array(3).fill(0).map((_, i) => 
                             `<div class="impact-dot ${i < item.impact ? 'active' : ''}"></div>`
@@ -3594,8 +4504,8 @@
 
             ws.onopen = () => {
                 console.log('WebSocket connected');
-                document.getElementById('statusDot').classList.add('connected');
-                document.getElementById('statusText').textContent = 'LIVE';
+                document.getElementById('statusText').classList.add('connected');
+                document.getElementById('statusText').textContent = 'CONNECTED';
                 if (reconnectInterval) {
                     clearInterval(reconnectInterval);
                     reconnectInterval = null;
@@ -3613,8 +4523,8 @@
 
             ws.onclose = () => {
                 console.log('WebSocket disconnected');
-                document.getElementById('statusDot').classList.remove('connected');
-                document.getElementById('statusText').textContent = 'RECONNECTING...';
+                document.getElementById('statusText').classList.remove('connected');
+                document.getElementById('statusText').textContent = 'CONNECTING';
                 
                 if (!reconnectInterval) {
                     reconnectInterval = setInterval(connectWebSocket, 5000);
@@ -3658,6 +4568,62 @@
                 case 'game_theory_update':
                     updateGameTheoryData(message.data);
                     break;
+                case 'strategic_intelligence':
+                    updateStrategicIntelligence(message.data);
+                    break;
+            }
+        }
+        
+        function updateStrategicIntelligence(data) {
+            if (!data) return;
+            
+            // 1. REVOLUTION RISK
+            const revEl = document.getElementById('val-rev-risk');
+            if (revEl && data.revRisk) {
+                revEl.innerText = data.revRisk.level;
+                revEl.style.color = data.revRisk.color;
+                document.getElementById('widget-rev-risk').style.borderColor = data.revRisk.color;
+                const revPct = Math.min((parseFloat(data.revRisk.score) / 3.0) * 100, 100);
+                const meterEl = document.getElementById('meter-rev');
+                if (meterEl) {
+                    meterEl.style.width = `${revPct}%`;
+                    meterEl.style.background = data.revRisk.color;
+                }
+            }
+            
+            // 2. LIAR'S POKER
+            const liarEl = document.getElementById('val-liar');
+            if (liarEl && data.liarsPoker) {
+                liarEl.innerText = data.liarsPoker.label;
+                liarEl.style.color = data.liarsPoker.color;
+                document.getElementById('widget-liar').style.borderColor = data.liarsPoker.color;
+            }
+            
+            // 3. PAPER VS ROCK (War Economy)
+            const warEl = document.getElementById('val-war-eco');
+            if (warEl && data.warEco) {
+                warEl.innerText = data.warEco.label;
+                warEl.style.color = data.warEco.color;
+                document.getElementById('widget-war-eco').style.borderColor = data.warEco.color;
+            }
+            
+            // 4. VASSAL STATE
+            const vasEl = document.getElementById('val-vassal');
+            if (vasEl && data.vassalState) {
+                vasEl.innerText = data.vassalState.master;
+                vasEl.style.color = data.vassalState.color;
+                document.getElementById('widget-vassal').style.borderColor = data.vassalState.color;
+            }
+            
+            // 5. MERCANTILISM COUNTER
+            const fragEl = document.getElementById('val-frag');
+            const fragHitsEl = document.getElementById('val-frag-hits');
+            if (fragEl && data.fragScore) {
+                fragEl.innerText = data.fragScore.level;
+                fragEl.style.color = data.fragScore.color;
+                if (fragHitsEl) {
+                    fragHitsEl.innerText = `(${data.fragScore.hits} signals)`;
+                }
             }
         }
 
@@ -3712,6 +4678,13 @@
                 const predDashboard = column.querySelector('#predictionsDashboard');
                 if (predDashboard) {
                     predDashboard.insertAdjacentHTML('afterend', cardHtml);
+                } else {
+                    column.insertAdjacentHTML('afterbegin', cardHtml);
+                }
+            } else if (columnId === 'geoColumn') {
+                const statecraftDashboard = column.querySelector('.game-theory-dashboard-container');
+                if (statecraftDashboard) {
+                    statecraftDashboard.insertAdjacentHTML('afterend', cardHtml);
                 } else {
                     column.insertAdjacentHTML('afterbegin', cardHtml);
                 }
@@ -3865,9 +4838,10 @@
                 implications: data.implications || []
             };
             
+            const displayHeadline = toTitleCase(data.headline);
             const headlineHtml = data.link 
-                ? `<a href="${data.link}" target="_blank" rel="noopener noreferrer" class="card-headline">${data.headline}</a>`
-                : `<div class="card-headline">${data.headline}</div>`;
+                ? `<a href="${data.link}" target="_blank" rel="noopener noreferrer" class="card-headline">${displayHeadline}</a>`
+                : `<div class="card-headline">${displayHeadline}</div>`;
             
             return `
                 <div class="card" id="${cardId}">
@@ -3916,13 +4890,100 @@
             updateMarketTicker(marketData);
         }
 
+        // Central Bank Meeting Schedules - Update these after each meeting
+        // Format: [month, day] pairs for the full year
+        const cbMeetingSchedules = {
+            fed: { 
+                rate: '4.50%', 
+                currency: 'USD',
+                meetings2025: [[1,29],[3,19],[5,7],[6,18],[7,30],[9,17],[11,5],[12,17]],
+                meetings2026: [[1,28],[3,18],[5,6],[6,17],[7,29],[9,16],[11,4],[12,16]]
+            },
+            ecb: { 
+                rate: '2.75%', 
+                currency: 'EUR',
+                meetings2025: [[1,30],[3,6],[4,17],[6,5],[7,17],[9,11],[10,30],[12,18]],
+                meetings2026: [[1,22],[3,5],[4,16],[6,4],[7,16],[9,10],[10,29],[12,17]]
+            },
+            boe: { 
+                rate: '4.50%', 
+                currency: 'GBP',
+                meetings2025: [[2,6],[3,20],[5,8],[6,19],[8,7],[9,18],[11,6],[12,18]],
+                meetings2026: [[2,5],[3,19],[5,7],[6,18],[8,6],[9,17],[11,5],[12,17]]
+            },
+            boj: { 
+                rate: '0.50%', 
+                currency: 'JPY',
+                meetings2025: [[1,24],[3,14],[5,1],[6,17],[7,31],[9,19],[10,31],[12,19]],
+                meetings2026: [[1,23],[3,13],[4,30],[6,16],[7,30],[9,18],[10,30],[12,18]]
+            },
+            rba: { 
+                rate: '4.10%', 
+                currency: 'AUD',
+                meetings2025: [[2,18],[4,1],[5,20],[7,8],[8,12],[9,30],[11,4],[12,9]],
+                meetings2026: [[2,17],[4,7],[5,19],[7,7],[8,11],[9,29],[11,3],[12,8]]
+            }
+        };
+
+        function getNextCBMeeting(bank) {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const schedule = cbMeetingSchedules[bank];
+            if (!schedule) return 'TBD';
+            
+            const meetings = currentYear === 2025 ? schedule.meetings2025 : 
+                            currentYear === 2026 ? schedule.meetings2026 : schedule.meetings2026;
+            
+            for (const [month, day] of meetings) {
+                const meetingDate = new Date(currentYear, month - 1, day);
+                if (meetingDate >= now) {
+                    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                    return `${monthNames[month - 1]} ${day}`;
+                }
+            }
+            // If all meetings passed, get first of next year
+            const nextYearMeetings = currentYear === 2025 ? schedule.meetings2026 : schedule.meetings2026;
+            if (nextYearMeetings && nextYearMeetings.length > 0) {
+                const [month, day] = nextYearMeetings[0];
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return `${monthNames[month - 1]} ${day}`;
+            }
+            return 'TBD';
+        }
+
+        function renderCentralBankRates() {
+            const banks = [
+                { id: 'fed', name: 'Fed' },
+                { id: 'ecb', name: 'ECB' },
+                { id: 'boe', name: 'BOE' },
+                { id: 'boj', name: 'BOJ' },
+                { id: 'rba', name: 'RBA' }
+            ];
+            
+            return banks.map(bank => {
+                const schedule = cbMeetingSchedules[bank.id];
+                return `
+                    <div class="cb-rate-item">
+                        <div class="cb-rate-left">
+                            <span class="cb-rate-bank">${bank.name}</span>
+                            <span class="cb-rate-currency">(${schedule.currency})</span>
+                        </div>
+                        <div class="cb-rate-right">
+                            <span class="cb-rate-value">${schedule.rate}</span>
+                            <span class="cb-rate-next">→ ${getNextCBMeeting(bank.id)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         function updateMacroData(macroData) {
             const macroColumn = document.getElementById('macroColumn');
             
             if (!macroData.yields && !macroData.indicators) return;
 
             const yieldsHtml = macroData.yields ? macroData.yields.map(item => `
-                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}" onclick="openChart('${item.tvSymbol || ''}')" style="cursor: pointer;">
                     <div class="macro-item-left">
                         <div class="macro-item-label">${item.label}</div>
                         <div class="macro-item-value">${item.value}</div>
@@ -3934,7 +4995,7 @@
             `).join('') : '';
 
             const indicatorsHtml = macroData.indicators ? macroData.indicators.map(item => `
-                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}">
+                <div class="macro-grid-item ${item.tripwireHit ? 'tripwire-hit' : ''}" onclick="${item.fredId ? `window.open('https://fred.stlouisfed.org/series/${item.fredId}', '_blank')` : ''}" style="cursor: pointer;">
                     <div class="macro-item-left">
                         <div class="macro-item-label">${item.label}</div>
                         <div class="macro-item-value">${item.value}</div>
@@ -3945,11 +5006,13 @@
                 </div>
             `).join('') : '';
 
+            const cbRatesHtml = renderCentralBankRates();
+
             const existingGrid = macroColumn.querySelector('.macro-grid-container');
             const gridHtml = `
                 <div class="macro-grid-container">
-                    <div class="macro-dashboard-title">📊 RATES DASHBOARD</div>
-                    <div class="macro-dashboard-subtitle">YIELDS • INFLATION • UNEMPLOYMENT</div>
+                    <div class="macro-dashboard-title">BASE LAYER</div>
+                    <div class="macro-dashboard-subtitle">Yields • Liquidity</div>
                     <div class="macro-grid">
                         <div class="macro-grid-column">
                             ${yieldsHtml}
@@ -3958,13 +5021,21 @@
                             ${indicatorsHtml}
                         </div>
                     </div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px;padding:4px 8px;font-size:9px;color:#6a7585;border-top:1px solid rgba(255,255,255,0.05);">
+                    <div class="cb-rates-section" style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">
+                        <div class="cb-rates-title" style="font-size:0.7rem;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;text-align:center;">CENTRAL BANK RATES</div>
+                        <div id="cbRates">${cbRatesHtml}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:4px 8px;font-size:9px;color:#6a7585;border-top:1px solid rgba(255,255,255,0.05);">
+                        <span>📈</span>
+                        <span>Click yields for TradingView, indicators for FRED</span>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;padding:4px 8px;font-size:9px;color:#6a7585;">
                         <div style="display:flex;align-items:center;gap:6px;">
                             <span style="display:inline-block;width:12px;height:3px;background:var(--accent-red);border-radius:1px;"></span>
                             <span>Tripwire breached</span>
                         </div>
-                        <button onclick="openRatesLegend()" style="background:transparent;border:1px solid #3b82f6;color:#3b82f6;padding:2px 8px;border-radius:4px;font-size:9px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;">
-                            <span>📖 RATES LEGEND →</span>
+                        <button class="know-more-btn" onclick="openRatesLegend()">
+                            <span>KNOW MORE</span>
                         </button>
                     </div>
                 </div>
@@ -4174,18 +5245,15 @@
                     const probColor = probNum >= 70 ? '#22c55e' : probNum >= 50 ? '#eab308' : probNum >= 30 ? '#f97316' : '#ef4444';
                     const dirArrow = market.direction === 'up' ? '▲' : market.direction === 'down' ? '▼' : '';
                     const categoryClass = market.category.toLowerCase();
-                    const polymarketUrl = `https://polymarket.com/event/${market.slug || market.id}`;
                     
                     return `
-                        <a href="${polymarketUrl}" target="_blank" rel="noopener noreferrer" class="polymarket-item-link">
-                            <div class="polymarket-item">
-                                <div class="polymarket-header">
-                                    <span class="polymarket-category cat-${categoryClass}">${market.category}</span>
-                                    <span class="polymarket-prob" style="color: ${probColor}">${market.probability}% ${dirArrow}</span>
-                                </div>
-                                <div class="polymarket-question">${market.question}</div>
+                        <div class="polymarket-item" onclick="window.open('https://polymarket.com/', '_blank')">
+                            <div class="polymarket-header">
+                                <span class="polymarket-category cat-${categoryClass}">${market.category}</span>
+                                <span class="polymarket-prob" style="color: ${probColor}">${market.probability}% ${dirArrow}</span>
                             </div>
-                        </a>
+                            <div class="polymarket-question">${market.question}</div>
+                        </div>
                     `;
                 }).join('');
             }
@@ -4625,7 +5693,7 @@
     <div id="gameLegendModal" class="chart-modal-overlay" style="display: none;" onclick="closeGameLegend(event)">
         <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px; border-color: #9333ea;">
             <button class="chart-close-btn" onclick="closeGameLegend()" style="top: 15px; right: 15px; position: absolute; color: #a855f7;">×</button>
-            <div class="modal-title" style="color: #a855f7; padding: 0.5rem 0;">♟️ GAME THEORY LEGEND</div>
+            <div class="modal-title" style="color: #a855f7; padding: 0.5rem 0;">GAME THEORY LEGEND</div>
             <div class="modal-analysis info-modal-scroll">
                 
                 <h3 style="color: #a855f7; margin-top: 0;">WHAT IS THE ACTIVE GAMES TRACKER?</h3>
@@ -4721,10 +5789,406 @@
                 
                 <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(147, 51, 234, 0.2); background: rgba(147, 51, 234, 0.05); border-radius: 6px;">
                     <p style="font-size: 0.8rem; color: #a78bfa; line-height: 1.6; text-align: center; margin: 0;">
-                        <strong>HOW TO USE:</strong> Track equilibrium status for early warning signals. When games shift from 🟢→🟡→🔴, expect increased volatility. DEFECT moves typically trigger risk-off; COOPERATE moves trigger relief rallies. Phase progression helps time entries.
+                        <strong>HOW TO USE:</strong> Track equilibrium status for early warning signals. When games shift from GREEN to YELLOW to RED, expect increased volatility. DEFECT moves typically trigger risk-off; COOPERATE moves trigger relief rallies. Phase progression helps time entries.
                     </p>
                 </div>
                 
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(147, 51, 234, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategic Intelligence Legend Modal -->
+    <div id="intelLegendModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelLegend(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px; border-color: #9333ea;">
+            <button class="chart-close-btn" onclick="closeIntelLegend()" style="top: 15px; right: 15px; position: absolute; color: #a855f7;">×</button>
+            <div class="modal-title" style="color: #a855f7; padding: 0.5rem 0;">STRATEGIC INTELLIGENCE LEGEND</div>
+            <div class="modal-analysis info-modal-scroll">
+                
+                <h3 style="color: #a855f7; margin-top: 0;">WHAT IS STRATEGIC INTELLIGENCE?</h3>
+                <p style="line-height: 1.6;">Five real-time macro indicators that track systemic geopolitical and economic risks. These are "second-order" signals that most traders miss - they detect regime shifts before they hit headlines.</p>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;">Updated every 60 seconds using live market data.</p>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">THE 5 METRICS</h3>
+                
+                <div id="intel-rev-risk" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #ef4444;">
+                    <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">REVOLUTION RISK (Bread + Fuel Index)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Formula: (Wheat/550 + Oil/70) × (DXY/100). Tracks the classic triggers of social unrest - food and energy costs, amplified by dollar strength crushing EM purchasing power.</p>
+                    <p style="margin: 8px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Levels:</strong> STABLE (green) < 1.5 | RISING (yellow) 1.5-2.0 | ELEVATED (orange) 2.0-2.5 | CRITICAL (red) > 2.5</p>
+                    <p style="margin: 4px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Trade signal:</strong> CRITICAL readings preceded Arab Spring (2011), Sri Lanka collapse (2022), and Egypt protests (2023). Watch EM FX, defense stocks.</p>
+                    <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 0.85rem;"><strong>Why it matters:</strong> When bread and fuel become unaffordable, revolutions follow. The Arab Spring started with a Tunisian fruit vendor. Sri Lanka's government fell when people couldn't afford cooking gas. This index captures the economic preconditions for political instability.</p>
+                </div>
+                
+                <div id="intel-liar" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #f59e0b;">
+                    <div style="font-weight: 700; color: #f59e0b; margin-bottom: 4px;">LIAR'S POKER (Narrative vs Money)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Compares Fear & Greed sentiment against Polymarket war odds. When narrative diverges from what money is actually betting on, someone is lying.</p>
+                    <p style="margin: 8px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Levels:</strong> REALITY (aligned) | WATCH (drifting) | HOPIUM (sentiment too bullish vs bets) | FEAR PORN (sentiment too bearish vs bets)</p>
+                    <p style="margin: 4px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Trade signal:</strong> HOPIUM = retail overexposed, smart money hedging. FEAR PORN = contrarian buy opportunity. REALITY = trend intact.</p>
+                    <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 0.85rem;"><strong>Why it matters:</strong> Media narratives often diverge from where real money is flowing. When CNN says "markets are calm" but prediction markets show rising war odds, someone's lying. This metric catches the gap between the story and the bets.</p>
+                </div>
+                
+                <div id="intel-paper-rock" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #3b82f6;">
+                    <div style="font-weight: 700; color: #3b82f6; margin-bottom: 4px;">PAPER VS ROCK (Financialization Ratio)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Formula: SPX / (Gold + Oil×30 + Copper×500). Measures whether the world is rotating into financial assets (Paper) or hard assets (Rock).</p>
+                    <p style="margin: 8px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Levels:</strong> FINANCIALIZED (blue, high) = Risk-on, QE regime | TRANSITIONING = Rotation happening | WAR ECONOMY (red, low) = Hard assets winning</p>
+                    <p style="margin: 4px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Trade signal:</strong> WAR ECONOMY readings = overweight commodities, gold, defense. PEAK PAPER = mean reversion risk, reduce equity exposure.</p>
+                    <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 0.85rem;"><strong>Why it matters:</strong> In peaceful times, financial assets outperform. In wartime or stagflation, hard assets win. This ratio tells you which regime we're in. Post-WWII was all Paper. The 1970s were all Rock. We may be transitioning again.</p>
+                </div>
+                
+                <div id="intel-mercantilism" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #22c55e;">
+                    <div style="font-weight: 700; color: #22c55e; margin-bottom: 4px;">MERCANTILISM COUNTER (Trade Fragmentation)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Scans recent headlines for keywords: tariff, sanction, ban, blockade, friend-shoring, decouple. Quantifies the speed of deglobalization.</p>
+                    <p style="margin: 8px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Levels:</strong> OPEN TRADE (0-2 signals) | FRICTION (3-5) | FRACTURING (6-9) | TRADE WAR (10+)</p>
+                    <p style="margin: 4px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Trade signal:</strong> Rising mercantilism = inflation, supply chain plays, domestic manufacturing. Favor onshoring beneficiaries.</p>
+                    <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 0.85rem;"><strong>Why it matters:</strong> Globalization is reversing. Every "sanction" headline, every "friend-shoring" announcement, every "decouple" speech adds friction to the system. This counter tracks how fast we're moving from free trade back to mercantilism - and the investment implications are profound.</p>
+                </div>
+                
+                <div id="intel-vassal" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #a855f7;">
+                    <div style="font-weight: 700; color: #a855f7; margin-bottom: 4px;">VASSAL STATE DETECTOR (Currency Correlation)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Tracks KRW (Korean Won) correlation with USD vs CNH. Korea is the geopolitical bellwether - as it goes, so goes the Pacific order.</p>
+                    <p style="margin: 8px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Levels:</strong> US SPHERE (KRW tracks USD) | NEUTRAL (uncorrelated) | CHINA SPHERE (KRW tracks CNH)</p>
+                    <p style="margin: 4px 0 0 0; color: #6a7585; font-size: 0.85rem;"><strong>Trade signal:</strong> Shifts toward CHINA SPHERE = Asia decoupling from dollar system. Watch for BRICS momentum, gold accumulation.</p>
+                    <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 0.85rem;"><strong>Why it matters:</strong> South Korea is the ultimate swing state - economically tied to China, security-guaranteed by the US. When KRW starts tracking CNH more than USD, it signals a tectonic shift in the Pacific order. This is the canary in the coal mine for de-dollarization.</p>
+                </div>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">INTERPRETING THE SIGNALS</h3>
+                <div style="background: rgba(168, 85, 247, 0.1); border-radius: 6px; padding: 12px; border: 1px solid rgba(168, 85, 247, 0.2);">
+                    <div class="legend-item"><span class="legend-icon" style="color: #ef4444; font-weight: 700;">RED</span><span class="legend-text"><strong>Multiple Red Signals</strong> = Systemic risk rising. Reduce exposure, favor defensive positioning.</span></div>
+                    <div class="legend-item"><span class="legend-icon" style="color: #f59e0b; font-weight: 700;">YELLOW</span><span class="legend-text"><strong>Mixed Signals</strong> = Transition phase. Watch for confirmation before major moves.</span></div>
+                    <div class="legend-item"><span class="legend-icon" style="color: #22c55e; font-weight: 700;">GREEN</span><span class="legend-text"><strong>All Green</strong> = Risk-on environment. Trend following works, carry trades attractive.</span></div>
+                    <div class="legend-item"><span class="legend-icon" style="color: #a855f7; font-weight: 700;">DIVERGE</span><span class="legend-text"><strong>Divergences</strong> = Most valuable. When one metric screams while others are calm, dig deeper.</span></div>
+                </div>
+                
+                <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(147, 51, 234, 0.2); background: rgba(147, 51, 234, 0.05); border-radius: 6px;">
+                    <p style="font-size: 0.8rem; color: #a78bfa; line-height: 1.6; text-align: center; margin: 0;">
+                        <strong>HOW TO USE:</strong> These are early warning indicators, not trade signals. When multiple metrics shift together, expect regime change within 1-3 months. Use alongside Game Theory Dashboard for complete geopolitical picture.
+                    </p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(147, 51, 234, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Individual Intel Widget Modals -->
+    <!-- Revolution Risk Deep Dive Modal -->
+    <div id="revRiskModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelModal('revRiskModal', event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 650px; border-color: #ef4444;">
+            <button class="chart-close-btn" onclick="closeIntelModal('revRiskModal')" style="top: 15px; right: 15px; position: absolute; color: #ef4444;">x</button>
+            <div class="modal-title" style="color: #ef4444; padding: 0.5rem 0;">REVOLUTION RISK INDEX</div>
+            <div class="modal-analysis info-modal-scroll">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;"><em>Bread + Fuel Index - Tracking the Economic Preconditions of Social Unrest</em></p>
+                
+                <h3 style="color: #ef4444; margin-top: 0;">THE FORMULA</h3>
+                <div style="background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 6px; font-family: monospace; text-align: center; margin-bottom: 1rem;">
+                    Revolution Risk = (Wheat / 550 + WTI Oil / 70) x (DXY / 100)
+                </div>
+                <p style="line-height: 1.6;">This formula captures the three forces that historically precede social upheaval: <strong>food costs</strong> (wheat), <strong>energy costs</strong> (oil), and <strong>currency strength</strong> (DXY amplifies EM pain).</p>
+                
+                <h3 style="color: #ef4444; margin-top: 1.5rem;">WHY THESE INPUTS?</h3>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #fca5a5;">
+                    <div style="font-weight: 700; color: #fca5a5; margin-bottom: 4px;">WHEAT (Bread Proxy)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Bread is the foundational staple. When wheat prices spike, food inflation cascades through economies. The $550/bushel normalization reflects the 10-year average. Above that = stress.</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #fca5a5;">
+                    <div style="font-weight: 700; color: #fca5a5; margin-bottom: 4px;">WTI CRUDE OIL (Fuel Proxy)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Energy powers everything - transport, heating, cooking, manufacturing. The $70/barrel normalization reflects the post-shale equilibrium. Above that = inflation accelerates.</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #fca5a5;">
+                    <div style="font-weight: 700; color: #fca5a5; margin-bottom: 4px;">DXY (Dollar Multiplier)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Commodities price in USD. When the dollar strengthens, EM countries must pay more in local currency for the same food and fuel. This crushes purchasing power for billions.</p>
+                </div>
+                
+                <h3 style="color: #ef4444; margin-top: 1.5rem;">RISK LEVELS</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div style="background: rgba(34, 197, 94, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #22c55e;">
+                        <strong style="color: #22c55e;">STABLE (< 1.5)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Normal conditions. No elevated unrest risk.</p>
+                    </div>
+                    <div style="background: rgba(234, 179, 8, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #eab308;">
+                        <strong style="color: #eab308;">RISING (1.5 - 2.0)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Pressure building. Monitor EM stress.</p>
+                    </div>
+                    <div style="background: rgba(249, 115, 22, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #f97316;">
+                        <strong style="color: #f97316;">ELEVATED (2.0 - 2.5)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Danger zone. Social tensions likely rising.</p>
+                    </div>
+                    <div style="background: rgba(239, 68, 68, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #ef4444;">
+                        <strong style="color: #ef4444;">CRITICAL (> 2.5)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Revolution territory. Historical precedent for regime change.</p>
+                    </div>
+                </div>
+                
+                <h3 style="color: #ef4444; margin-top: 1.5rem;">HISTORICAL PRECEDENTS</h3>
+                <ul style="color: #94a3b8; line-height: 1.8; padding-left: 1.5rem;">
+                    <li><strong>Arab Spring (2011)</strong> - Wheat prices doubled in 6 months. Tunisia, Egypt, Libya, Syria all fell.</li>
+                    <li><strong>Sri Lanka Collapse (2022)</strong> - Fuel shortages led to PM fleeing the country by helicopter.</li>
+                    <li><strong>Egypt Protests (2023)</strong> - Bread price subsidies cut, currency devalued. Riots followed.</li>
+                    <li><strong>French Revolution (1789)</strong> - The original "let them eat cake" moment. Bread prices had doubled.</li>
+                </ul>
+                
+                <h3 style="color: #ef4444; margin-top: 1.5rem;">TRADE IMPLICATIONS</h3>
+                <div style="background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <p style="margin: 0; line-height: 1.6;"><strong>When CRITICAL:</strong> Long defense stocks (LMT, RTX, NOC), short EM FX (ZAR, TRY, EGP), long gold as flight-to-safety. Consider food security plays (ADM, BG, MOS).</p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. This content is for informational and educational purposes only. Always do your own research.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liar's Poker Deep Dive Modal -->
+    <div id="liarModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelModal('liarModal', event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 650px; border-color: #f59e0b;">
+            <button class="chart-close-btn" onclick="closeIntelModal('liarModal')" style="top: 15px; right: 15px; position: absolute; color: #f59e0b;">x</button>
+            <div class="modal-title" style="color: #f59e0b; padding: 0.5rem 0;">LIAR'S POKER</div>
+            <div class="modal-analysis info-modal-scroll">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;"><em>Narrative vs Money - Detecting When Someone Is Lying</em></p>
+                
+                <h3 style="color: #f59e0b; margin-top: 0;">THE CONCEPT</h3>
+                <p style="line-height: 1.6;">Media narratives and market positioning often diverge. When CNN says "markets are calm" but prediction markets are pricing in escalation, <strong>someone is lying</strong>. This metric catches the gap between the story being told and where money is actually flowing.</p>
+                
+                <h3 style="color: #f59e0b; margin-top: 1.5rem;">THE INPUTS</h3>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #fbbf24;">
+                    <div style="font-weight: 700; color: #fbbf24; margin-bottom: 4px;">FEAR & GREED INDEX (Narrative Proxy)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">CNN's Fear & Greed captures retail sentiment and media tone. It reflects what people <em>feel</em> based on headlines they consume. Range: 0 (Extreme Fear) to 100 (Extreme Greed).</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #fbbf24;">
+                    <div style="font-weight: 700; color: #fbbf24; margin-bottom: 4px;">POLYMARKET WAR ODDS (Money Proxy)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Prediction markets where people bet real money on outcomes. If war odds are rising but sentiment says "greed," smart money sees something retail doesn't.</p>
+                </div>
+                
+                <h3 style="color: #f59e0b; margin-top: 1.5rem;">THE SIGNALS</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div style="background: rgba(34, 197, 94, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #22c55e;">
+                        <strong style="color: #22c55e;">REALITY</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Narrative aligns with money. No divergence. Trend is authentic.</p>
+                    </div>
+                    <div style="background: rgba(234, 179, 8, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #eab308;">
+                        <strong style="color: #eab308;">WATCH</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Slight drift forming. Could normalize or widen.</p>
+                    </div>
+                    <div style="background: rgba(147, 51, 234, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #9333ea;">
+                        <strong style="color: #9333ea;">HOPIUM</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Sentiment too bullish vs bets. Retail overexposed, smart money hedging.</p>
+                    </div>
+                    <div style="background: rgba(239, 68, 68, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #ef4444;">
+                        <strong style="color: #ef4444;">FEAR PORN</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Sentiment too bearish vs bets. Contrarian buy opportunity.</p>
+                    </div>
+                </div>
+                
+                <h3 style="color: #f59e0b; margin-top: 1.5rem;">EXAMPLES IN THE WILD</h3>
+                <ul style="color: #94a3b8; line-height: 1.8; padding-left: 1.5rem;">
+                    <li><strong>Jan 2022:</strong> "Inflation is transitory" narrative while bonds were getting crushed. HOPIUM signal - inflation was real.</li>
+                    <li><strong>Oct 2022:</strong> "Recession imminent" headlines while Polymarket showed recovery bets. FEAR PORN signal - market bottomed.</li>
+                    <li><strong>Feb 2024:</strong> "War spreading" media frenzy but war odds falling. FEAR PORN signal - de-escalation coming.</li>
+                </ul>
+                
+                <h3 style="color: #f59e0b; margin-top: 1.5rem;">TRADE IMPLICATIONS</h3>
+                <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                    <p style="margin: 0; line-height: 1.6;"><strong>HOPIUM:</strong> Reduce long exposure, add hedges. Retail is the exit liquidity.<br><strong>FEAR PORN:</strong> Contrarian entry point. Buy what everyone fears when money says otherwise.</p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. This content is for informational and educational purposes only. Always do your own research.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paper vs Rock Deep Dive Modal -->
+    <div id="paperRockModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelModal('paperRockModal', event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 650px; border-color: #3b82f6;">
+            <button class="chart-close-btn" onclick="closeIntelModal('paperRockModal')" style="top: 15px; right: 15px; position: absolute; color: #3b82f6;">x</button>
+            <div class="modal-title" style="color: #3b82f6; padding: 0.5rem 0;">PAPER VS ROCK</div>
+            <div class="modal-analysis info-modal-scroll">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;"><em>Financialization Ratio - Are We in a Paper Economy or War Economy?</em></p>
+                
+                <h3 style="color: #3b82f6; margin-top: 0;">THE FORMULA</h3>
+                <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px; font-family: monospace; text-align: center; margin-bottom: 1rem;">
+                    Paper/Rock = S&P 500 / (Gold + Oil x 30 + Copper x 500)
+                </div>
+                <p style="line-height: 1.6;">This ratio measures whether capital is flowing into <strong>financial assets</strong> (Paper: stocks, bonds, derivatives) or <strong>hard assets</strong> (Rock: commodities, gold, real things). The answer determines the entire investment regime.</p>
+                
+                <h3 style="color: #3b82f6; margin-top: 1.5rem;">THE MACRO REGIMES</h3>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #60a5fa;">
+                    <div style="font-weight: 700; color: #60a5fa; margin-bottom: 4px;">FINANCIALIZED (High Ratio)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">QE regime. Central banks suppress volatility, liquidity floods into financial assets. Stocks beat commodities. Tech outperforms energy. This was 2010-2020.</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #f59e0b;">
+                    <div style="font-weight: 700; color: #f59e0b; margin-bottom: 4px;">TRANSITIONING (Mid Ratio)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Regime shift in progress. Rotation from growth to value, from tech to commodities. High volatility, unclear winners. This is the messy middle.</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #ef4444;">
+                    <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">WAR ECONOMY (Low Ratio)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Hard assets dominate. Inflation, conflict, deglobalization favor real things over paper claims. Commodities crush stocks. This was the 1970s and 1940s.</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #a855f7;">
+                    <div style="font-weight: 700; color: #a855f7; margin-bottom: 4px;">PEAK PAPER (Extreme High)</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Financialization has gone too far. Mean reversion risk is elevated. The system is fragile. Dot-com 2000, 2007 housing bubble vibes.</p>
+                </div>
+                
+                <h3 style="color: #3b82f6; margin-top: 1.5rem;">HISTORICAL CONTEXT</h3>
+                <ul style="color: #94a3b8; line-height: 1.8; padding-left: 1.5rem;">
+                    <li><strong>1945-1965:</strong> Post-WWII financialization. Paper wins as global trade expands.</li>
+                    <li><strong>1968-1982:</strong> Stagflation era. Rock crushes Paper. Gold up 24x, stocks flat for 15 years.</li>
+                    <li><strong>1982-2000:</strong> Disinflation bull market. Paper wins again. Stocks up 10x.</li>
+                    <li><strong>2000-2011:</strong> Commodities supercycle. Rock outperforms. Oil, gold, copper all surge.</li>
+                    <li><strong>2011-2020:</strong> QE infinity. Paper dominates. FAANG crushes energy.</li>
+                    <li><strong>2020-???:</strong> Are we transitioning again? Watch this ratio.</li>
+                </ul>
+                
+                <h3 style="color: #3b82f6; margin-top: 1.5rem;">TRADE IMPLICATIONS</h3>
+                <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <p style="margin: 0; line-height: 1.6;"><strong>WAR ECONOMY:</strong> Long commodities (XLE, GLD, COPX), defense (ITA), short growth (QQQ). Value over growth.<br><strong>FINANCIALIZED:</strong> Long growth, long duration, short commodities. Momentum works.</p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. This content is for informational and educational purposes only. Always do your own research.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mercantilism Counter Deep Dive Modal -->
+    <div id="mercantilismModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelModal('mercantilismModal', event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 650px; border-color: #22c55e;">
+            <button class="chart-close-btn" onclick="closeIntelModal('mercantilismModal')" style="top: 15px; right: 15px; position: absolute; color: #22c55e;">x</button>
+            <div class="modal-title" style="color: #22c55e; padding: 0.5rem 0;">MERCANTILISM COUNTER</div>
+            <div class="modal-analysis info-modal-scroll">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;"><em>Trade Fragmentation Scanner - Tracking the Death of Globalization</em></p>
+                
+                <h3 style="color: #22c55e; margin-top: 0;">THE CONCEPT</h3>
+                <p style="line-height: 1.6;">For 40 years, globalization was the dominant paradigm - free trade, open borders, integrated supply chains. That era is ending. This counter tracks how fast we're reverting to <strong>mercantilism</strong> - the 17th century system where nations prioritize domestic production over global trade.</p>
+                
+                <h3 style="color: #22c55e; margin-top: 1.5rem;">WHAT WE SCAN FOR</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 1rem;">
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: 600; color: #22c55e;">TARIFF</div>
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: 600; color: #22c55e;">SANCTION</div>
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: 600; color: #22c55e;">BAN</div>
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: 600; color: #22c55e;">BLOCKADE</div>
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: 600; color: #22c55e;">FRIEND-SHORING</div>
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: 600; color: #22c55e;">DECOUPLE</div>
+                </div>
+                <p style="line-height: 1.6; color: #6a7585;">Each headline containing these keywords represents friction being added to the global trading system.</p>
+                
+                <h3 style="color: #22c55e; margin-top: 1.5rem;">FRAGMENTATION LEVELS</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div style="background: rgba(34, 197, 94, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #22c55e;">
+                        <strong style="color: #22c55e;">OPEN TRADE (0-2)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Normal headline noise. Globalization intact.</p>
+                    </div>
+                    <div style="background: rgba(234, 179, 8, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #eab308;">
+                        <strong style="color: #eab308;">FRICTION (3-5)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Elevated tensions. Supply chains adapting.</p>
+                    </div>
+                    <div style="background: rgba(249, 115, 22, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #f97316;">
+                        <strong style="color: #f97316;">FRACTURING (6-9)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Serious fragmentation. Regional blocs forming.</p>
+                    </div>
+                    <div style="background: rgba(239, 68, 68, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #ef4444;">
+                        <strong style="color: #ef4444;">TRADE WAR (10+)</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6a7585;">Full mercantilism. Expect inflation, supply shocks.</p>
+                    </div>
+                </div>
+                
+                <h3 style="color: #22c55e; margin-top: 1.5rem;">INVESTMENT IMPLICATIONS</h3>
+                <ul style="color: #94a3b8; line-height: 1.8; padding-left: 1.5rem;">
+                    <li><strong>Rising mercantilism = inflation:</strong> More friction = higher costs = higher prices</li>
+                    <li><strong>Onshoring beneficiaries:</strong> US manufacturing (CAT, DE), construction (VMC, MLM)</li>
+                    <li><strong>Supply chain rewiring:</strong> Mexico nearshoring (EWW), Vietnam (VNM)</li>
+                    <li><strong>Commodity volatility:</strong> Fragmented supply = price swings. Favor producers.</li>
+                    <li><strong>Losers:</strong> Global logistics (FDX, UPS long-term), pure exporters, assembly hubs</li>
+                </ul>
+                
+                <h3 style="color: #22c55e; margin-top: 1.5rem;">THE BIG PICTURE</h3>
+                <div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(34, 197, 94, 0.3);">
+                    <p style="margin: 0; line-height: 1.6;">We are living through the end of the post-1980 globalization era. This counter helps you track the speed of that transition. The faster it moves, the more inflationary and volatile markets become.</p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(34, 197, 94, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. This content is for informational and educational purposes only. Always do your own research.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vassal State Detector Deep Dive Modal -->
+    <div id="vassalModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelModal('vassalModal', event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 650px; border-color: #a855f7;">
+            <button class="chart-close-btn" onclick="closeIntelModal('vassalModal')" style="top: 15px; right: 15px; position: absolute; color: #a855f7;">x</button>
+            <div class="modal-title" style="color: #a855f7; padding: 0.5rem 0;">VASSAL STATE DETECTOR</div>
+            <div class="modal-analysis info-modal-scroll">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;"><em>Currency Correlation Analysis - Tracking the Great Power Realignment</em></p>
+                
+                <h3 style="color: #a855f7; margin-top: 0;">THE CONCEPT</h3>
+                <p style="line-height: 1.6;">In a multipolar world, currencies reveal allegiances. We track the <strong>Korean Won (KRW)</strong> because South Korea is the ultimate swing state - economically tied to China, security-guaranteed by the US. Where KRW correlates tells us which pole is winning.</p>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">WHY SOUTH KOREA?</h3>
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #c084fc;">
+                    <div style="font-weight: 700; color: #c084fc; margin-bottom: 4px;">THE PIVOT STATE</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">South Korea is the 10th largest economy. Samsung, Hyundai, SK Hynix are global players. China is Korea's largest trading partner. The US guarantees Korea's security. This tension makes KRW the perfect barometer.</p>
+                </div>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">THE METHODOLOGY</h3>
+                <p style="line-height: 1.6;">We calculate the <strong>Pearson correlation coefficient</strong> between KRW and both USD and CNH (offshore yuan) over rolling windows. Whichever correlation is stronger indicates which sphere of influence Korea is drifting toward.</p>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">THE SIGNALS</h3>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                    <div style="background: rgba(59, 130, 246, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #3b82f6;">
+                        <strong style="color: #3b82f6;">US SPHERE</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #6a7585;">KRW tracks USD more closely. Dollar system intact. US security umbrella holding. Traditional risk-on/risk-off dynamics apply.</p>
+                    </div>
+                    <div style="background: rgba(168, 85, 247, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #a855f7;">
+                        <strong style="color: #a855f7;">NEUTRAL</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #6a7585;">KRW uncorrelated with either. Transition period. Maximum uncertainty. Watch for policy shifts.</p>
+                    </div>
+                    <div style="background: rgba(239, 68, 68, 0.15); padding: 10px; border-radius: 4px; border-left: 3px solid #ef4444;">
+                        <strong style="color: #ef4444;">CHINA SPHERE</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #6a7585;">KRW tracks CNH more closely. De-dollarization accelerating. Asia realigning. Major geopolitical shift in progress.</p>
+                    </div>
+                </div>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">WHAT A SHIFT MEANS</h3>
+                <ul style="color: #94a3b8; line-height: 1.8; padding-left: 1.5rem;">
+                    <li><strong>Reserve currency implications:</strong> If Korea drifts to China, other Asian nations may follow</li>
+                    <li><strong>BRICS momentum:</strong> More countries considering alternatives to dollar system</li>
+                    <li><strong>Gold accumulation:</strong> Central banks hedge against dollar decline</li>
+                    <li><strong>US Treasury demand:</strong> Foreign buying may decrease, yields may rise</li>
+                    <li><strong>Regional trade:</strong> More bilateral currency agreements, less USD settlement</li>
+                </ul>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">TRADE IMPLICATIONS</h3>
+                <div style="background: rgba(168, 85, 247, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.3);">
+                    <p style="margin: 0; line-height: 1.6;"><strong>CHINA SPHERE:</strong> Long gold (GLD, PHYS), long EM ex-China, short US Treasuries duration. Watch for BRICS currency developments.<br><strong>US SPHERE:</strong> Traditional correlations hold. Risk-on = USD down, risk-off = USD up.</p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(168, 85, 247, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. This content is for informational and educational purposes only. Always do your own research.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -4733,7 +6197,7 @@
     <div id="ratesLegendModal" class="chart-modal-overlay" style="display: none;" onclick="closeRatesLegend(event)">
         <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px; border-color: #3b82f6;">
             <button class="chart-close-btn" onclick="closeRatesLegend()" style="top: 15px; right: 15px; position: absolute; color: #3b82f6;">×</button>
-            <div class="modal-title" style="color: #3b82f6; padding: 0.5rem 0;">📊 RATES DASHBOARD LEGEND</div>
+            <div class="modal-title" style="color: #3b82f6; padding: 0.5rem 0;">BASE LAYER LEGEND</div>
             <div class="modal-analysis info-modal-scroll">
                 
                 <h3 style="color: #3b82f6; margin-top: 0;">WHY THESE 8 INDICATORS MATTER</h3>
@@ -4838,6 +6302,48 @@
         function closeGameLegend(event) {
             if (!event || event.target.id === 'gameLegendModal' || event.target.classList.contains('chart-close-btn')) {
                 document.getElementById('gameLegendModal').style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+        
+        function openIntelLegend() {
+            document.getElementById('intelLegendModal').style.display = 'flex';
+            document.getElementById('intelLegendModal').style.justifyContent = 'center';
+            document.getElementById('intelLegendModal').style.alignItems = 'flex-start';
+            document.getElementById('intelLegendModal').style.paddingTop = '3rem';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeIntelLegend(event) {
+            if (!event || event.target.id === 'intelLegendModal' || event.target.classList.contains('chart-close-btn')) {
+                document.getElementById('intelLegendModal').style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+        
+        function openIntelLegendSection(sectionId) {
+            openIntelLegend();
+            setTimeout(() => {
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    section.style.animation = 'highlight-pulse 1.5s ease-out';
+                    setTimeout(() => { section.style.animation = ''; }, 1500);
+                }
+            }, 100);
+        }
+        
+        function openIntelDetailModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+            document.getElementById(modalId).style.justifyContent = 'center';
+            document.getElementById(modalId).style.alignItems = 'flex-start';
+            document.getElementById(modalId).style.paddingTop = '3rem';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeIntelModal(modalId, event) {
+            if (!event || event.target.id === modalId || event.target.classList.contains('chart-close-btn')) {
+                document.getElementById(modalId).style.display = 'none';
                 document.body.style.overflow = '';
             }
         }
