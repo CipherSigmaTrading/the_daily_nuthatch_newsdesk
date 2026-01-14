@@ -1466,6 +1466,15 @@ async function sendInitialData(ws) {
         data: cachedPredictionData
       }));
       
+      // Send Strategic Intelligence data if available
+      if (cachedStrategicIntelligence) {
+        ws.send(JSON.stringify({
+          type: 'strategic_intelligence',
+          data: cachedStrategicIntelligence
+        }));
+        console.log('🎖️ Sent Strategic Intelligence data');
+      }
+      
       console.log('📤 Sent initial market/macro/fx/commodity/sentiment data');
     } else {
       console.log('⚠️ Client disconnected before data could be sent');
@@ -1561,6 +1570,11 @@ const RSS_FEEDS = [
   { url: 'https://seekingalpha.com/market_currents.xml', category: 'breaking', name: 'SeekingAlpha Currents' },
   { url: 'https://rss.dw.com/rdf/rss-en-bus', category: 'breaking', name: 'Deutsche Welle Business' },
   { url: 'https://www.euronews.com/rss?level=vertical&name=business', category: 'breaking', name: 'Euronews Business' },
+  
+  // ============ HIGH-VELOCITY FINANCIAL NEWS ============
+  { url: 'https://finance.yahoo.com/rss/topstories', category: 'breaking', name: 'Yahoo Finance' },
+  { url: 'https://www.ft.com/?format=rss', category: 'breaking', name: 'Financial Times' },
+  { url: 'https://www.investing.com/rss/news.rss', category: 'breaking', name: 'Investing.com' },
 ];
 
 async function pollRSSFeeds(itemsPerFeed = 3) {
@@ -2952,10 +2966,10 @@ async function fetchMacroData() {
   };
 
   const yieldSymbols = [
-    { symbol: '2YY=F', label: 'US 2Y' },
-    { symbol: '^FVX', label: 'US 5Y' },
-    { symbol: '^TNX', label: 'US 10Y' },
-    { symbol: '^TYX', label: 'US 30Y' }
+    { symbol: '2YY=F', label: 'US 2Y', tvSymbol: 'TVC:US02Y' },
+    { symbol: '^FVX', label: 'US 5Y', tvSymbol: 'TVC:US05Y' },
+    { symbol: '^TNX', label: 'US 10Y', tvSymbol: 'TVC:US10Y' },
+    { symbol: '^TYX', label: 'US 30Y', tvSymbol: 'TVC:US30Y' }
   ];
 
   for (const item of yieldSymbols) {
@@ -2978,6 +2992,7 @@ async function fetchMacroData() {
         change: (bps > 0 ? '+' : '') + bps.toFixed(1) + 'bp',
         dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
         rawValue: current,
+        tvSymbol: item.tvSymbol,
         rawChange: change
       });
     } catch (error) {
@@ -2987,9 +3002,9 @@ async function fetchMacroData() {
 
   if (CONFIG.FRED_API_KEY) {
     const fredIndicators = [
-      { id: 'U6RATE', label: 'U6 RATE', format: '%', tripwire: 8.0, fallback: '8.70' },
-      { id: 'RRPONTSYAWARD', label: 'FED RRP', format: '%', tripwire: 5.50, fallback: '3.50' },
-      { id: 'SOFR', label: 'SOFR', format: '%', tripwire: 5.50, fallback: '4.30' }
+      { id: 'U6RATE', label: 'U6 RATE', format: '%', tripwire: 8.0, fallback: '8.70', fredId: 'U6RATE' },
+      { id: 'RRPONTSYAWARD', label: 'FED RRP', format: '%', tripwire: 5.50, fallback: '3.50', fredId: 'RRPONTSYAWARD' },
+      { id: 'SOFR', label: 'SOFR', format: '%', tripwire: 5.50, fallback: '4.30', fredId: 'SOFR' }
     ];
 
     for (const indicator of fredIndicators) {
@@ -3021,7 +3036,8 @@ async function fetchMacroData() {
               change: isNaN(change) ? '0.00' + indicator.format : (change > 0 ? '+' : '') + change.toFixed(2) + indicator.format,
               dir: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
               tripwireHit: latest > indicator.tripwire,
-              date: observations[0].date
+              date: observations[0].date,
+              fredId: indicator.fredId
             });
             console.log(`✅ ${indicator.label} fetched:`, latest.toFixed(2) + indicator.format);
           } else {
@@ -3041,9 +3057,9 @@ async function fetchMacroData() {
     }
   } else {
     macroData.indicators.push(
-      { label: 'U6 RATE', value: '8.70%', change: '0.00%', dir: 'neutral', tripwireHit: false },
-      { label: 'FED RRP', value: '3.50%', change: '0.00%', dir: 'neutral', tripwireHit: false },
-      { label: 'SOFR', value: '4.30%', change: '0.00%', dir: 'neutral', tripwireHit: false }
+      { label: 'U6 RATE', value: '8.70%', change: '0.00%', dir: 'neutral', tripwireHit: false, fredId: 'U6RATE' },
+      { label: 'FED RRP', value: '3.50%', change: '0.00%', dir: 'neutral', tripwireHit: false, fredId: 'RRPONTSYAWARD' },
+      { label: 'SOFR', value: '4.30%', change: '0.00%', dir: 'neutral', tripwireHit: false, fredId: 'SOFR' }
     );
   }
 
@@ -3786,34 +3802,66 @@ cron.schedule('*/60 * * * * *', async () => {
 
 const POLYMARKET_API = 'https://gamma-api.polymarket.com';
 
-// Keywords to filter for market-relevant predictions (exclude sports/entertainment)
-const MARKET_RELEVANT_KEYWORDS = [
-  // Macro/Fed
-  'fed', 'fomc', 'rate', 'inflation', 'recession', 'gdp', 'unemployment', 'cpi', 'pce', 'jobs',
-  'powell', 'yellen', 'treasury', 'default', 'debt ceiling', 'shutdown',
-  // Crypto
-  'bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'sec', 'etf',
-  // Politics/Elections
-  'trump', 'biden', 'election', 'president', 'congress', 'senate', 'governor', 'primary',
-  // Geopolitics/Statecraft
-  'china', 'russia', 'ukraine', 'taiwan', 'iran', 'israel', 'nato', 'war', 'invasion', 'sanctions',
-  'tariff', 'trade war', 'xi jinping', 'putin', 'zelensky', 'kim jong', 'north korea',
-  // Markets/Commodities
-  'oil', 'gold', 'stock', 'market', 's&p', 'nasdaq', 'dow', 'vix', 'crash', 'rally',
-  // Central Banks
-  'ecb', 'boj', 'bank of england', 'lagarde', 'ueda',
-  // Tech/Regulation
-  'ai', 'openai', 'nvidia', 'antitrust', 'regulation', 'tiktok ban'
+// TIER 1: HIGH-PRIORITY keywords (1 match = auto-include) - Direct market movers
+const TIER1_KEYWORDS = [
+  // Fed/Central Banks - Direct rate impact
+  'fomc', 'rate cut', 'rate hike', 'fed funds', 'powell', 'quantitative',
+  // Hard economic data
+  'recession', 'gdp growth', 'cpi print', 'pce inflation', 'nonfarm payroll',
+  // Market events
+  'stock crash', 'market crash', 'circuit breaker', 'flash crash',
+  // Geopolitical escalation
+  'invasion', 'nuclear', 'missile strike', 'military action', 'declare war',
+  // Crypto regulatory
+  'bitcoin etf', 'crypto regulation', 'sec lawsuit'
 ];
 
-// Keywords to EXCLUDE (sports, entertainment, non-market noise)
+// TIER 2: STANDARD keywords (need 2+ matches) - Broader relevance
+const TIER2_KEYWORDS = [
+  // Macro
+  'fed', 'inflation', 'recession', 'unemployment', 'treasury', 'debt ceiling', 'shutdown', 'default',
+  // Markets
+  'bitcoin', 'ethereum', 'crypto', 's&p', 'nasdaq', 'dow', 'vix', 'oil price', 'gold price',
+  // Central Banks
+  'ecb', 'boj', 'bank of england', 'rba', 'interest rate',
+  // Geopolitics
+  'ukraine', 'taiwan', 'sanctions', 'tariff', 'trade war',
+  // Politics (only when paired with economic terms)
+  'trump tariff', 'biden economy', 'election market', 'government shutdown'
+];
+
+// TIER 3: CONTEXT keywords (need to pair with Tier 1 or 2)
+const TIER3_KEYWORDS = [
+  'china', 'russia', 'iran', 'israel', 'nato', 'war',
+  'trump', 'biden', 'election', 'president', 'congress',
+  'oil', 'gold', 'stock', 'market', 'crypto',
+  'ai', 'nvidia', 'openai'
+];
+
+// HARD EXCLUDE - Always filter out regardless of other matches
 const EXCLUDE_KEYWORDS = [
+  // Sports
   'nfl', 'nba', 'mlb', 'nhl', 'super bowl', 'world series', 'playoffs', 'championship',
-  'oscars', 'grammy', 'emmy', 'golden globe', 'movie', 'film', 'album', 'song',
+  'touchdown', 'home run', 'slam dunk', 'goal scored', 'mvp award',
+  // Entertainment
+  'oscars', 'grammy', 'emmy', 'golden globe', 'movie', 'film', 'album', 'song', 'concert',
   'tiktok star', 'influencer', 'youtube', 'twitch', 'streamer', 'celebrity',
-  'bachelor', 'love island', 'reality tv', 'kardashian', 'taylor swift', 'concert',
-  'wrestling', 'ufc', 'boxing', 'fight', 'bout', 'match', 'game score',
-  'survivor', 'big brother', 'american idol', 'the voice'
+  'bachelor', 'love island', 'reality tv', 'kardashian', 'taylor swift',
+  'wrestling', 'ufc', 'boxing', 'fight night', 'bout', 'match result',
+  'survivor', 'big brother', 'american idol', 'the voice',
+  // Impossible/Frivolous political scenarios
+  'elon musk president', 'elon musk nomination', 'musk republican', 'musk democrat',
+  'kanye president', 'kanye nomination', 'dwayne johnson president', 'the rock president',
+  'arnold schwarzenegger president', 'oprah president', 'mark cuban president',
+  // Non-tradeable personal events
+  'will marry', 'divorce', 'baby', 'pregnant', 'dating', 'engaged',
+  'arrested for', 'go to jail', 'prison sentence',
+  // Weather/Natural (unless market impact)
+  'snowfall', 'rainfall inches', 'temperature record', 'hurricane name',
+  // Social media metrics
+  'twitter followers', 'instagram followers', 'subscriber count', 'viral video',
+  // Awards/Recognition (non-market)
+  'nobel peace', 'person of the year', 'time magazine', 'forbes list'
 ];
 
 async function fetchPolymarketData() {
@@ -3831,14 +3879,34 @@ async function fetchPolymarketData() {
     
     const markets = response.data || [];
     
-    // Filter for market-relevant topics and exclude sports/entertainment
+    // TIERED FILTERING: More exclusive relevance scoring
     const relevantMarkets = markets.filter(market => {
       const text = (market.question || '').toLowerCase() + ' ' + (market.description || '').toLowerCase();
-      // Must match at least one relevant keyword
-      const isRelevant = MARKET_RELEVANT_KEYWORDS.some(keyword => text.includes(keyword));
-      // Must NOT match any excluded keywords
+      
+      // HARD EXCLUDE check first - if any exclude keyword matches, reject
       const isExcluded = EXCLUDE_KEYWORDS.some(keyword => text.includes(keyword));
-      return isRelevant && !isExcluded;
+      if (isExcluded) return false;
+      
+      // Count matches in each tier
+      const tier1Matches = TIER1_KEYWORDS.filter(keyword => text.includes(keyword)).length;
+      const tier2Matches = TIER2_KEYWORDS.filter(keyword => text.includes(keyword)).length;
+      const tier3Matches = TIER3_KEYWORDS.filter(keyword => text.includes(keyword)).length;
+      
+      // INCLUSION RULES:
+      // 1. Any Tier 1 match = auto-include (direct market movers)
+      if (tier1Matches >= 1) return true;
+      
+      // 2. Two or more Tier 2 matches = include
+      if (tier2Matches >= 2) return true;
+      
+      // 3. One Tier 2 + One Tier 3 = include (contextual relevance)
+      if (tier2Matches >= 1 && tier3Matches >= 1) return true;
+      
+      // 4. Three or more Tier 3 matches = include (strong thematic overlap)
+      if (tier3Matches >= 3) return true;
+      
+      // Otherwise reject
+      return false;
     });
     
     // Take top 20 relevant markets
@@ -4026,6 +4094,225 @@ cron.schedule('*/30 * * * *', async () => {
 });
 
 // ============================================================================
+// STRATEGIC INTELLIGENCE ENGINE (War Room)
+// ============================================================================
+
+// History buffer for correlation calculations (Vassal State Detector)
+const strategicHistoryBuffer = {
+  timestamps: [],
+  krw: [],
+  dxy: [],
+  cnh: [],
+  spx: []
+};
+
+// Cached strategic intelligence data
+let cachedStrategicIntelligence = null;
+
+function calculateStrategicIntelligence() {
+  try {
+    const d = cachedMarketSnapshot.data || {};
+    const news = recentCards || [];
+    
+    // Get market values with fallbacks
+    const wheat = parseFloat(d.wheat) || 580;
+    const oil = parseFloat(d.wti) || 75;
+    const dxy = parseFloat(d.dxy) || 104;
+    const gold = parseFloat(d.gold) || 2000;
+    const copper = parseFloat(d.copper) || 4.0;
+    const spx = parseFloat(d.spx) || 4500;
+    
+    // 1. LIAR'S POKER (Sentiment vs. Prediction Odds)
+    const warOdds = cachedPredictionData?.markets?.find(m => 
+      (m.question || '').toLowerCase().includes('conflict') || 
+      (m.question || '').toLowerCase().includes('war') ||
+      (m.question || '').toLowerCase().includes('invasion')
+    );
+    const warOddsValue = warOdds ? parseFloat(warOdds.probability) : 15;
+    
+    // Use Fear & Greed as sentiment proxy
+    const sentimentData = calculateSentimentDashboard();
+    const sentiment = parseFloat(sentimentData?.fearGreed?.value) || 50;
+    const liarsPoker = checkNarrativeDivergence(sentiment, warOddsValue);
+    
+    // 2. REVOLUTION RISK (Bread + Fuel × DXY)
+    const revRisk = calculateRevolutionRisk(wheat, oil, dxy);
+    
+    // 3. PAPER vs ROCK (Financialization vs War Economy)
+    const warEco = calculateWarEconomy(spx, { gold, oil, copper });
+    
+    // 4. MERCANTILISM COUNTER (Trade Fragmentation)
+    const fragScore = scanFragmentation(news);
+    
+    // 5. VASSAL STATE DETECTOR (Currency Correlations)
+    updateStrategicHistoryBuffer(d);
+    const vassalState = detectVassalState();
+    
+    const intelligenceData = {
+      liarsPoker,
+      revRisk,
+      warEco,
+      fragScore,
+      vassalState,
+      timestamp: Date.now()
+    };
+    
+    cachedStrategicIntelligence = intelligenceData;
+    return intelligenceData;
+    
+  } catch (e) {
+    console.error('Strategic Intelligence calc failed:', e.message);
+    return null;
+  }
+}
+
+// LIAR'S POKER: Detect when narrative diverges from market pricing
+function checkNarrativeDivergence(sentiment, warOdds) {
+  const impliedPeace = 100 - warOdds;
+  const divergence = Math.abs(sentiment - impliedPeace);
+  
+  let status = 'ALIGNED';
+  let label = 'REALITY';
+  let color = '#22c55e';
+  
+  if (divergence > 30) {
+    status = 'DIVERGENCE';
+    label = sentiment > impliedPeace ? 'HOPIUM' : 'FEAR PORN';
+    color = '#ef4444';
+  } else if (divergence > 15) {
+    status = 'DRIFTING';
+    label = 'WATCH';
+    color = '#f59e0b';
+  }
+  
+  return { divergence: divergence.toFixed(1), status, label, color };
+}
+
+// REVOLUTION RISK: Bread + Fuel Index (social stability indicator)
+function calculateRevolutionRisk(wheat, oil, dxy) {
+  // Normalized: (Wheat/550 baseline) + (Oil/70 baseline) × (DXY/100)
+  const score = ((wheat / 550) + (oil / 70)) * (dxy / 100);
+  
+  let level = 'STABLE';
+  let color = '#22c55e';
+  
+  if (score > 2.5) { level = 'CRITICAL'; color = '#ef4444'; }
+  else if (score > 2.2) { level = 'ELEVATED'; color = '#f59e0b'; }
+  else if (score > 2.0) { level = 'RISING'; color = '#eab308'; }
+  
+  return { score: score.toFixed(2), level, color };
+}
+
+// PAPER vs ROCK: Financial assets vs hard commodities
+function calculateWarEconomy(spx, commodities) {
+  // Rock basket: Gold + (Oil × 30) + (Copper × 500)
+  const rockBasket = commodities.gold + (commodities.oil * 30) + (commodities.copper * 500);
+  const ratio = spx / rockBasket;
+  
+  let label = 'FINANCIALIZED';
+  let color = '#3b82f6';
+  
+  if (ratio < 0.55) { label = 'WAR ECONOMY'; color = '#ef4444'; }
+  else if (ratio < 0.65) { label = 'TRANSITIONING'; color = '#f59e0b'; }
+  else if (ratio > 0.85) { label = 'PEAK PAPER'; color = '#a855f7'; }
+  
+  return { ratio: ratio.toFixed(2), label, color };
+}
+
+// MERCANTILISM COUNTER: Scan news for trade fragmentation signals
+function scanFragmentation(newsItems) {
+  const keywords = /tariff|sanction|ban|blockade|subsidy|national security|friend-shoring|decouple|reshoring|protectionism/gi;
+  
+  let hits = 0;
+  const textBlock = newsItems.map(item => 
+    (item.title || '') + ' ' + (item.summary || '')
+  ).join(' ');
+  
+  const matches = textBlock.match(keywords);
+  if (matches) hits = matches.length;
+  
+  let level = 'OPEN TRADE';
+  let color = '#22c55e';
+  
+  if (hits > 15) { level = 'TRADE WAR'; color = '#ef4444'; }
+  else if (hits > 8) { level = 'FRACTURING'; color = '#f59e0b'; }
+  else if (hits > 4) { level = 'FRICTION'; color = '#eab308'; }
+  
+  return { hits, level, color };
+}
+
+// Update history buffer for correlation analysis
+function updateStrategicHistoryBuffer(marketData) {
+  // Keep last 30 data points
+  if (strategicHistoryBuffer.timestamps.length >= 30) {
+    Object.keys(strategicHistoryBuffer).forEach(k => strategicHistoryBuffer[k].shift());
+  }
+  
+  strategicHistoryBuffer.timestamps.push(Date.now());
+  strategicHistoryBuffer.krw.push(parseFloat(marketData.krw) || 1350);
+  strategicHistoryBuffer.dxy.push(parseFloat(marketData.dxy) || 104);
+  strategicHistoryBuffer.cnh.push(parseFloat(marketData.cnh) || 7.2);
+  strategicHistoryBuffer.spx.push(parseFloat(marketData.spx) || 4500);
+}
+
+// VASSAL STATE DETECTOR: Who controls the KRW?
+function detectVassalState() {
+  const r_KRW_USD = getPearsonCorrelation(strategicHistoryBuffer.krw, strategicHistoryBuffer.dxy);
+  const r_KRW_CNH = getPearsonCorrelation(strategicHistoryBuffer.krw, strategicHistoryBuffer.cnh);
+  
+  const usSphere = Math.abs(r_KRW_USD);
+  const cnSphere = Math.abs(r_KRW_CNH);
+  
+  let master = 'NEUTRAL';
+  let color = '#6b7280';
+  
+  if (usSphere > cnSphere && usSphere > 0.3) {
+    master = 'US SPHERE';
+    color = '#3b82f6';
+  } else if (cnSphere > usSphere && cnSphere > 0.3) {
+    master = 'CHINA SPHERE';
+    color = '#ef4444';
+  }
+  
+  return {
+    subject: 'KRW',
+    master,
+    strength: Math.max(usSphere, cnSphere).toFixed(2),
+    color
+  };
+}
+
+// Pearson Correlation coefficient
+function getPearsonCorrelation(x, y) {
+  if (x.length !== y.length || x.length < 5) return 0;
+  
+  const n = x.length;
+  const sumX = x.reduce((a, b) => a + b, 0);
+  const sumY = y.reduce((a, b) => a + b, 0);
+  const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+  const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+  const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+  
+  const numerator = (n * sumXY) - (sumX * sumY);
+  const denominator = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
+  
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+// Strategic Intelligence update every 60 seconds
+cron.schedule('*/60 * * * * *', () => {
+  try {
+    const data = calculateStrategicIntelligence();
+    if (data) {
+      broadcast({ type: 'strategic_intelligence', data });
+      console.log(`🎖️ Strategic Intel: RevRisk=${data.revRisk.level}, Frag=${data.fragScore.level}`);
+    }
+  } catch (error) {
+    console.error('Strategic Intelligence update error:', error.message);
+  }
+});
+
+// ============================================================================
 // SERVER START
 // ============================================================================
 
@@ -4121,6 +4408,20 @@ server.listen(CONFIG.PORT, '0.0.0.0', () => {
       console.error('Initial prediction fetch error:', error.message);
     }
   }, 5000);
+  
+  // Initial Strategic Intelligence calculation (after market data is loaded)
+  setTimeout(() => {
+    console.log('🎖️ Initial Strategic Intelligence calculation...');
+    try {
+      const intelData = calculateStrategicIntelligence();
+      if (intelData) {
+        broadcast({ type: 'strategic_intelligence', data: intelData });
+        console.log(`🎖️ Strategic Intel: RevRisk=${intelData.revRisk?.level}, Frag=${intelData.fragScore?.level}`);
+      }
+    } catch (error) {
+      console.error('Initial Strategic Intelligence error:', error.message);
+    }
+  }, 6000);
 });
 
 // Graceful shutdown and error handling
