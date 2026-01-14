@@ -4111,18 +4111,9 @@ let cachedStrategicIntelligence = null;
 
 function calculateStrategicIntelligence() {
   try {
-    // Null safety checks
-    if (!cachedMarketSnapshot || !cachedMarketSnapshot.data) {
-      console.warn('Strategic Intelligence: No market data available');
-      return null;
-    }
-
     const d = cachedMarketSnapshot.data || {};
     const news = recentCards || [];
-
-    // Track data freshness - detect if using fallback values
-    const usingFallbacks = !d.wheat || !d.wti || !d.dxy || !d.gold || !d.copper || !d.spx;
-
+    
     // Get market values with fallbacks
     const wheat = parseFloat(d.wheat) || 580;
     const oil = parseFloat(d.wti) || 75;
@@ -4130,6 +4121,9 @@ function calculateStrategicIntelligence() {
     const gold = parseFloat(d.gold) || 2000;
     const copper = parseFloat(d.copper) || 4.0;
     const spx = parseFloat(d.spx) || 4500;
+    
+    // Track data freshness - detect if using fallback values
+    const usingFallbacks = !d.wheat || !d.wti || !d.dxy || !d.gold || !d.copper || !d.spx;
     
     // 1. LIAR'S POKER (Sentiment vs. Prediction Odds)
     const warOdds = cachedPredictionData?.markets?.find(m => {
@@ -4171,13 +4165,9 @@ function calculateStrategicIntelligence() {
       warEco,
       fragScore,
       vassalState,
-      timestamp: Date.now(),
-      dataQuality: {
-        usingFallbacks,
-        warning: usingFallbacks ? 'Using fallback data - market APIs may be unavailable' : null
-      }
+      timestamp: Date.now()
     };
-
+    
     cachedStrategicIntelligence = intelligenceData;
     return intelligenceData;
     
