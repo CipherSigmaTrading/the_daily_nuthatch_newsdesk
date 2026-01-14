@@ -2069,16 +2069,16 @@
             letter-spacing: 1px;
         }
         
-        /* Statecraft Section Labels - centered, bigger */
+        /* Statecraft Section Labels - match .macro-dashboard-subtitle exactly */
         .statecraft-section-label {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #a78bfa;
+            font-size: 0.65rem;
+            font-weight: 400;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             text-align: center;
-            padding: 8px 0 12px 0;
-            margin-top: 8px;
+            margin-bottom: 10px;
+            margin-top: 6px;
         }
         .statecraft-section-label:first-of-type {
             margin-top: 0;
@@ -2272,6 +2272,159 @@
             font-size: 0.8rem;
         }
         
+        /* Game Theory Button Row */
+        .game-buttons-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .game-buttons-row .game-analyze-btn {
+            flex: 1;
+            margin-top: 0;
+            text-align: center;
+        }
+        .game-map-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: linear-gradient(135deg, rgba(212, 113, 74, 0.2), rgba(212, 113, 74, 0.1));
+            border: 1px solid rgba(212, 113, 74, 0.4);
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex: 1;
+            box-sizing: border-box;
+            animation: orangePulse 3s ease-in-out infinite;
+            text-align: center;
+        }
+        .game-map-btn:hover {
+            background: linear-gradient(135deg, rgba(212, 113, 74, 0.3), rgba(212, 113, 74, 0.2));
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 8px rgba(212, 113, 74, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Globe Modal Hologram Style - Square */
+        .globe-modal-content {
+            width: min(75vh, 85vw);
+            height: min(75vh, 85vw);
+            background: radial-gradient(circle at center, #161a22 0%, #0e1116 100%);
+            border: 1px solid rgba(212, 113, 74, 0.4);
+            border-radius: 0;
+            box-shadow: 
+                0 0 0 1px rgba(212, 113, 74, 0.15),
+                0 20px 80px rgba(0, 0, 0, 0.7),
+                0 0 40px rgba(212, 113, 74, 0.1);
+            position: relative;
+            animation: hologramPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+        }
+        @keyframes hologramPop {
+            0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        
+        /* Game Theory Tooltip for Globe - Float above everything with drop shadow */
+        .am5-tooltip-container {
+            background: rgba(14, 17, 22, 0.98) !important;
+            border: 1px solid var(--accent-orange) !important;
+            backdrop-filter: blur(8px);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.8),
+                0 4px 16px rgba(0, 0, 0, 0.6),
+                0 0 60px rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+            padding: 12px;
+            max-width: 280px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            z-index: 2147483647 !important;
+            pointer-events: none;
+            text-align: left;
+            position: relative;
+        }
+        /* Hide empty tooltip containers */
+        .am5-tooltip-container:empty,
+        .am5-tooltip-container:not(:has(.gt-title)) {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        /* Force amCharts tooltip layer to max z-index */
+        [class*="am5-layer-30"],
+        [class*="am5-tooltip"],
+        .am5-html-container {
+            z-index: 2147483647 !important;
+        }
+        /* Hide amCharts focus-trap input (causes blinking cursor) */
+        input[class*="am5-focus"],
+        .am5-focus-container,
+        [class*="am5-reader"] {
+            position: absolute !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+        .gt-title { color: #fff; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+        .gt-type { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: inline-block; padding: 2px 6px; border-radius: 2px; }
+        .gt-desc { color: #a0aec0; font-size: 0.7rem; line-height: 1.4; margin-bottom: 8px; }
+        .gt-theory { color: var(--accent-orange); font-size: 0.65rem; font-weight: 600; border-left: 2px solid var(--accent-orange); padding-left: 8px; line-height: 1.3; }
+        
+        /* Mobile-Responsive Globe Modal */
+        @media (max-width: 768px) {
+            .globe-modal-content {
+                width: min(85vh, 95vw);
+                height: min(85vh, 95vw);
+                border-radius: 0;
+            }
+            .globe-modal-content .chart-close-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 1.5rem;
+                top: 10px;
+                right: 10px;
+            }
+            .am5-tooltip-container {
+                max-width: 220px;
+                padding: 10px;
+            }
+            .gt-title { font-size: 0.8rem; }
+            .gt-type { font-size: 0.6rem; }
+            .gt-desc { font-size: 0.65rem; }
+            .gt-theory { font-size: 0.6rem; }
+        }
+        
+        @media (max-width: 480px) {
+            .globe-modal-content {
+                width: 95vw;
+                height: 95vw;
+                border-radius: 0;
+                margin-top: 10%;
+            }
+            .game-buttons-row {
+                flex-direction: column;
+                gap: 4px;
+            }
+            .game-buttons-row .game-analyze-btn,
+            .game-buttons-row .game-map-btn {
+                flex: 1 1 auto;
+                width: 100%;
+            }
+            .game-map-btn {
+                flex: 1 1 auto !important;
+            }
+        }
+        
         .polymarket-item {
             cursor: pointer;
             background: rgba(0, 0, 0, 0.3);
@@ -2323,12 +2476,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.95);
+            background: rgba(0, 0, 0, 0.66);
             z-index: 10000;
             display: flex;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(6px);
             animation: fadeIn 0.2s ease;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
@@ -2483,7 +2636,8 @@
         }
 
         /* Intel Legend Modal specific styles - match Games Legend */
-        #intelLegendModal .chart-modal-content {
+        #intelLegendModal .chart-modal-content,
+        #statecraftExplainerModal .chart-modal-content {
             height: auto;
             max-height: 85vh;
             padding: 1rem;
@@ -2493,12 +2647,14 @@
             border-color: #9333ea;
         }
 
-        #intelLegendModal .modal-title {
+        #intelLegendModal .modal-title,
+        #statecraftExplainerModal .modal-title {
             flex-shrink: 0;
             padding-bottom: 0.5rem;
         }
 
-        #intelLegendModal .modal-analysis {
+        #intelLegendModal .modal-analysis,
+        #statecraftExplainerModal .modal-analysis {
             flex: 1;
             overflow-y: auto;
             max-height: none;
@@ -2507,47 +2663,55 @@
             padding: 0 0.5rem;
         }
 
-        #intelLegendModal .modal-analysis::-webkit-scrollbar {
+        #intelLegendModal .modal-analysis::-webkit-scrollbar,
+        #statecraftExplainerModal .modal-analysis::-webkit-scrollbar {
             width: 6px;
         }
 
-        #intelLegendModal .modal-analysis::-webkit-scrollbar-track {
+        #intelLegendModal .modal-analysis::-webkit-scrollbar-track,
+        #statecraftExplainerModal .modal-analysis::-webkit-scrollbar-track {
             background: var(--bg-column);
             border-radius: 3px;
         }
 
-        #intelLegendModal .modal-analysis::-webkit-scrollbar-thumb {
+        #intelLegendModal .modal-analysis::-webkit-scrollbar-thumb,
+        #statecraftExplainerModal .modal-analysis::-webkit-scrollbar-thumb {
             background: #a855f7;
             border-radius: 3px;
         }
 
         @media (max-width: 768px) {
-            #intelLegendModal .chart-modal-content {
+            #intelLegendModal .chart-modal-content,
+            #statecraftExplainerModal .chart-modal-content {
                 width: 94%;
                 max-height: 80vh;
                 padding: 0.75rem;
                 margin: 1rem;
             }
 
-            #intelLegendModal .modal-analysis {
+            #intelLegendModal .modal-analysis,
+            #statecraftExplainerModal .modal-analysis {
                 padding: 0.5rem;
                 font-size: 0.85rem;
             }
         }
 
         @media (max-width: 480px) {
-            #intelLegendModal .chart-modal-content {
+            #intelLegendModal .chart-modal-content,
+            #statecraftExplainerModal .chart-modal-content {
                 width: 96%;
                 max-height: 85vh;
                 padding: 0.5rem;
             }
 
-            #intelLegendModal .modal-analysis {
+            #intelLegendModal .modal-analysis,
+            #statecraftExplainerModal .modal-analysis {
                 font-size: 0.8rem;
                 padding: 0.25rem;
             }
 
-            #intelLegendModal .modal-title {
+            #intelLegendModal .modal-title,
+            #statecraftExplainerModal .modal-title {
                 font-size: 1rem;
             }
         }
@@ -3660,6 +3824,12 @@
             margin-right: 0.5rem;
         }
     </style>
+    
+    <!-- amCharts 5 Libraries for 3D Globe -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/map.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/geodata/worldLow.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -3740,13 +3910,20 @@
                     <div class="dashboard-title" style="color: #a855f7;">STATECRAFT</div>
                     <div class="dashboard-section-subtitle">Strategic Intel • Active Games</div>
                     
-                    <!-- Intel Legend Button (full width) -->
+                    <!-- Statecraft Explainer Button -->
+                    <div class="statecraft-legend-btn" onclick="openStatecraftExplainer()">
+                        <span class="legend-text">STATECRAFT EXPLAINER</span>
+                    </div>
+                    
+                    <!-- Strategic Intelligence Section Label -->
+                    <div class="statecraft-section-label">SIGNALS • RISK METRICS</div>
+                    
+                    <!-- Intel Legend Button -->
                     <div class="statecraft-legend-btn" onclick="openIntelLegend()">
                         <span class="legend-text">INTEL LEGEND</span>
                     </div>
                     
-                    <!-- Strategic Intelligence Widgets (Top) -->
-                    <div class="statecraft-section-label">SIGNALS • RISK METRICS</div>
+                    <!-- Strategic Intelligence Widgets -->
                     <div class="strategic-intel-grid">
                         <div class="intel-widget" id="widget-rev-risk" onclick="openIntelDetailModal('revRiskModal')">
                             <div class="intel-widget-header">REVOLUTION RISK</div>
@@ -3783,13 +3960,15 @@
                     <!-- Section Divider -->
                     <div style="border-top: 1px solid rgba(168, 85, 247, 0.25); margin: 12px 0;"></div>
                     
-                    <!-- Games Legend Button (full width) -->
+                    <!-- Game Theory Section Label -->
+                    <div class="statecraft-section-label">GAME THEORY • CONFLICTS</div>
+                    
+                    <!-- Games Legend Button -->
                     <div class="statecraft-legend-btn" onclick="openGameLegend()">
                         <span class="legend-text">GAMES LEGEND</span>
                     </div>
                     
-                    <!-- Game Theory Section (Below) -->
-                    <div class="statecraft-section-label">GAME THEORY • CONFLICTS</div>
+                    <!-- Game Theory Cards -->
                     <div id="gameTheoryList" class="game-theory-container">
                         <div class="game-theory-loading">Loading strategic games...</div>
                     </div>
@@ -3852,9 +4031,9 @@
                             <div class="fx-column-subtitle">Core • Liquidity</div>
                             <div id="fxMacro"></div>
                         </div>
-                        <!-- Column 2: FRICTION ZONES (10 pairs) -->
+                        <!-- Column 2: FRICTION (10 pairs) -->
                         <div class="fx-grid-column">
-                            <div class="fx-column-title">FRICTION ZONES</div>
+                            <div class="fx-column-title">FRICTION</div>
                             <div class="fx-column-subtitle">Conflict Proxies</div>
                             <div id="fxGeo"></div>
                         </div>
@@ -4336,7 +4515,7 @@
         function updateNewsTicker() {
             const ticker = document.getElementById('newsTickerContent');
             const doubled = [...newsTickerItems, ...newsTickerItems];
-
+            
             ticker.innerHTML = doubled.map(item => {
                 const topStoryBadge = item.isTopStory ? '<span class="top-story-badge">TOP</span>' : '';
                 const topStoryClass = item.isTopStory ? 'top-story' : '';
@@ -4347,12 +4526,12 @@
                     ${topStoryBadge}
                     <span class="ticker-text ${topStoryClass}">${displayText}</span>
                     <div class="ticker-impact">
-                        ${Array(3).fill(0).map((_, i) =>
+                        ${Array(3).fill(0).map((_, i) => 
                             `<div class="impact-dot ${i < item.impact ? 'active' : ''}"></div>`
                         ).join('')}
                     </div>
                 `;
-                return item.link
+                return safeLink && safeLink !== '#'
                     ? `<a href="${safeLink}" target="_blank" rel="noopener noreferrer" class="ticker-item ${topStoryClass}" style="text-decoration: none; color: inherit;">${tickerContent}</a>`
                     : `<div class="ticker-item ${topStoryClass}">${tickerContent}</div>`;
             }).join('');
@@ -4428,7 +4607,7 @@
             })));
 
             const doubled = [...allItems, ...allItems];
-
+            
             ticker.innerHTML = doubled.map(item => `
                 <div class="market-ticker-item" onclick="openChart('${sanitizeHTML(item.tvSymbol)}')" style="cursor: pointer;">
                     <span class="market-ticker-label">${sanitizeHTML(item.label)}</span>
@@ -4642,27 +4821,6 @@
                 fragEl.style.color = data.fragScore.color;
                 if (fragHitsEl) {
                     fragHitsEl.innerText = `(${data.fragScore.hits} signals)`;
-                }
-            }
-
-            // 6. DATA QUALITY WARNING
-            let warningEl = document.getElementById('intel-data-warning');
-            if (!warningEl) {
-                // Create warning element if it doesn't exist
-                const intelSection = document.querySelector('.strategic-intel-grid');
-                if (intelSection && intelSection.parentNode) {
-                    warningEl = document.createElement('div');
-                    warningEl.id = 'intel-data-warning';
-                    warningEl.style.cssText = 'margin-top:8px;padding:6px 8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:4px;font-size:0.7rem;color:#ef4444;display:none;text-align:center;';
-                    intelSection.parentNode.insertBefore(warningEl, intelSection.nextSibling);
-                }
-            }
-            if (warningEl && data.dataQuality) {
-                if (data.dataQuality.usingFallbacks && data.dataQuality.warning) {
-                    warningEl.textContent = '⚠️ ' + data.dataQuality.warning;
-                    warningEl.style.display = 'block';
-                } else {
-                    warningEl.style.display = 'none';
                 }
             }
         }
@@ -4892,7 +5050,7 @@
                     ${implicationsHtml}
                     <div class="card-meta">
                         <div class="meta-item deep-analysis-btn" onclick="analyzeHeadline('${cardId}')">
-                            <span class="analysis-text">🧠 GET DEEP AI ANALYSIS →</span>
+                            <span class="analysis-text">GET DEEP AI ANALYSIS</span>
                         </div>
                     </div>
                     ${tripwireHtml}
@@ -5105,14 +5263,14 @@
             const fxCommodityContainer = document.getElementById('fxCommodity');
 
             const renderFXPair = (pair) => `
-                <div class="fx-pair-item" onclick="openChart('${sanitizeHTML(pair.tvSymbol || pair.label)}')">
+                <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
                     <div class="fx-pair-left">
                         <div style="display:flex;align-items:center;gap:0.3rem;">
-                            <div class="fx-pair-label">${sanitizeHTML(pair.label)}</div>
-                            <div class="fx-pair-change ${getFXClass(pair.dir)}" style="font-size:0.65rem;">${sanitizeHTML(pair.change)}%</div>
+                            <div class="fx-pair-label">${pair.label}</div>
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}" style="font-size:0.65rem;">${pair.change}%</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:0.2rem;">
-                            <div class="fx-pair-price">${sanitizeHTML(pair.price)}</div>
+                            <div class="fx-pair-price">${pair.price}</div>
                             <span class="${getFXClass(pair.dir)}" style="font-size:0.55rem;">${getFXArrow(pair.dir)}</span>
                         </div>
                     </div>
@@ -5160,14 +5318,14 @@
             const agricultureContainer = document.getElementById('commodityAgriculture');
 
             const renderCommodity = (item) => `
-                <div class="commodity-item" onclick="openChart('${sanitizeHTML(item.tvSymbol || item.ticker || item.label)}')" style="cursor: pointer;">
+                <div class="commodity-item" onclick="openChart('${item.tvSymbol || item.ticker || item.label}')" style="cursor: pointer;">
                     <div class="commodity-item-left">
                         <div style="display:flex;align-items:center;gap:0.3rem;">
-                            <div class="commodity-item-label">${sanitizeHTML(item.label)}</div>
-                            <div class="commodity-item-change ${getCommodityClass(item.dir)}" style="font-size:0.65rem;">${sanitizeHTML(item.change)}%</div>
+                            <div class="commodity-item-label">${item.label}</div>
+                            <div class="commodity-item-change ${getCommodityClass(item.dir)}" style="font-size:0.65rem;">${item.change}%</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:0.2rem;">
-                            <div class="commodity-item-price">${sanitizeHTML(item.price)}</div>
+                            <div class="commodity-item-price">${item.price}</div>
                             <span class="${getCommodityClass(item.dir)}" style="font-size:0.55rem;">${getCommodityArrow(item.dir)}</span>
                         </div>
                     </div>
@@ -5231,43 +5389,43 @@
                     <div class="sentiment-grid">
                         <div class="sentiment-item">
                             <div class="sentiment-label">VIX REGIME</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.vix.color)}">${sanitizeHTML(s.vix.regime)}</div>
-                            <div class="sentiment-sub">${sanitizeHTML(s.vix.value)}</div>
+                            <div class="sentiment-value" style="color: ${s.vix.color}">${s.vix.regime}</div>
+                            <div class="sentiment-sub">${s.vix.value}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">FEAR/GREED</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.fearGreed.color)}">${sanitizeHTML(s.fearGreed.value)}</div>
-                            <div class="sentiment-sub">${sanitizeHTML(s.fearGreed.label)}</div>
+                            <div class="sentiment-value" style="color: ${s.fearGreed.color}">${s.fearGreed.value}</div>
+                            <div class="sentiment-sub">${s.fearGreed.label}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">2s10s CURVE</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.curve.color)}">${sanitizeHTML(s.curve.signal)}</div>
-                            <div class="sentiment-sub">${sanitizeHTML(s.curve.value)}</div>
+                            <div class="sentiment-value" style="color: ${s.curve.color}">${s.curve.signal}</div>
+                            <div class="sentiment-sub">${s.curve.value}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">DOLLAR</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.dollar.color)}">${sanitizeHTML(s.dollar.signal)}</div>
-                            <div class="sentiment-sub">DXY ${sanitizeHTML(s.dollar.value)}</div>
+                            <div class="sentiment-value" style="color: ${s.dollar.color}">${s.dollar.signal}</div>
+                            <div class="sentiment-sub">DXY ${s.dollar.value}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">FED CUT ODDS</div>
-                            <div class="sentiment-value" style="color: #a78bfa">${sanitizeHTML(s.rateCut.value)}</div>
+                            <div class="sentiment-value" style="color: #a78bfa">${s.rateCut.value}</div>
                             <div class="sentiment-sub">Next Meeting</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">GOLD</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.gold.color)}">${sanitizeHTML(s.gold.signal)}</div>
-                            <div class="sentiment-sub">${sanitizeHTML(s.gold.value)}</div>
+                            <div class="sentiment-value" style="color: ${s.gold.color}">${s.gold.signal}</div>
+                            <div class="sentiment-sub">${s.gold.value}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">OIL/WTI</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.oil.color)}">${sanitizeHTML(s.oil.signal)}</div>
-                            <div class="sentiment-sub">${sanitizeHTML(s.oil.value)}</div>
+                            <div class="sentiment-value" style="color: ${s.oil.color}">${s.oil.signal}</div>
+                            <div class="sentiment-sub">${s.oil.value}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">CREDIT</div>
-                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.credit.color)}">${sanitizeHTML(s.credit.signal)}</div>
-                            <div class="sentiment-sub">Score: ${sanitizeHTML(s.credit.value)}</div>
+                            <div class="sentiment-value" style="color: ${s.credit.color}">${s.credit.signal}</div>
+                            <div class="sentiment-sub">Score: ${s.credit.value}</div>
                         </div>
                     </div>
                 `;
@@ -5284,15 +5442,15 @@
                     const probNum = parseFloat(market.probability);
                     const probColor = probNum >= 70 ? '#22c55e' : probNum >= 50 ? '#eab308' : probNum >= 30 ? '#f97316' : '#ef4444';
                     const dirArrow = market.direction === 'up' ? '▲' : market.direction === 'down' ? '▼' : '';
-                    const categoryClass = sanitizeHTML(market.category.toLowerCase());
-
+                    const categoryClass = market.category.toLowerCase();
+                    
                     return `
                         <div class="polymarket-item" onclick="window.open('https://polymarket.com/', '_blank')">
                             <div class="polymarket-header">
-                                <span class="polymarket-category cat-${categoryClass}">${sanitizeHTML(market.category)}</span>
-                                <span class="polymarket-prob" style="color: ${probColor}">${sanitizeHTML(market.probability)}% ${dirArrow}</span>
+                                <span class="polymarket-category cat-${categoryClass}">${market.category}</span>
+                                <span class="polymarket-prob" style="color: ${probColor}">${market.probability}% ${dirArrow}</span>
                             </div>
-                            <div class="polymarket-question">${sanitizeHTML(market.question)}</div>
+                            <div class="polymarket-question">${market.question}</div>
                         </div>
                     `;
                 }).join('');
@@ -5305,6 +5463,33 @@
         
         // Store game data for analysis lookup
         const gameDataStore = {};
+        
+        // Criticality scoring for game theory conflicts - matches globe CRITICALITY_SCORES
+        const GAME_CRITICALITY_SCORES = {
+            'ESCALATION': 100,
+            'BRINKMANSHIP': 90,
+            'CRITICAL': 85,
+            'CONFLICT': 80,
+            'ATTRITION': 75,
+            'VOLATILE': 70,
+            'SKIRMISHING': 65,
+            'SUPPRESSION': 60,
+            'FRAGMENTATION': 55,
+            'STANDOFF': 50,
+            'POSTURING': 45,
+            'CAT & MOUSE': 40,
+            'COORDINATION': 35,
+            'ADAPTATION': 30,
+            'TENSE': 25,
+            'SHIFTING': 20,
+            'STABLE': 10
+        };
+        
+        function getGameCriticalityScore(game) {
+            // Try to match currentPhase to criticality score
+            const phase = (game.currentPhase || '').toUpperCase();
+            return GAME_CRITICALITY_SCORES[phase] || 50;
+        }
         
         function updateGameTheoryData(data) {
             if (!data || !data.games) return;
@@ -5319,9 +5504,8 @@
                 return;
             }
             
-            // Sort by status severity (red > yellow > green)
-            const statusOrder = { red: 0, yellow: 1, green: 2 };
-            games.sort((a, b) => (statusOrder[a.statusColor] || 2) - (statusOrder[b.statusColor] || 2));
+            // Sort by criticality score (highest severity first)
+            games.sort((a, b) => getGameCriticalityScore(b) - getGameCriticalityScore(a));
             
             // Store game data for later lookup
             games.forEach(game => {
@@ -5329,31 +5513,35 @@
             });
             
             gameTheoryList.innerHTML = games.map(game => {
-                const moveTypeClass = game.lastMove.type === 'DEFECT' ? 'move-type-defect' :
+                const moveTypeClass = game.lastMove.type === 'DEFECT' ? 'move-type-defect' : 
                                      game.lastMove.type === 'COOPERATE' ? 'move-type-cooperate' : 'move-type-signal';
-
+                
                 return `
-                    <div class="game-card status-${sanitizeHTML(game.statusColor)}">
+                    <div class="game-card status-${game.statusColor}">
                         <div class="game-header">
-                            <span class="game-title">${sanitizeHTML(game.emoji)} ${sanitizeHTML(game.title)}</span>
-                            <span class="game-phase phase-${sanitizeHTML(game.phaseColor)}">${sanitizeHTML(game.currentPhase)}</span>
+                            <span class="game-title">${game.emoji} ${game.title}</span>
+                            <span class="game-phase phase-${game.phaseColor}">${game.currentPhase}</span>
                         </div>
-                        <div class="game-players">${game.players.map(p => sanitizeHTML(p)).join(' vs ')}</div>
+                        <div class="game-players">${game.players.join(' vs ')}</div>
                         <div class="game-last-move">
-                            <div class="game-move-label">Last Move (${sanitizeHTML(game.lastMove.date)})</div>
+                            <div class="game-move-label">Last Move (${game.lastMove.date})</div>
                             <div class="game-move-text">
-                                <strong>${sanitizeHTML(game.lastMove.player)}:</strong> ${sanitizeHTML(game.lastMove.action)}
-                                <span class="game-move-type ${moveTypeClass}">${sanitizeHTML(game.lastMove.type)}</span>
+                                <strong>${game.lastMove.player}:</strong> ${game.lastMove.action}
+                                <span class="game-move-type ${moveTypeClass}">${game.lastMove.type}</span>
                             </div>
                         </div>
                         <div class="game-equilibrium">
-                            <span class="equilibrium-dot eq-${sanitizeHTML(game.statusColor)}"></span>
-                            <span class="equilibrium-text" style="color: ${game.statusColor === 'green' ? '#22c55e' : game.statusColor === 'yellow' ? '#f59e0b' : '#ef4444'}">${sanitizeHTML(game.equilibriumStatus)}</span>
+                            <span class="equilibrium-dot eq-${game.statusColor}"></span>
+                            <span class="equilibrium-text" style="color: ${game.statusColor === 'green' ? '#22c55e' : game.statusColor === 'yellow' ? '#f59e0b' : '#ef4444'}">${game.equilibriumStatus}</span>
                         </div>
-                        <div class="game-next-move">${sanitizeHTML(game.nextLikelyMove)}</div>
-                        <div class="game-analyze-btn" onclick="analyzeGameConflict('${sanitizeHTML(game.id)}')">
-                            <span class="game-analyze-btn-icon">🤖</span>
-                            <span>GET AI ANALYSIS →</span>
+                        <div class="game-next-move">${game.nextLikelyMove}</div>
+                        <div class="game-buttons-row">
+                            <div class="game-analyze-btn" onclick="analyzeGameConflict('${game.id}')">
+                                <span>GET AI ANALYSIS</span>
+                            </div>
+                            <div class="game-map-btn" onclick="openConflictMap('${game.id}')">
+                                <span>VIEW MAP</span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -5396,7 +5584,7 @@
             const modalSource = document.getElementById('modalSource');
 
             modalHeadline.textContent = `${game.emoji} ${game.title}`;
-            modalSource.innerHTML = `<span class="modal-source-label">Players:</span>${game.players.map(p => sanitizeHTML(p)).join(' vs ')}`;
+            modalSource.innerHTML = `<span class="modal-source-label">Players:</span>${game.players.join(' vs ')}`;
             modalBody.innerHTML = `
                 <div class="modal-loading">
                     <div class="modal-spinner"></div>
@@ -5843,6 +6031,124 @@
         </div>
     </div>
 
+    <!-- Statecraft Explainer Modal -->
+    <div id="statecraftExplainerModal" class="chart-modal-overlay" style="display: none;" onclick="closeStatecraftExplainer(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 750px; border-color: #9333ea;">
+            <button class="chart-close-btn" onclick="closeStatecraftExplainer()" style="top: 15px; right: 15px; position: absolute; color: #a855f7;">×</button>
+            <div class="modal-title" style="color: #a855f7; padding: 0.5rem 0;">WHAT IS STATECRAFT?</div>
+            <div class="modal-analysis info-modal-scroll">
+                
+                <p style="line-height: 1.7; font-size: 1rem;">Statecraft is the art of conducting state affairs - the strategies, tactics, and maneuvers that nations, leaders, and institutions use to advance their interests, project power, and shape the global order.</p>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">WHY STATECRAFT MATTERS TO MARKETS</h3>
+                <p style="line-height: 1.6;">Every major market move has a statecraft dimension. Central banks conduct monetary statecraft. Governments wage economic warfare through sanctions. Trade negotiations reshape supply chains. Understanding statecraft gives you an edge - you see the chess moves before they appear in headlines.</p>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">THE TOOLS OF STATECRAFT</h3>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #3b82f6;">
+                    <div style="font-weight: 700; color: #3b82f6; margin-bottom: 4px;">ECONOMIC STATECRAFT</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Sanctions, tariffs, trade deals, currency manipulation, debt diplomacy. The weaponization of economic interdependence. China's Belt & Road, US dollar hegemony, Russian energy leverage - all economic statecraft.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #ef4444;">
+                    <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">COERCIVE STATECRAFT</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Military positioning, arms sales, security guarantees, gray zone operations. The threat or use of force to achieve political ends. NATO expansion, South China Sea patrols, Iranian proxy networks.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #22c55e;">
+                    <div style="font-weight: 700; color: #22c55e; margin-bottom: 4px;">DIPLOMATIC STATECRAFT</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Alliances, treaties, summits, international institutions. The art of building coalitions and isolating adversaries. BRICS expansion, G7 coordination, UN Security Council maneuvering.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #f59e0b;">
+                    <div style="font-weight: 700; color: #f59e0b; margin-bottom: 4px;">INFORMATION STATECRAFT</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Propaganda, narrative warfare, strategic leaks, perception management. Shaping how populations and markets interpret events. State media, troll farms, controlled disclosures.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #a855f7;">
+                    <div style="font-weight: 700; color: #a855f7; margin-bottom: 4px;">MONETARY STATECRAFT</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Central bank policy as geopolitical tool. Dollar swap lines, reserve currency status, SWIFT access, CBDC development. The Fed doesn't just manage inflation - it manages the global financial order.</p>
+                </div>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">STATECRAFT ARCHETYPES</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                        <div style="font-weight: 700; color: #3b82f6; margin-bottom: 6px;">THE HEGEMON</div>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">Maintains order through overwhelming power and institutional control. Sets the rules, enforces compliance. (US post-WWII, British Empire 1815-1914)</p>
+                    </div>
+                    <div style="background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                        <div style="font-weight: 700; color: #ef4444; margin-bottom: 6px;">THE REVISIONIST</div>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">Seeks to overturn the existing order. Challenges the hegemon's rules, builds alternative institutions. (China, Russia, Iran today)</p>
+                    </div>
+                    <div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(34, 197, 94, 0.3);">
+                        <div style="font-weight: 700; color: #22c55e; margin-bottom: 6px;">THE BALANCER</div>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">Plays both sides to maximize leverage. Never fully commits, extracts concessions from all. (India, Saudi Arabia, Turkey today)</p>
+                    </div>
+                    <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                        <div style="font-weight: 700; color: #f59e0b; margin-bottom: 6px;">THE SPOILER</div>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">Disrupts to create leverage. Uses chaos as a bargaining chip. Too dangerous to ignore, too weak to dominate. (North Korea, Iran proxies)</p>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="background: rgba(168, 85, 247, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.3);">
+                        <div style="font-weight: 700; color: #a855f7; margin-bottom: 6px;">THE VASSAL</div>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">Trades sovereignty for protection. Aligns policies with patron state. Limited independence but guaranteed security. (Japan, South Korea, NATO states)</p>
+                    </div>
+                    <div style="background: rgba(20, 184, 166, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(20, 184, 166, 0.3);">
+                        <div style="font-weight: 700; color: #14b8a6; margin-bottom: 6px;">THE MERCHANT</div>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">Prioritizes commerce over ideology. Neutral in great power conflicts, trades with everyone. Wealth over warfare. (Singapore, Switzerland, UAE)</p>
+                    </div>
+                </div>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">DICTATOR'S PLAYBOOK</h3>
+                <p style="line-height: 1.6; margin-bottom: 12px;">Autocrats use distinct statecraft patterns that create trading opportunities:</p>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                    <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">MANUFACTURED CRISIS</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5; color: #94a3b8;">Create external threat to consolidate domestic power. Erdogan's coups, Putin's NATO narrative, Xi's Taiwan rhetoric. Markets spike on headlines, then normalize.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                    <div style="font-weight: 700; color: #f59e0b; margin-bottom: 4px;">HOSTAGE ECONOMICS</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5; color: #94a3b8;">Use economic interdependence as leverage. Russia's gas cutoffs, China's rare earth threats, OPEC+ supply manipulation. Creates volatility spikes.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                    <div style="font-weight: 700; color: #3b82f6; margin-bottom: 4px;">SUCCESSION THEATER</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5; color: #94a3b8;">Authoritarian transitions create uncertainty windows. Saudi MBS consolidation, North Korea Kim Jong Un's rise, Chinese politburo reshuffles. Policy continuity unclear.</p>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                    <div style="font-weight: 700; color: #a855f7; margin-bottom: 4px;">STRATEGIC AMBIGUITY</div>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.5; color: #94a3b8;">Keep intentions unclear to maximize leverage. China on Taiwan, Russia on nuclear doctrine, Iran on nuclear weapons. Markets hate uncertainty - they exploit it.</p>
+                </div>
+                
+                <h3 style="color: #a855f7; margin-top: 1.5rem;">READING STATECRAFT SIGNALS</h3>
+                <div style="background: rgba(168, 85, 247, 0.1); border-radius: 6px; padding: 12px; border: 1px solid rgba(168, 85, 247, 0.2);">
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;"><span style="color: #ef4444; font-weight: 700; min-width: 90px; flex-shrink: 0;">DEFECT</span><span style="color: #94a3b8;">Aggressive move. Break agreements, escalate tensions, impose costs. Risk-off signal.</span></div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;"><span style="color: #22c55e; font-weight: 700; min-width: 90px; flex-shrink: 0;">COOPERATE</span><span style="color: #94a3b8;">De-escalation. Honor commitments, seek dialogue, reduce tensions. Risk-on signal.</span></div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;"><span style="color: #f59e0b; font-weight: 700; min-width: 90px; flex-shrink: 0;">SIGNAL</span><span style="color: #94a3b8;">Posturing without action. Rhetoric, military exercises, symbolic moves. Watch for follow-through.</span></div>
+                    <div style="display: flex; gap: 12px;"><span style="color: #a855f7; font-weight: 700; min-width: 90px; flex-shrink: 0;">BLUFF</span><span style="color: #94a3b8;">Threat without capability or intent. Markets often overreact. Fade the move.</span></div>
+                </div>
+                
+                <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(147, 51, 234, 0.2); background: rgba(147, 51, 234, 0.05); border-radius: 6px;">
+                    <p style="font-size: 0.8rem; color: #a78bfa; line-height: 1.6; text-align: center; margin: 0;">
+                        <strong>HOW TO USE:</strong> Every headline has a statecraft dimension. Ask: Who benefits? What's the real game? What move comes next? Our Game Theory Dashboard tracks 20 active statecraft games in real-time.
+                    </p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(147, 51, 234, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
     <!-- Strategic Intelligence Legend Modal -->
     <div id="intelLegendModal" class="chart-modal-overlay" style="display: none;" onclick="closeIntelLegend(event)">
         <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px; border-color: #9333ea;">
@@ -5898,10 +6204,10 @@
                 
                 <h3 style="color: #a855f7; margin-top: 1.5rem;">INTERPRETING THE SIGNALS</h3>
                 <div style="background: rgba(168, 85, 247, 0.1); border-radius: 6px; padding: 12px; border: 1px solid rgba(168, 85, 247, 0.2);">
-                    <div class="legend-item"><span class="legend-icon" style="color: #ef4444; font-weight: 700;">RED</span><span class="legend-text"><strong>Multiple Red Signals</strong> = Systemic risk rising. Reduce exposure, favor defensive positioning.</span></div>
-                    <div class="legend-item"><span class="legend-icon" style="color: #f59e0b; font-weight: 700;">YELLOW</span><span class="legend-text"><strong>Mixed Signals</strong> = Transition phase. Watch for confirmation before major moves.</span></div>
-                    <div class="legend-item"><span class="legend-icon" style="color: #22c55e; font-weight: 700;">GREEN</span><span class="legend-text"><strong>All Green</strong> = Risk-on environment. Trend following works, carry trades attractive.</span></div>
-                    <div class="legend-item"><span class="legend-icon" style="color: #a855f7; font-weight: 700;">DIVERGE</span><span class="legend-text"><strong>Divergences</strong> = Most valuable. When one metric screams while others are calm, dig deeper.</span></div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;"><span style="color: #ef4444; font-weight: 700; min-width: 70px; flex-shrink: 0;">RED</span><span style="color: #94a3b8;"><strong>Multiple Red Signals</strong> = Systemic risk rising. Reduce exposure, favor defensive positioning.</span></div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;"><span style="color: #f59e0b; font-weight: 700; min-width: 70px; flex-shrink: 0;">YELLOW</span><span style="color: #94a3b8;"><strong>Mixed Signals</strong> = Transition phase. Watch for confirmation before major moves.</span></div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;"><span style="color: #22c55e; font-weight: 700; min-width: 70px; flex-shrink: 0;">GREEN</span><span style="color: #94a3b8;"><strong>All Green</strong> = Risk-on environment. Trend following works, carry trades attractive.</span></div>
+                    <div style="display: flex; gap: 12px;"><span style="color: #a855f7; font-weight: 700; min-width: 70px; flex-shrink: 0;">DIVERGE</span><span style="color: #94a3b8;"><strong>Divergences</strong> = Most valuable. When one metric screams while others are calm, dig deeper.</span></div>
                 </div>
                 
                 <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(147, 51, 234, 0.2); background: rgba(147, 51, 234, 0.05); border-radius: 6px;">
@@ -6330,7 +6636,628 @@
         </div>
     </div>
 
+    <!-- 3D Holographic Globe Modal -->
+    <div id="mapModal" class="chart-modal-overlay" style="display: none;" onclick="closeMapModal(event)">
+        <div class="globe-modal-content" onclick="event.stopPropagation()">
+            <button class="chart-close-btn" onclick="closeMapModal(event)" style="z-index: 100;">×</button>
+            
+            <!-- Header -->
+            <div id="globe-header" style="padding: 15px 20px; border-bottom: 1px solid rgba(212, 113, 74, 0.2);">
+                <div style="color: #00D9FF; font-size: 1.1rem; font-weight: 700; letter-spacing: 2px;">ACTIVE KINETIC THEATERS</div>
+                <div style="color: #888; font-size: 0.75rem;">LIVE PROJECTION: ORTHOGRAPHIC • 20 ACTIVE CONFLICTS</div>
+            </div>
+            
+            <!-- Globe Container - centered, overflow visible for tooltips -->
+            <div style="flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; overflow: visible;">
+                <div id="globe-div" style="width: 100%; height: 100%; max-width: 600px; max-height: 600px; overflow: visible;"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // ========================================================================
+        // 3D ORTHOGRAPHIC STRATEGY GLOBE ENGINE
+        // ========================================================================
+        
+        let globeRoot = null;
+        let globeChart = null;
+        let globeAnimation = null;
+        let currentFocusedZone = null;
+        
+        // CRITICALITY SCORING - Higher score = more critical conflict
+        // Used to rank and order conflicts by severity
+        const CRITICALITY_SCORES = {
+            'ESCALATION': 100,
+            'BRINKMANSHIP': 90,
+            'CRITICAL': 85,
+            'CONFLICT': 80,
+            'ATTRITION': 75,
+            'VOLATILE': 70,
+            'SKIRMISHING': 65,
+            'SUPPRESSION': 60,
+            'FRAGMENTATION': 55,
+            'STANDOFF': 50,
+            'POSTURING': 45,
+            'CAT & MOUSE': 40,
+            'COORDINATION': 35,
+            'ADAPTATION': 30,
+            'TENSE': 25,
+            'SHIFTING': 20,
+            'STABLE': 10
+        };
+        
+        // Helper to get criticality score for a conflict
+        function getCriticalityScore(conflict) {
+            return CRITICALITY_SCORES[conflict.type] || 50;
+        }
+        
+        // CANONICAL COORDINATES - Hardcoded source of truth for all zone locations
+        // These values can NEVER be modified by any runtime code
+        const CANONICAL_COORDS = Object.freeze({
+            'us-china-tech': { lat: 37.3861, lon: -122.0839 },      // Silicon Valley
+            'fed-vs-markets': { lat: 38.8951, lon: -77.0364 },      // Washington DC
+            'taiwan-strait': { lat: 24.1500, lon: 120.6700 },       // Taiwan Strait
+            'russia-ukraine': { lat: 48.3794, lon: 37.5000 },       // Donbas
+            'eu-energy': { lat: 52.5200, lon: 13.4050 },            // Berlin
+            'ecb-inflation': { lat: 50.1109, lon: 8.6821 },         // Frankfurt
+            'shadow-fleet': { lat: 59.9343, lon: 30.3351 },         // St. Petersburg
+            'brics-dedollar': { lat: 31.2304, lon: 121.4737 },      // Shanghai
+            'arctic-race': { lat: 76.0000, lon: 80.0000 },          // Arctic
+            'south-china-sea': { lat: 9.8966, lon: 114.7766 },      // Spratly Islands
+            'venezuela': { lat: 10.4806, lon: -66.9036 },           // Caracas
+            'hormuz': { lat: 26.5667, lon: 56.2500 },               // Strait of Hormuz
+            'opec-shale': { lat: 24.7136, lon: 46.6753 },           // Riyadh
+            'iran-israel': { lat: 31.7683, lon: 35.2137 },          // Jerusalem
+            'us-tariffs': { lat: 40.7128, lon: -74.0060 },          // New York
+            'kashmir': { lat: 34.0837, lon: 74.7973 },              // Kashmir
+            'sudan': { lat: 15.5007, lon: 32.5599 },                // Khartoum
+            'north-korea': { lat: 39.0392, lon: 125.7625 },         // Pyongyang
+            'syria-vacuum': { lat: 36.2021, lon: 37.1343 },         // Aleppo
+            'iran-regime': { lat: 35.6892, lon: 51.3890 }           // Tehran
+        });
+        
+        // Get fresh, deep-cloned conflict data sorted by criticality
+        // Uses CANONICAL_COORDS as the source of truth for all coordinates
+        function getFreshConflictData() {
+            return BASE_ZONES.map(z => {
+                // Get coordinates from CANONICAL source - ignores any runtime mutations
+                const coords = CANONICAL_COORDS[z.id] || { lat: z.latitude, lon: z.longitude };
+                const fresh = {
+                    id: z.id,
+                    title: z.title,
+                    latitude: coords.lat,
+                    longitude: coords.lon,
+                    location: z.location,
+                    type: z.type,
+                    color: z.color,
+                    desc: z.desc,
+                    theory: z.theory,
+                    locationWhy: z.locationWhy,
+                    criticalityScore: getCriticalityScore(z)
+                };
+                return fresh;
+            }).sort((a, b) => b.criticalityScore - a.criticalityScore);
+        }
+        
+        // Deep freeze helper to make objects truly immutable
+        function deepFreeze(obj) {
+            Object.keys(obj).forEach(prop => {
+                if (typeof obj[prop] === 'object' && obj[prop] !== null) {
+                    deepFreeze(obj[prop]);
+                }
+            });
+            return Object.freeze(obj);
+        }
+        
+        // THE 20 STRATEGIC CONFLICT ZONES - DEEPLY IMMUTABLE BASE DATA
+        // Each zone object is frozen to prevent any mutation
+        // Always use getFreshConflictData() for operations
+        const BASE_ZONES = Object.freeze([
+            { 
+                id: "us-china-tech", title: "US-China Tech War", 
+                latitude: 37.3861, longitude: -122.0839, // Silicon Valley
+                location: "Silicon Valley, USA",
+                type: "ESCALATION", color: "#ff4466",
+                desc: "LAST MOVE: US new export controls on AI chips to China (DEFECT).",
+                theory: "UNSTABLE: China restricts rare earth exports or retaliates on US firms.",
+                locationWhy: "Silicon Valley is ground zero for the tech war - home to NVIDIA, AMD, and AI chip designers targeted by export controls."
+            },
+            { 
+                id: "fed-vs-markets", title: "Fed vs Markets", 
+                latitude: 38.8951, longitude: -77.0364, // Washington DC
+                location: "Washington DC, USA",
+                type: "STANDOFF", color: "#ffbb33",
+                desc: "LAST MOVE: Fed hawkish hold, pushback on rate cuts (SIGNAL).",
+                theory: "SHIFTING: Markets test Fed resolve with rally or yields repricing.",
+                locationWhy: "The Federal Reserve headquarters in DC sets global monetary policy. Every word from this building moves trillions."
+            },
+            { 
+                id: "taiwan-strait", title: "Taiwan Strait", 
+                latitude: 24.1500, longitude: 120.6700, // Taiwan Strait
+                location: "Taiwan Strait",
+                type: "POSTURING", color: "#ffbb33",
+                desc: "LAST MOVE: PLA large-scale military drills near Taiwan (SIGNAL).",
+                theory: "TENSE: US Freedom of Navigation op or arms sale announcement.",
+                locationWhy: "The 110-mile strait is the world's most dangerous flashpoint - 90% of advanced chips pass through here."
+            },
+            { 
+                id: "russia-ukraine", title: "Russia-Ukraine War", 
+                latitude: 48.3794, longitude: 37.5000, // Donbas
+                location: "Donbas Region, Ukraine",
+                type: "ATTRITION", color: "#ff4466",
+                desc: "LAST MOVE: Russia winter offensive push in Donbas (DEFECT).",
+                theory: "FROZEN CONFLICT: Ceasefire talks or new Western aid package.",
+                locationWhy: "The industrial heartland of Ukraine. Control of Donbas determines energy routes and Europe's security architecture."
+            },
+            { 
+                id: "eu-energy", title: "EU Energy Security", 
+                latitude: 52.5200, longitude: 13.4050, // Berlin
+                location: "Berlin, Germany",
+                type: "ADAPTATION", color: "#00D9FF",
+                desc: "LAST MOVE: EU LNG import diversification mandates (COOPERATE).",
+                theory: "STABILIZING: Winter demand spike test or new pipeline disputes.",
+                locationWhy: "Germany is the EU's energy policy anchor. Berlin's decisions on LNG terminals reshape Europe's energy map."
+            },
+            { 
+                id: "ecb-inflation", title: "ECB vs Inflation", 
+                latitude: 50.1109, longitude: 8.6821, // Frankfurt
+                location: "Frankfurt, Germany",
+                type: "STANDOFF", color: "#bb66ff",
+                desc: "LAST MOVE: ECB held rates, signaled data-dependency (SIGNAL).",
+                theory: "SHIFTING: Markets price rate cuts, ECB pushback on dovish expectations.",
+                locationWhy: "ECB headquarters in Frankfurt. Rate decisions here ripple across 20 eurozone economies and beyond."
+            },
+            { 
+                id: "shadow-fleet", title: "Russia Shadow Fleet", 
+                latitude: 59.9343, longitude: 30.3351, // St. Petersburg
+                location: "St. Petersburg, Russia",
+                type: "CAT & MOUSE", color: "#00D9FF",
+                desc: "LAST MOVE: G7 sanctioned 183 vessels & lowered price cap (DEFECT).",
+                theory: "SHIFTING: Russia uses new intermediaries or insurance workarounds.",
+                locationWhy: "Russia's Baltic gateway. Shadow tankers dock here to evade sanctions and export crude above price caps."
+            },
+            { 
+                id: "brics-dedollar", title: "BRICS De-Dollarization", 
+                latitude: 31.2304, longitude: 121.4737, // Shanghai
+                location: "Shanghai, China",
+                type: "COORDINATION", color: "#bb66ff",
+                desc: "LAST MOVE: Central bank gold purchases hit 900 tons (COOPERATE).",
+                theory: "SHIFTING: New bilateral currency swap deals or SWIFT alternative expansion.",
+                locationWhy: "Shanghai's financial district leads the yuan internationalization push. BRICS currency discussions start here."
+            },
+            { 
+                id: "arctic-race", title: "Arctic Resource Race", 
+                latitude: 76.0000, longitude: 80.0000, // Arctic
+                location: "Northern Sea Route, Arctic",
+                type: "POSTURING", color: "#00D9FF",
+                desc: "LAST MOVE: Russia new military base on Northern Sea Route (DEFECT).",
+                theory: "TENSE: NATO Arctic exercise or territorial claim disputes.",
+                locationWhy: "Melting ice opens shipping lanes and vast oil reserves. Russia claims 2 million sq km of Arctic seabed."
+            },
+            { 
+                id: "south-china-sea", title: "South China Sea", 
+                latitude: 9.8966, longitude: 114.7766, // Spratly Islands
+                location: "Spratly Islands",
+                type: "SKIRMISHING", color: "#ff4466",
+                desc: "LAST MOVE: China water cannon attacks on Philippine vessels (DEFECT).",
+                theory: "TENSE: US freedom of navigation patrol or new base construction.",
+                locationWhy: "$3 trillion in annual trade passes through here. China's artificial islands threaten regional stability."
+            },
+            { 
+                id: "venezuela", title: "Venezuela Crisis", 
+                latitude: 10.4806, longitude: -66.9036, // Caracas
+                location: "Caracas, Venezuela",
+                type: "STANDOFF", color: "#ffbb33",
+                desc: "LAST MOVE: US threatened military intervention on fraud (SIGNAL).",
+                theory: "UNSTABLE: Maduro seeks Russia/China backing or refugee exodus accelerates.",
+                locationWhy: "Venezuela has the world's largest oil reserves. Political collapse here sends 7M refugees across the Americas."
+            },
+            { 
+                id: "hormuz", title: "Strait of Hormuz", 
+                latitude: 26.5667, longitude: 56.2500, // Strait of Hormuz
+                location: "Strait of Hormuz",
+                type: "BRINKMANSHIP", color: "#ff4466",
+                desc: "LAST MOVE: Iran harassment of commercial tankers (DEFECT).",
+                theory: "CRITICAL: US Naval convoy escorts or sanctions tightening.",
+                locationWhy: "21% of global oil transits this 21-mile chokepoint. Any closure spikes oil to $150+ instantly."
+            },
+            { 
+                id: "opec-shale", title: "OPEC+ vs Shale", 
+                latitude: 24.7136, longitude: 46.6753, // Riyadh
+                location: "Riyadh, Saudi Arabia",
+                type: "COORDINATION", color: "#bb66ff",
+                desc: "LAST MOVE: OPEC+ extended production cuts through Q1 (COOPERATE).",
+                theory: "STABLE: Hold pattern unless demand shock or shale ramp-up.",
+                locationWhy: "Saudi Arabia's capital dictates global oil supply. OPEC+ meetings here set energy prices for 8 billion people."
+            },
+            { 
+                id: "iran-israel", title: "Iran-Israel Shadow War", 
+                latitude: 31.7683, longitude: 35.2137, // Jerusalem (offset from Damascus)
+                location: "Jerusalem, Israel",
+                type: "ESCALATION", color: "#ff4466",
+                desc: "LAST MOVE: Israel strikes on Iranian proxy positions in Syria (DEFECT).",
+                theory: "VOLATILE: Proxy retaliation or Iranian nuclear program acceleration.",
+                locationWhy: "Israel's strategic command directs strikes against Iranian proxies. Jerusalem is the decision center for regional operations."
+            },
+            { 
+                id: "us-tariffs", title: "US Tariff War", 
+                latitude: 40.7128, longitude: -74.0060, // New York (offset from DC)
+                location: "New York, USA",
+                type: "ESCALATION", color: "#ffbb33",
+                desc: "LAST MOVE: US Liberation Day tariffs: 60%+ on China (DEFECT).",
+                theory: "CRITICAL: Retaliatory tariffs from China/EU or negotiation pivot.",
+                locationWhy: "Wall Street feels the tariff war first. Import costs hit corporate earnings and consumer prices here."
+            },
+            { 
+                id: "kashmir", title: "India-Pakistan Kashmir", 
+                latitude: 34.0837, longitude: 74.7973, // Kashmir
+                location: "Line of Control, Kashmir",
+                type: "BRINKMANSHIP", color: "#ff4466",
+                desc: "LAST MOVE: Pakistan-linked Kashmir attack on Indian forces (DEFECT).",
+                theory: "CRITICAL: Indian surgical strike or diplomatic ultimatum.",
+                locationWhy: "Two nuclear powers face off across this disputed border. Any escalation risks global catastrophe."
+            },
+            { 
+                id: "sudan", title: "Sudan Civil War", 
+                latitude: 15.5007, longitude: 32.5599, // Khartoum
+                location: "Khartoum, Sudan",
+                type: "CONFLICT", color: "#ff4466",
+                desc: "LAST MOVE: RSF gold mining region seizure for war funding (DEFECT).",
+                theory: "UNSTABLE: SAF counteroffensive or external powers arm both sides.",
+                locationWhy: "Sudan's capital is a warzone. Gold mines fund militias while 25M face famine in Africa's largest displacement crisis."
+            },
+            { 
+                id: "north-korea", title: "North Korea Nuclear", 
+                latitude: 39.0392, longitude: 125.7625, // Pyongyang
+                location: "Pyongyang, North Korea",
+                type: "ESCALATION", color: "#ff4466",
+                desc: "LAST MOVE: DPRK ICBM test launch with new warhead design (DEFECT).",
+                theory: "CRITICAL: US-Japan-SK joint exercises or new sanctions package.",
+                locationWhy: "Kim's regime controls 50+ nuclear warheads. Pyongyang's provocations destabilize all of Northeast Asia."
+            },
+            { 
+                id: "syria-vacuum", title: "Syria Power Vacuum", 
+                latitude: 36.2021, longitude: 37.1343, // Aleppo
+                location: "Aleppo, Syria",
+                type: "FRAGMENTATION", color: "#ffbb33",
+                desc: "LAST MOVE: Israel expanded buffer zone operations post-Assad (DEFECT).",
+                theory: "VOLATILE: Turkish-Kurdish clashes or Iran proxy repositioning.",
+                locationWhy: "Syria's largest city remains contested. Post-Assad vacuum invites Turkish, Iranian, and Israeli intervention."
+            },
+            { 
+                id: "iran-regime", title: "Iran Regime Stability", 
+                latitude: 35.6892, longitude: 51.3890, // Tehran
+                location: "Tehran, Iran",
+                type: "SUPPRESSION", color: "#ffbb33",
+                desc: "LAST MOVE: Regime crackdown on Women Life Freedom protests (DEFECT).",
+                theory: "CRITICAL: Economic collapse accelerates unrest or regime consolidates.",
+                locationWhy: "Iran's capital faces unprecedented protests. Regime survival determines Middle East power balance for decades."
+            }
+        ].map(zone => deepFreeze(zone)));
+        
+        // STRATEGIC_ZONES - always computed fresh from immutable BASE_ZONES
+        // Sorted by criticality score (highest first)
+        let STRATEGIC_ZONES = getFreshConflictData();
+        
+        // Map from game IDs (server) to zone IDs (client)
+        const GAME_TO_ZONE_MAP = {
+            'chip_war': 'us-china-tech',
+            'fed_vs_markets': 'fed-vs-markets',
+            'taiwan_strait': 'taiwan-strait',
+            'russia_ukraine': 'russia-ukraine',
+            'eu_energy_crisis': 'eu-energy',
+            'ecb_inflation': 'ecb-inflation',
+            'russia_shadow_fleet': 'shadow-fleet',
+            'brics_dedollarization': 'brics-dedollar',
+            'arctic_resource_race': 'arctic-race',
+            'south_china_sea': 'south-china-sea',
+            'venezuela_crisis': 'venezuela',
+            'hormuz_standoff': 'hormuz',
+            'opec_price_war': 'opec-shale',
+            'iran_israel': 'iran-israel',
+            'us_tariff_war': 'us-tariffs',
+            'india_pakistan': 'kashmir',
+            'sudan_civil_war': 'sudan',
+            'north_korea_nuclear': 'north-korea',
+            'syria_power_vacuum': 'syria-vacuum',
+            'iran_regime_unrest': 'iran-regime'
+        };
+
+        function openConflictMap(gameId) {
+            const modal = document.getElementById('mapModal');
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            document.body.style.overflow = 'hidden';
+            
+            // Always get fresh conflict data to ensure accurate coordinates
+            STRATEGIC_ZONES = getFreshConflictData();
+            
+            // Find the zone to focus on using fresh data
+            const zoneId = GAME_TO_ZONE_MAP[gameId] || gameId;
+            const targetZone = STRATEGIC_ZONES.find(z => z.id === zoneId);
+            currentFocusedZone = targetZone;
+            
+            
+            // Update header with focused conflict
+            const headerTitle = document.getElementById('globe-header');
+            if (headerTitle && targetZone) {
+                headerTitle.innerHTML = `
+                    <div style="color: #00D9FF; font-size: 1.1rem; font-weight: 700; letter-spacing: 2px;">ACTIVE KINETIC THEATERS</div>
+                    <div style="color: ${targetZone.color}; font-size: 0.9rem; font-weight: 600; margin-top: 4px;">${targetZone.title}</div>
+                    <div style="color: #888; font-size: 0.75rem;">${targetZone.location}</div>
+                `;
+            }
+
+            // Always dispose and recreate globe to ensure fresh coordinates
+            if (globeRoot) {
+                try { globeRoot.dispose(); } catch(e) {}
+                globeRoot = null;
+                globeChart = null;
+            }
+            
+            // Check if amCharts library is loaded
+            if (typeof am5 === 'undefined' || typeof am5map === 'undefined' || typeof am5geodata_worldLow === 'undefined' || typeof am5themes_Animated === 'undefined') {
+                console.error('amCharts libraries not loaded yet. am5:', typeof am5, 'am5map:', typeof am5map, 'geodata:', typeof am5geodata_worldLow, 'themes:', typeof am5themes_Animated);
+                const globeDiv = document.getElementById('globe-div');
+                if (globeDiv) {
+                    globeDiv.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #00D9FF; font-size: 1rem;">Loading globe data...</div>';
+                }
+                // Retry after a short delay
+                setTimeout(() => {
+                    if (typeof am5 !== 'undefined' && typeof am5themes_Animated !== 'undefined') {
+                        initializeGlobe(targetZone);
+                    } else {
+                        const gDiv = document.getElementById('globe-div');
+                        if (gDiv) gDiv.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ff4466;">Globe library failed to load. Please refresh.</div>';
+                    }
+                }, 2000);
+                return;
+            }
+            
+            // Small delay to ensure modal is fully rendered
+            setTimeout(() => initializeGlobe(targetZone), 100);
+        }
+        
+        function initializeGlobe(targetZone) {
+            try {
+                // Verify DOM element exists
+                const globeDiv = document.getElementById('globe-div');
+                if (!globeDiv) {
+                    console.error('Globe container not found');
+                    return;
+                }
+                
+                // Create new globe
+                globeRoot = am5.Root.new("globe-div");
+                globeRoot.setThemes([am5themes_Animated.new(globeRoot)]);
+            
+            // Set initial focus point
+            const initialPoint = targetZone 
+                ? { latitude: targetZone.latitude, longitude: targetZone.longitude }
+                : { latitude: 20, longitude: 10 };
+
+            globeChart = globeRoot.container.children.push(am5map.MapChart.new(globeRoot, {
+                panX: "rotateX",
+                panY: "rotateY",
+                projection: am5map.geoOrthographic(),
+                homeGeoPoint: initialPoint,
+                // Set initial rotation DIRECTLY so globe doesn't start at 0,0
+                rotationX: -initialPoint.longitude,
+                rotationY: -initialPoint.latitude
+            }));
+            
+            console.log('Globe initialized at:', initialPoint.latitude, initialPoint.longitude);
+
+            // 0. OCEAN - Blue-grey background sphere
+            let backgroundSeries = globeChart.series.push(am5map.MapPolygonSeries.new(globeRoot, {}));
+            backgroundSeries.mapPolygons.template.setAll({
+                fill: am5.color(0x6B8BA4),
+                fillOpacity: 0.3,
+                stroke: am5.color(0x6B8BA4),
+                strokeOpacity: 0.1
+            });
+            backgroundSeries.data.push({
+                geometry: am5map.getGeoRectangle(90, 180, -90, -180)
+            });
+
+            // 1. EARTH - Create polygon series for countries
+            let polygonSeries = globeChart.series.push(am5map.MapPolygonSeries.new(globeRoot, {
+                geoJSON: am5geodata_worldLow,
+                fill: am5.color(0xD4714A),
+                stroke: am5.color(0x4a5568)
+            }));
+
+            // Style polygons - NO tooltip to avoid mouse event conflicts with markers
+            polygonSeries.mapPolygons.template.setAll({
+                fill: am5.color(0xD4714A),
+                fillOpacity: 0.25,
+                stroke: am5.color(0x4a5568),
+                strokeWidth: 0.3,
+                interactive: false
+            });
+
+            // 3. CONFLICT MARKERS WITH COLOR-CODED PULSATING DOTS
+            let pointSeries = globeChart.series.push(am5map.MapPointSeries.new(globeRoot, {}));
+
+            pointSeries.bullets.push(function(root, series, dataItem) {
+                const data = dataItem.dataContext;
+                const markerColor = am5.color(data.color);
+                
+                // Larger hit area container for better hover detection
+                let hitArea = am5.Container.new(globeRoot, {
+                    width: 30,
+                    height: 30,
+                    centerX: am5.p50,
+                    centerY: am5.p50,
+                    interactive: true,
+                    cursorOverStyle: "pointer",
+                    tooltipHTML: `
+                        <div class="am5-tooltip-container">
+                            <div class="gt-title">{title}</div>
+                            <div class="gt-location" style="color: #888; font-size: 0.6rem; margin-bottom: 6px;">{location}</div>
+                            <div class="gt-type" style="background: {color}20; color: {color}">{type}</div>
+                            <div class="gt-desc">{desc}</div>
+                            <div class="gt-theory">{theory}</div>
+                            <div class="gt-why" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); color: #6a7585; font-size: 0.6rem; font-style: italic;">{locationWhy}</div>
+                        </div>
+                    `
+                });
+                
+                // Invisible hit circle for reliable hover detection - centered in container
+                hitArea.children.push(am5.Circle.new(globeRoot, {
+                    radius: 12,
+                    fill: am5.color(0x000000),
+                    fillOpacity: 0,
+                    strokeOpacity: 0,
+                    x: am5.p50,
+                    y: am5.p50,
+                    centerX: am5.p50,
+                    centerY: am5.p50
+                }));
+
+                // Center Dot - colored based on conflict status - centered in container
+                hitArea.children.push(am5.Circle.new(globeRoot, {
+                    radius: 5,
+                    fill: markerColor,
+                    strokeOpacity: 0,
+                    x: am5.p50,
+                    y: am5.p50,
+                    centerX: am5.p50,
+                    centerY: am5.p50
+                }));
+
+                // Pulse Animation Ring - colored (reduced for performance) - centered in container
+                let ring = hitArea.children.push(am5.Circle.new(globeRoot, {
+                    radius: 5,
+                    fill: markerColor,
+                    fillOpacity: 0.3,
+                    strokeOpacity: 0,
+                    x: am5.p50,
+                    y: am5.p50,
+                    centerX: am5.p50,
+                    centerY: am5.p50
+                }));
+
+                ring.animate({
+                    key: "scale",
+                    from: 1,
+                    to: 2.5,
+                    duration: 2500,
+                    loops: Infinity,
+                    easing: am5.ease.out(am5.ease.cubic)
+                });
+                
+                ring.animate({
+                    key: "opacity",
+                    from: 0.5,
+                    to: 0,
+                    duration: 2500,
+                    loops: Infinity,
+                    easing: am5.ease.out(am5.ease.cubic)
+                });
+
+                return am5.Bullet.new(globeRoot, {
+                    sprite: hitArea
+                });
+            });
+
+            // Load conflict markers using FRESH coordinates from immutable CANONICAL_COORDS
+            // Always deep-clone to prevent any stale/mutated data from affecting display
+            const freshZones = getFreshConflictData();
+            
+            // DEBUG: Log the first few zones to verify coordinates are correct
+            console.log('Globe zones loaded:', freshZones.slice(0, 3).map(z => 
+                `${z.id}: lat=${z.latitude}, lon=${z.longitude}`
+            ));
+            
+            pointSeries.data.setAll(freshZones.map(z => ({
+                geometry: { type: "Point", coordinates: [z.longitude, z.latitude] },
+                id: z.id,
+                title: z.title,
+                location: z.location,
+                type: z.type,
+                color: z.color,
+                desc: z.desc,
+                theory: z.theory,
+                locationWhy: z.locationWhy,
+                criticalityScore: z.criticalityScore
+            })));
+
+            // Center on target zone after globe appears
+            if (targetZone) {
+                globeChart.events.once("appeared", function() {
+                    globeChart.animate({
+                        key: "rotationX",
+                        to: -targetZone.longitude,
+                        duration: 800,
+                        easing: am5.ease.inOut(am5.ease.cubic)
+                    });
+                    globeChart.animate({
+                        key: "rotationY",
+                        to: -targetZone.latitude,
+                        duration: 800,
+                        easing: am5.ease.inOut(am5.ease.cubic)
+                    });
+                });
+            }
+            
+            globeChart.appear(800, 50);
+            } catch (error) {
+                console.error('Failed to initialize globe:', error.message || error.toString(), error.stack || '');
+                const globeDiv = document.getElementById('globe-div');
+                if (globeDiv) {
+                    globeDiv.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ff4466; font-size: 0.9rem; text-align: center; padding: 20px;">Unable to load globe. Please try again.</div>';
+                }
+                // Clean up on error
+                if (globeRoot) {
+                    try { globeRoot.dispose(); } catch(e) {}
+                    globeRoot = null;
+                    globeChart = null;
+                }
+            }
+        }
+        
+        function focusOnZone(zone) {
+            if (!globeChart) return;
+            
+            // Stop current animation
+            if (globeAnimation) globeAnimation.stop();
+            
+            // Animate to the target location
+            globeChart.animate({
+                key: "rotationX",
+                to: -zone.longitude,
+                duration: 1000,
+                easing: am5.ease.inOut(am5.ease.cubic)
+            });
+            globeChart.animate({
+                key: "rotationY",
+                to: -zone.latitude,
+                duration: 1000,
+                easing: am5.ease.inOut(am5.ease.cubic)
+            });
+            
+            // Update header
+            const headerDiv = document.getElementById('globe-header');
+            if (headerDiv) {
+                headerDiv.innerHTML = `
+                    <div style="color: #00D9FF; font-size: 1.1rem; font-weight: 700; letter-spacing: 2px;">ACTIVE KINETIC THEATERS</div>
+                    <div style="color: ${zone.color}; font-size: 0.9rem; font-weight: 600; margin-top: 4px;">${zone.title}</div>
+                    <div style="color: #888; font-size: 0.75rem;">${zone.location}</div>
+                `;
+            }
+        }
+
+        function closeMapModal(event) {
+            if (!event || event.target.id === 'mapModal' || event.target.classList.contains('chart-close-btn')) {
+                document.getElementById('mapModal').style.display = 'none';
+                document.body.style.overflow = '';
+                if (globeAnimation) globeAnimation.stop();
+                currentFocusedZone = null;
+            }
+        }
+        
         function openGameLegend() {
             document.getElementById('gameLegendModal').style.display = 'flex';
             document.getElementById('gameLegendModal').style.justifyContent = 'center';
@@ -6357,6 +7284,21 @@
         function closeIntelLegend(event) {
             if (!event || event.target.id === 'intelLegendModal' || event.target.classList.contains('chart-close-btn')) {
                 document.getElementById('intelLegendModal').style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+        
+        function openStatecraftExplainer() {
+            document.getElementById('statecraftExplainerModal').style.display = 'flex';
+            document.getElementById('statecraftExplainerModal').style.justifyContent = 'center';
+            document.getElementById('statecraftExplainerModal').style.alignItems = 'flex-start';
+            document.getElementById('statecraftExplainerModal').style.paddingTop = '3rem';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeStatecraftExplainer(event) {
+            if (!event || event.target.id === 'statecraftExplainerModal' || event.target.classList.contains('chart-close-btn')) {
+                document.getElementById('statecraftExplainerModal').style.display = 'none';
                 document.body.style.overflow = '';
             }
         }
