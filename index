@@ -4201,6 +4201,24 @@
         let marketTickerData = [];
         const seenTickerHeadlines = new Set();
 
+        // HTML Sanitization - Prevent XSS attacks
+        function sanitizeHTML(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // URL Sanitization - Block javascript: protocol
+        function sanitizeURL(url) {
+            if (!url) return '#';
+            const urlStr = String(url).toLowerCase().trim();
+            if (urlStr.startsWith('javascript:') || urlStr.startsWith('data:') || urlStr.startsWith('vbscript:')) {
+                return '#';
+            }
+            return url;
+        }
+
         // Convert ALL CAPS text to Title Case
         function toTitleCase(str) {
             if (!str) return str;
@@ -4318,23 +4336,24 @@
         function updateNewsTicker() {
             const ticker = document.getElementById('newsTickerContent');
             const doubled = [...newsTickerItems, ...newsTickerItems];
-            
+
             ticker.innerHTML = doubled.map(item => {
                 const topStoryBadge = item.isTopStory ? '<span class="top-story-badge">TOP</span>' : '';
                 const topStoryClass = item.isTopStory ? 'top-story' : '';
-                const displayText = toTitleCase(item.text);
+                const displayText = sanitizeHTML(toTitleCase(item.text));
+                const safeLink = sanitizeURL(item.link);
                 const tickerContent = `
-                    <span class="ticker-time">${item.time} UTC</span>
+                    <span class="ticker-time">${sanitizeHTML(item.time)} UTC</span>
                     ${topStoryBadge}
                     <span class="ticker-text ${topStoryClass}">${displayText}</span>
                     <div class="ticker-impact">
-                        ${Array(3).fill(0).map((_, i) => 
+                        ${Array(3).fill(0).map((_, i) =>
                             `<div class="impact-dot ${i < item.impact ? 'active' : ''}"></div>`
                         ).join('')}
                     </div>
                 `;
-                return item.link 
-                    ? `<a href="${item.link}" target="_blank" rel="noopener noreferrer" class="ticker-item ${topStoryClass}" style="text-decoration: none; color: inherit;">${tickerContent}</a>`
+                return item.link
+                    ? `<a href="${safeLink}" target="_blank" rel="noopener noreferrer" class="ticker-item ${topStoryClass}" style="text-decoration: none; color: inherit;">${tickerContent}</a>`
                     : `<div class="ticker-item ${topStoryClass}">${tickerContent}</div>`;
             }).join('');
         }
@@ -4409,13 +4428,13 @@
             })));
 
             const doubled = [...allItems, ...allItems];
-            
+
             ticker.innerHTML = doubled.map(item => `
-                <div class="market-ticker-item" onclick="openChart('${item.tvSymbol}')" style="cursor: pointer;">
-                    <span class="market-ticker-label">${item.label}</span>
-                    <span class="market-ticker-value">${item.value}</span>
+                <div class="market-ticker-item" onclick="openChart('${sanitizeHTML(item.tvSymbol)}')" style="cursor: pointer;">
+                    <span class="market-ticker-label">${sanitizeHTML(item.label)}</span>
+                    <span class="market-ticker-value">${sanitizeHTML(item.value)}</span>
                     <span class="market-ticker-change ${getMarketTickerClass(item.dir)}">
-                        ${item.change}
+                        ${sanitizeHTML(item.change)}
                     </span>
                 </div>
             `).join('');
@@ -4623,6 +4642,27 @@
                 fragEl.style.color = data.fragScore.color;
                 if (fragHitsEl) {
                     fragHitsEl.innerText = `(${data.fragScore.hits} signals)`;
+                }
+            }
+
+            // 6. DATA QUALITY WARNING
+            let warningEl = document.getElementById('intel-data-warning');
+            if (!warningEl) {
+                // Create warning element if it doesn't exist
+                const intelSection = document.querySelector('.strategic-intel-grid');
+                if (intelSection && intelSection.parentNode) {
+                    warningEl = document.createElement('div');
+                    warningEl.id = 'intel-data-warning';
+                    warningEl.style.cssText = 'margin-top:8px;padding:6px 8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:4px;font-size:0.7rem;color:#ef4444;display:none;text-align:center;';
+                    intelSection.parentNode.insertBefore(warningEl, intelSection.nextSibling);
+                }
+            }
+            if (warningEl && data.dataQuality) {
+                if (data.dataQuality.usingFallbacks && data.dataQuality.warning) {
+                    warningEl.textContent = '⚠️ ' + data.dataQuality.warning;
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
                 }
             }
         }
@@ -5065,14 +5105,14 @@
             const fxCommodityContainer = document.getElementById('fxCommodity');
 
             const renderFXPair = (pair) => `
-                <div class="fx-pair-item" onclick="openChart('${pair.tvSymbol || pair.label}')">
+                <div class="fx-pair-item" onclick="openChart('${sanitizeHTML(pair.tvSymbol || pair.label)}')">
                     <div class="fx-pair-left">
                         <div style="display:flex;align-items:center;gap:0.3rem;">
-                            <div class="fx-pair-label">${pair.label}</div>
-                            <div class="fx-pair-change ${getFXClass(pair.dir)}" style="font-size:0.65rem;">${pair.change}%</div>
+                            <div class="fx-pair-label">${sanitizeHTML(pair.label)}</div>
+                            <div class="fx-pair-change ${getFXClass(pair.dir)}" style="font-size:0.65rem;">${sanitizeHTML(pair.change)}%</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:0.2rem;">
-                            <div class="fx-pair-price">${pair.price}</div>
+                            <div class="fx-pair-price">${sanitizeHTML(pair.price)}</div>
                             <span class="${getFXClass(pair.dir)}" style="font-size:0.55rem;">${getFXArrow(pair.dir)}</span>
                         </div>
                     </div>
@@ -5120,14 +5160,14 @@
             const agricultureContainer = document.getElementById('commodityAgriculture');
 
             const renderCommodity = (item) => `
-                <div class="commodity-item" onclick="openChart('${item.tvSymbol || item.ticker || item.label}')" style="cursor: pointer;">
+                <div class="commodity-item" onclick="openChart('${sanitizeHTML(item.tvSymbol || item.ticker || item.label)}')" style="cursor: pointer;">
                     <div class="commodity-item-left">
                         <div style="display:flex;align-items:center;gap:0.3rem;">
-                            <div class="commodity-item-label">${item.label}</div>
-                            <div class="commodity-item-change ${getCommodityClass(item.dir)}" style="font-size:0.65rem;">${item.change}%</div>
+                            <div class="commodity-item-label">${sanitizeHTML(item.label)}</div>
+                            <div class="commodity-item-change ${getCommodityClass(item.dir)}" style="font-size:0.65rem;">${sanitizeHTML(item.change)}%</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:0.2rem;">
-                            <div class="commodity-item-price">${item.price}</div>
+                            <div class="commodity-item-price">${sanitizeHTML(item.price)}</div>
                             <span class="${getCommodityClass(item.dir)}" style="font-size:0.55rem;">${getCommodityArrow(item.dir)}</span>
                         </div>
                     </div>
@@ -5191,43 +5231,43 @@
                     <div class="sentiment-grid">
                         <div class="sentiment-item">
                             <div class="sentiment-label">VIX REGIME</div>
-                            <div class="sentiment-value" style="color: ${s.vix.color}">${s.vix.regime}</div>
-                            <div class="sentiment-sub">${s.vix.value}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.vix.color)}">${sanitizeHTML(s.vix.regime)}</div>
+                            <div class="sentiment-sub">${sanitizeHTML(s.vix.value)}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">FEAR/GREED</div>
-                            <div class="sentiment-value" style="color: ${s.fearGreed.color}">${s.fearGreed.value}</div>
-                            <div class="sentiment-sub">${s.fearGreed.label}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.fearGreed.color)}">${sanitizeHTML(s.fearGreed.value)}</div>
+                            <div class="sentiment-sub">${sanitizeHTML(s.fearGreed.label)}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">2s10s CURVE</div>
-                            <div class="sentiment-value" style="color: ${s.curve.color}">${s.curve.signal}</div>
-                            <div class="sentiment-sub">${s.curve.value}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.curve.color)}">${sanitizeHTML(s.curve.signal)}</div>
+                            <div class="sentiment-sub">${sanitizeHTML(s.curve.value)}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">DOLLAR</div>
-                            <div class="sentiment-value" style="color: ${s.dollar.color}">${s.dollar.signal}</div>
-                            <div class="sentiment-sub">DXY ${s.dollar.value}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.dollar.color)}">${sanitizeHTML(s.dollar.signal)}</div>
+                            <div class="sentiment-sub">DXY ${sanitizeHTML(s.dollar.value)}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">FED CUT ODDS</div>
-                            <div class="sentiment-value" style="color: #a78bfa">${s.rateCut.value}</div>
+                            <div class="sentiment-value" style="color: #a78bfa">${sanitizeHTML(s.rateCut.value)}</div>
                             <div class="sentiment-sub">Next Meeting</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">GOLD</div>
-                            <div class="sentiment-value" style="color: ${s.gold.color}">${s.gold.signal}</div>
-                            <div class="sentiment-sub">${s.gold.value}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.gold.color)}">${sanitizeHTML(s.gold.signal)}</div>
+                            <div class="sentiment-sub">${sanitizeHTML(s.gold.value)}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">OIL/WTI</div>
-                            <div class="sentiment-value" style="color: ${s.oil.color}">${s.oil.signal}</div>
-                            <div class="sentiment-sub">${s.oil.value}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.oil.color)}">${sanitizeHTML(s.oil.signal)}</div>
+                            <div class="sentiment-sub">${sanitizeHTML(s.oil.value)}</div>
                         </div>
                         <div class="sentiment-item">
                             <div class="sentiment-label">CREDIT</div>
-                            <div class="sentiment-value" style="color: ${s.credit.color}">${s.credit.signal}</div>
-                            <div class="sentiment-sub">Score: ${s.credit.value}</div>
+                            <div class="sentiment-value" style="color: ${sanitizeHTML(s.credit.color)}">${sanitizeHTML(s.credit.signal)}</div>
+                            <div class="sentiment-sub">Score: ${sanitizeHTML(s.credit.value)}</div>
                         </div>
                     </div>
                 `;
@@ -5244,15 +5284,15 @@
                     const probNum = parseFloat(market.probability);
                     const probColor = probNum >= 70 ? '#22c55e' : probNum >= 50 ? '#eab308' : probNum >= 30 ? '#f97316' : '#ef4444';
                     const dirArrow = market.direction === 'up' ? '▲' : market.direction === 'down' ? '▼' : '';
-                    const categoryClass = market.category.toLowerCase();
-                    
+                    const categoryClass = sanitizeHTML(market.category.toLowerCase());
+
                     return `
                         <div class="polymarket-item" onclick="window.open('https://polymarket.com/', '_blank')">
                             <div class="polymarket-header">
-                                <span class="polymarket-category cat-${categoryClass}">${market.category}</span>
-                                <span class="polymarket-prob" style="color: ${probColor}">${market.probability}% ${dirArrow}</span>
+                                <span class="polymarket-category cat-${categoryClass}">${sanitizeHTML(market.category)}</span>
+                                <span class="polymarket-prob" style="color: ${probColor}">${sanitizeHTML(market.probability)}% ${dirArrow}</span>
                             </div>
-                            <div class="polymarket-question">${market.question}</div>
+                            <div class="polymarket-question">${sanitizeHTML(market.question)}</div>
                         </div>
                     `;
                 }).join('');
@@ -5289,29 +5329,29 @@
             });
             
             gameTheoryList.innerHTML = games.map(game => {
-                const moveTypeClass = game.lastMove.type === 'DEFECT' ? 'move-type-defect' : 
+                const moveTypeClass = game.lastMove.type === 'DEFECT' ? 'move-type-defect' :
                                      game.lastMove.type === 'COOPERATE' ? 'move-type-cooperate' : 'move-type-signal';
-                
+
                 return `
-                    <div class="game-card status-${game.statusColor}">
+                    <div class="game-card status-${sanitizeHTML(game.statusColor)}">
                         <div class="game-header">
-                            <span class="game-title">${game.emoji} ${game.title}</span>
-                            <span class="game-phase phase-${game.phaseColor}">${game.currentPhase}</span>
+                            <span class="game-title">${sanitizeHTML(game.emoji)} ${sanitizeHTML(game.title)}</span>
+                            <span class="game-phase phase-${sanitizeHTML(game.phaseColor)}">${sanitizeHTML(game.currentPhase)}</span>
                         </div>
-                        <div class="game-players">${game.players.join(' vs ')}</div>
+                        <div class="game-players">${game.players.map(p => sanitizeHTML(p)).join(' vs ')}</div>
                         <div class="game-last-move">
-                            <div class="game-move-label">Last Move (${game.lastMove.date})</div>
+                            <div class="game-move-label">Last Move (${sanitizeHTML(game.lastMove.date)})</div>
                             <div class="game-move-text">
-                                <strong>${game.lastMove.player}:</strong> ${game.lastMove.action}
-                                <span class="game-move-type ${moveTypeClass}">${game.lastMove.type}</span>
+                                <strong>${sanitizeHTML(game.lastMove.player)}:</strong> ${sanitizeHTML(game.lastMove.action)}
+                                <span class="game-move-type ${moveTypeClass}">${sanitizeHTML(game.lastMove.type)}</span>
                             </div>
                         </div>
                         <div class="game-equilibrium">
-                            <span class="equilibrium-dot eq-${game.statusColor}"></span>
-                            <span class="equilibrium-text" style="color: ${game.statusColor === 'green' ? '#22c55e' : game.statusColor === 'yellow' ? '#f59e0b' : '#ef4444'}">${game.equilibriumStatus}</span>
+                            <span class="equilibrium-dot eq-${sanitizeHTML(game.statusColor)}"></span>
+                            <span class="equilibrium-text" style="color: ${game.statusColor === 'green' ? '#22c55e' : game.statusColor === 'yellow' ? '#f59e0b' : '#ef4444'}">${sanitizeHTML(game.equilibriumStatus)}</span>
                         </div>
-                        <div class="game-next-move">${game.nextLikelyMove}</div>
-                        <div class="game-analyze-btn" onclick="analyzeGameConflict('${game.id}')">
+                        <div class="game-next-move">${sanitizeHTML(game.nextLikelyMove)}</div>
+                        <div class="game-analyze-btn" onclick="analyzeGameConflict('${sanitizeHTML(game.id)}')">
                             <span class="game-analyze-btn-icon">🤖</span>
                             <span>GET AI ANALYSIS →</span>
                         </div>
@@ -5356,7 +5396,7 @@
             const modalSource = document.getElementById('modalSource');
 
             modalHeadline.textContent = `${game.emoji} ${game.title}`;
-            modalSource.innerHTML = `<span class="modal-source-label">Players:</span>${game.players.join(' vs ')}`;
+            modalSource.innerHTML = `<span class="modal-source-label">Players:</span>${game.players.map(p => sanitizeHTML(p)).join(' vs ')}`;
             modalBody.innerHTML = `
                 <div class="modal-loading">
                     <div class="modal-spinner"></div>

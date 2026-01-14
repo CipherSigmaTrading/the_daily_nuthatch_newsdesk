@@ -4111,9 +4111,18 @@ let cachedStrategicIntelligence = null;
 
 function calculateStrategicIntelligence() {
   try {
+    // Null safety checks
+    if (!cachedMarketSnapshot || !cachedMarketSnapshot.data) {
+      console.warn('Strategic Intelligence: No market data available');
+      return null;
+    }
+
     const d = cachedMarketSnapshot.data || {};
     const news = recentCards || [];
-    
+
+    // Track data freshness - detect if using fallback values
+    const usingFallbacks = !d.wheat || !d.wti || !d.dxy || !d.gold || !d.copper || !d.spx;
+
     // Get market values with fallbacks
     const wheat = parseFloat(d.wheat) || 580;
     const oil = parseFloat(d.wti) || 75;
@@ -4123,11 +4132,19 @@ function calculateStrategicIntelligence() {
     const spx = parseFloat(d.spx) || 4500;
     
     // 1. LIAR'S POKER (Sentiment vs. Prediction Odds)
-    const warOdds = cachedPredictionData?.markets?.find(m => 
-      (m.question || '').toLowerCase().includes('conflict') || 
-      (m.question || '').toLowerCase().includes('war') ||
-      (m.question || '').toLowerCase().includes('invasion')
-    );
+    const warOdds = cachedPredictionData?.markets?.find(m => {
+      const q = (m.question || '').toLowerCase();
+      return q.includes('conflict') ||
+             q.includes('war') ||
+             q.includes('invasion') ||
+             q.includes('strike') ||
+             q.includes('attack') ||
+             q.includes('tension') ||
+             q.includes('crisis') ||
+             q.includes('military') ||
+             q.includes('hostilities') ||
+             q.includes('escalation');
+    });
     const warOddsValue = warOdds ? parseFloat(warOdds.probability) : 15;
     
     // Use Fear & Greed as sentiment proxy
@@ -4154,9 +4171,13 @@ function calculateStrategicIntelligence() {
       warEco,
       fragScore,
       vassalState,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      dataQuality: {
+        usingFallbacks,
+        warning: usingFallbacks ? 'Using fallback data - market APIs may be unavailable' : null
+      }
     };
-    
+
     cachedStrategicIntelligence = intelligenceData;
     return intelligenceData;
     
