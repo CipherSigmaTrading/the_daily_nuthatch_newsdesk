@@ -62,6 +62,274 @@ let cachedPredictionData = {
 };
 
 // ============================================================================
+// EMERGING CONFLICT DETECTION ENGINE
+// ============================================================================
+
+// Buffer for orphan headlines (don't match any existing conflict)
+const orphanHeadlineBuffer = [];
+const MAX_ORPHAN_BUFFER = 100;
+
+// Queue of proposed emerging conflicts awaiting approval
+let emergingConflictQueue = [];
+const MAX_EMERGING_QUEUE = 5;
+
+// Daily proposal limit to avoid spam
+let dailyProposalCount = 0;
+const MAX_DAILY_PROPOSALS = 10;
+
+// Get all keywords from active games
+function getAllConflictKeywords() {
+  const allKeywords = [];
+  Object.values(activeGames).forEach(game => {
+    if (game.keywords) {
+      allKeywords.push(...game.keywords);
+    }
+  });
+  return allKeywords;
+}
+
+// Check if a headline matches any existing conflict
+function matchesExistingConflict(headline) {
+  const text = headline.toLowerCase();
+  const keywords = getAllConflictKeywords();
+  return keywords.some(kw => text.includes(kw.toLowerCase()));
+}
+
+// Add headline to orphan buffer if it doesn't match existing conflicts
+function checkOrphanHeadline(headline, source, timestamp) {
+  if (matchesExistingConflict(headline)) return false;
+  
+  // Check if it's a potential strategic/geopolitical headline
+  const strategicPatterns = /conflict|war|crisis|tension|sanctions|military|troops|strike|missile|nuclear|invasion|blockade|protest|riot|coup|embargo|treaty|alliance|tariff|retaliation/i;
+  if (!strategicPatterns.test(headline)) return false;
+  
+  orphanHeadlineBuffer.push({
+    headline,
+    source,
+    timestamp: timestamp || Date.now(),
+    id: `orphan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  });
+  
+  // Trim buffer
+  while (orphanHeadlineBuffer.length > MAX_ORPHAN_BUFFER) {
+    orphanHeadlineBuffer.shift();
+  }
+  
+  return true;
+}
+
+// Cluster similar orphan headlines
+function clusterOrphanHeadlines() {
+  const clusters = [];
+  const used = new Set();
+  const recentCutoff = Date.now() - (4 * 60 * 60 * 1000); // Last 4 hours
+  
+  const recentOrphans = orphanHeadlineBuffer.filter(o => o.timestamp > recentCutoff);
+  
+  for (const orphan of recentOrphans) {
+    if (used.has(orphan.id)) continue;
+    
+    // Find similar headlines
+    const cluster = [orphan];
+    const words = new Set(orphan.headline.toLowerCase().split(/\s+/).filter(w => w.length > 4));
+    
+    for (const other of recentOrphans) {
+      if (other.id === orphan.id || used.has(other.id)) continue;
+      
+      const otherWords = new Set(other.headline.toLowerCase().split(/\s+/).filter(w => w.length > 4));
+      const overlap = [...words].filter(w => otherWords.has(w)).length;
+      
+      if (overlap >= 2) {
+        cluster.push(other);
+        used.add(other.id);
+      }
+    }
+    
+    used.add(orphan.id);
+    
+    // Require 3+ headlines from 2+ different sources
+    const uniqueSources = new Set(cluster.map(c => c.source)).size;
+    if (cluster.length >= 3 && uniqueSources >= 2) {
+      clusters.push(cluster);
+    }
+  }
+  
+  return clusters;
+}
+
+// Analyze a cluster with Gemini to determine if it's an emerging conflict
+async function analyzeEmergingConflict(cluster) {
+  if (dailyProposalCount >= MAX_DAILY_PROPOSALS) {
+    console.log('📊 Daily proposal limit reached');
+    return null;
+  }
+  
+  const headlines = cluster.map(c => `- ${c.headline} (${c.source})`).join('\n');
+  
+  const prompt = `Analyze these related news headlines and determine if they represent an emerging strategic conflict or geopolitical situation that traders should track:
+
+${headlines}
+
+If this represents a genuine emerging conflict (NOT routine news), respond in JSON:
+{
+  "isConflict": true,
+  "confidence": 0.0-1.0,
+  "title": "Short conflict title (max 25 chars)",
+  "emoji": "Single emoji representing the conflict",
+  "players": ["Player 1", "Player 2"],
+  "currentPhase": "ESCALATION|STANDOFF|BRINKMANSHIP|POSTURING|COORDINATION",
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "summary": "One sentence summary",
+  "location": {"lat": 0.0, "lon": 0.0, "city": "Key city name"}
+}
+
+If this is NOT a genuine conflict (routine news, single incident, not strategic), respond:
+{"isConflict": false, "reason": "brief explanation"}
+
+Respond ONLY with valid JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    
+    const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const result = JSON.parse(text);
+    
+    if (result.isConflict && result.confidence > 0.6) {
+      dailyProposalCount++;
+      return {
+        id: `emerging_${Date.now()}`,
+        ...result,
+        headlines: cluster.map(c => c.headline),
+        sources: [...new Set(cluster.map(c => c.source))],
+        proposedAt: Date.now()
+      };
+    }
+    
+    return null;
+  } catch (e) {
+    console.error('Emerging conflict analysis failed:', e.message);
+    return null;
+  }
+}
+
+// Process orphan clusters and generate proposals
+async function processEmergingConflicts() {
+  if (emergingConflictQueue.length >= MAX_EMERGING_QUEUE) return;
+  
+  const clusters = clusterOrphanHeadlines();
+  
+  for (const cluster of clusters) {
+    if (emergingConflictQueue.length >= MAX_EMERGING_QUEUE) break;
+    
+    // Check if already proposed something similar
+    const clusterText = cluster.map(c => c.headline).join(' ').toLowerCase();
+    const isDuplicate = emergingConflictQueue.some(eq => {
+      const eqText = eq.headlines.join(' ').toLowerCase();
+      const overlap = clusterText.split(' ').filter(w => eqText.includes(w)).length;
+      return overlap > 10;
+    });
+    
+    if (isDuplicate) continue;
+    
+    const proposal = await analyzeEmergingConflict(cluster);
+    if (proposal) {
+      emergingConflictQueue.push(proposal);
+      console.log(`🔔 New emerging conflict proposed: ${proposal.title}`);
+      
+      // Broadcast to clients
+      broadcast({
+        type: 'emerging_conflict_update',
+        data: { queue: emergingConflictQueue }
+      });
+    }
+  }
+}
+
+// Accept an emerging conflict (promote to active games)
+function acceptEmergingConflict(proposalId) {
+  const idx = emergingConflictQueue.findIndex(p => p.id === proposalId);
+  if (idx === -1) return false;
+  
+  const proposal = emergingConflictQueue[idx];
+  
+  // Generate game ID
+  const gameId = proposal.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30);
+  
+  // Add to active games
+  activeGames[gameId] = {
+    id: gameId,
+    title: proposal.title,
+    emoji: proposal.emoji,
+    players: proposal.players,
+    currentPhase: proposal.currentPhase,
+    phaseColor: proposal.currentPhase === 'ESCALATION' ? 'red' : 'yellow',
+    lastMove: {
+      player: 'System',
+      action: 'Conflict detected via AI analysis',
+      type: 'SIGNAL',
+      date: new Date().toISOString().split('T')[0]
+    },
+    equilibriumStatus: 'EMERGING',
+    statusColor: 'yellow',
+    nextLikelyMove: proposal.summary,
+    keywords: proposal.keywords,
+    location: proposal.location,
+    isUserAdded: true
+  };
+  
+  // Remove from queue
+  emergingConflictQueue.splice(idx, 1);
+  
+  console.log(`✅ Emerging conflict accepted: ${proposal.title}`);
+  
+  // Broadcast updates
+  broadcastGameTheoryUpdate();
+  broadcast({
+    type: 'emerging_conflict_update',
+    data: { queue: emergingConflictQueue }
+  });
+  
+  return true;
+}
+
+// Dismiss an emerging conflict proposal
+function dismissEmergingConflict(proposalId) {
+  const idx = emergingConflictQueue.findIndex(p => p.id === proposalId);
+  if (idx === -1) return false;
+  
+  emergingConflictQueue.splice(idx, 1);
+  console.log(`❌ Emerging conflict dismissed: ${proposalId}`);
+  
+  broadcast({
+    type: 'emerging_conflict_update',
+    data: { queue: emergingConflictQueue }
+  });
+  
+  return true;
+}
+
+// Reset daily proposal count at midnight
+cron.schedule('0 0 * * *', () => {
+  dailyProposalCount = 0;
+  console.log('🔄 Daily emerging conflict proposal count reset');
+});
+
+// Process emerging conflicts every 15 minutes
+cron.schedule('*/15 * * * *', async () => {
+  await processEmergingConflicts();
+  
+  // Also check for re-emergence of archived conflicts
+  const recentHeadlines = orphanHeadlineBuffer
+    .filter(o => o.timestamp > Date.now() - 60 * 60 * 1000) // Last hour
+    .map(o => o.headline);
+  checkForReemergence(recentHeadlines);
+});
+
+// ============================================================================
 // GAME THEORY ENGINE - Active Games Tracker
 // ============================================================================
 
@@ -71,7 +339,7 @@ let activeGames = {
     title: "US-China Tech War",
     emoji: "🔬",
     players: ["US Commerce Dept", "Beijing/CCP"],
-    currentPhase: "ESCALATION",
+    currentPhase: "STANDOFF",
     phaseColor: "yellow",
     lastMove: {
       player: "US",
@@ -79,7 +347,7 @@ let activeGames = {
       type: "DEFECT",
       date: "2026-01-10"
     },
-    equilibriumStatus: "UNSTABLE",
+    equilibriumStatus: "COLD WAR",
     statusColor: "yellow",
     nextLikelyMove: "China restricts rare earth exports or retaliates on US firms",
     keywords: ["chip", "semiconductor", "nvidia", "export control", "huawei", "smic", "asml", "rare earth"]
@@ -161,7 +429,7 @@ let activeGames = {
     title: "Russia-Ukraine War",
     emoji: "⚔️",
     players: ["Russia", "Ukraine/NATO"],
-    currentPhase: "ATTRITION",
+    currentPhase: "CONFLICT",
     phaseColor: "red",
     lastMove: {
       player: "Russia",
@@ -169,9 +437,9 @@ let activeGames = {
       type: "DEFECT",
       date: "2026-01-11"
     },
-    equilibriumStatus: "FROZEN CONFLICT",
-    statusColor: "yellow",
-    nextLikelyMove: "Ceasefire talks or new Western aid package",
+    equilibriumStatus: "ACTIVE HOT WAR",
+    statusColor: "red",
+    nextLikelyMove: "Trump peace deal pressure or continued attrition",
     keywords: ["ukraine", "russia", "donbas", "crimea", "nato", "zelensky", "putin", "sanctions"]
   },
   "iran_israel": {
@@ -179,7 +447,7 @@ let activeGames = {
     title: "Iran-Israel Shadow War",
     emoji: "🎯",
     players: ["Iran/Proxies (Hezbollah, Hamas)", "Israel/IDF"],
-    currentPhase: "ESCALATION",
+    currentPhase: "BRINKMANSHIP",
     phaseColor: "red",
     lastMove: {
       player: "Israel",
@@ -187,9 +455,9 @@ let activeGames = {
       type: "DEFECT",
       date: "2026-01-10"
     },
-    equilibriumStatus: "VOLATILE",
+    equilibriumStatus: "CRITICAL - Direct strikes exchanged",
     statusColor: "red",
-    nextLikelyMove: "Proxy retaliation or Iranian nuclear program acceleration",
+    nextLikelyMove: "Iranian retaliation or nuclear program acceleration",
     keywords: ["iran", "israel", "hezbollah", "hamas", "gaza", "beirut", "tehran", "idf", "mossad", "proxy", "missile", "strike"]
   },
   "eu_energy_crisis": {
@@ -408,6 +676,24 @@ let activeGames = {
     nextLikelyMove: "Maduro seeks Russia/China backing or refugee exodus accelerates",
     keywords: ["venezuela", "maduro", "caracas", "guaido", "pdvsa", "oil sanctions", "intervention"]
   },
+  "monroe_doctrine": {
+    id: "monroe_doctrine",
+    title: "Monroe Doctrine Revival",
+    emoji: "🦅",
+    players: ["Trump Administration", "Denmark/Canada/Panama/Mexico"],
+    currentPhase: "ESCALATION",
+    phaseColor: "red",
+    lastMove: {
+      player: "Trump",
+      action: "Demands Greenland purchase, threatens tariffs on Canada, questions Panama Canal sovereignty",
+      type: "DEFECT",
+      date: "2026-01-12"
+    },
+    equilibriumStatus: "VOLATILE",
+    statusColor: "red",
+    nextLikelyMove: "NATO allies respond, Denmark rejects bid, trade tensions with neighbors escalate",
+    keywords: ["greenland", "panama canal", "canada", "51st state", "monroe doctrine", "annex", "hemisphere", "trump", "denmark", "mexico", "tariff", "border"]
+  },
   "iran_regime_unrest": {
     id: "iran_regime_unrest",
     title: "Iran Regime Stability",
@@ -425,12 +711,217 @@ let activeGames = {
     statusColor: "red",
     nextLikelyMove: "Economic collapse accelerates unrest or regime consolidates via external conflict",
     keywords: ["iran protest", "tehran", "irgc", "khamenei", "women life freedom", "rial", "sanctions", "regime change", "iranian unrest", "mahsa amini"]
+  },
+  "red_sea_houthis": {
+    id: "red_sea_houthis",
+    title: "Red Sea / Houthis",
+    emoji: "🚢",
+    players: ["Houthi Rebels/Iran", "US/UK/Global Shipping"],
+    currentPhase: "CONFLICT",
+    phaseColor: "red",
+    lastMove: {
+      player: "Houthis",
+      action: "Drone and missile attacks on commercial shipping",
+      type: "DEFECT",
+      date: "2026-01-12"
+    },
+    equilibriumStatus: "CRITICAL",
+    statusColor: "red",
+    nextLikelyMove: "US/UK airstrikes on Houthi positions or shipping reroutes via Cape",
+    keywords: ["houthi", "red sea", "bab el mandeb", "yemen", "shipping attack", "maersk", "suez", "aden", "missile ship"]
+  },
+  "sahel_islamism": {
+    id: "sahel_islamism",
+    title: "Sahel Insurgency",
+    emoji: "🏜️",
+    players: ["Islamist Groups (JNIM/ISGS)", "Sahel States/Wagner"],
+    currentPhase: "FRAGMENTATION",
+    phaseColor: "red",
+    lastMove: {
+      player: "Islamists",
+      action: "Coordinated attacks across Mali, Niger, and Burkina Faso",
+      type: "DEFECT",
+      date: "2026-01-11"
+    },
+    equilibriumStatus: "UNSTABLE",
+    statusColor: "red",
+    nextLikelyMove: "Military junta realignment or Wagner/Russian intervention expansion",
+    keywords: ["sahel", "mali", "niger", "burkina faso", "jnim", "isgs", "wagner africa", "coup", "islamist", "terrorism africa", "french withdrawal"]
   }
 };
+
+// Archived games storage
+let archivedGames = {};
+
+// Auto-archive configuration
+const ARCHIVE_CONFIG = {
+  stableDaysThreshold: 7,      // Days a conflict must be STABLE/COORDINATION before archiving
+  inactiveDaysThreshold: 30,   // Days without any move before archiving
+  resolutionPhases: ['STABLE', 'COORDINATION', 'RESOLUTION', 'RESOLVED'],
+  resolutionKeywords: ['peace deal', 'ceasefire', 'agreement signed', 'conflict ends', 'war ends', 'treaty signed', 'peace accord', 'hostilities end']
+};
+
+// Track when conflicts became stable
+const stableStartDates = {};
+
+// Auto-archive check function
+function autoArchiveConflicts() {
+  const now = new Date();
+  const archiveCount = { stable: 0, inactive: 0 };
+  
+  for (const [gameId, game] of Object.entries(activeGames)) {
+    const phase = (game.currentPhase || '').toUpperCase();
+    const isStablePhase = ARCHIVE_CONFIG.resolutionPhases.some(p => phase.includes(p));
+    
+    // Track stable start date
+    if (isStablePhase) {
+      if (!stableStartDates[gameId]) {
+        stableStartDates[gameId] = now;
+      }
+    } else {
+      delete stableStartDates[gameId];
+    }
+    
+    // Check if stable for long enough
+    if (stableStartDates[gameId]) {
+      const stableDays = Math.floor((now - stableStartDates[gameId]) / (1000 * 60 * 60 * 24));
+      if (stableDays >= ARCHIVE_CONFIG.stableDaysThreshold) {
+        archiveConflict(gameId, `Stable for ${stableDays} days`);
+        archiveCount.stable++;
+        continue;
+      }
+    }
+    
+    // Check for inactivity
+    if (game.lastMove?.date) {
+      const lastMoveDate = new Date(game.lastMove.date);
+      const inactiveDays = Math.floor((now - lastMoveDate) / (1000 * 60 * 60 * 24));
+      if (inactiveDays >= ARCHIVE_CONFIG.inactiveDaysThreshold) {
+        archiveConflict(gameId, `No activity for ${inactiveDays} days`);
+        archiveCount.inactive++;
+      }
+    }
+  }
+  
+  if (archiveCount.stable > 0 || archiveCount.inactive > 0) {
+    console.log(`📦 Auto-archived ${archiveCount.stable} stable + ${archiveCount.inactive} inactive conflicts`);
+    broadcastGameTheoryUpdate();
+  }
+}
+
+// Archive a specific conflict
+function archiveConflict(gameId, reason) {
+  const game = activeGames[gameId];
+  if (!game) return false;
+  
+  archivedGames[gameId] = {
+    ...game,
+    archivedAt: new Date().toISOString(),
+    archiveReason: reason
+  };
+  
+  delete activeGames[gameId];
+  delete stableStartDates[gameId];
+  
+  console.log(`📦 Archived: ${game.title} - ${reason}`);
+  return true;
+}
+
+// Check for resolution in headlines
+function checkForResolution(gameId, headlines) {
+  const game = activeGames[gameId];
+  if (!game) return false;
+  
+  const headlineText = headlines.join(' ').toLowerCase();
+  const gameTitle = game.title.toLowerCase();
+  
+  // Check if headline mentions this conflict + resolution keywords
+  const mentionsGame = game.keywords.some(kw => headlineText.includes(kw.toLowerCase()));
+  const mentionsResolution = ARCHIVE_CONFIG.resolutionKeywords.some(kw => headlineText.includes(kw));
+  
+  if (mentionsGame && mentionsResolution) {
+    archiveConflict(gameId, 'Resolution detected in news');
+    broadcastGameTheoryUpdate();
+    return true;
+  }
+  
+  return false;
+}
+
+// Re-emergence detection keywords (crisis escalation)
+const REEMERGENCE_KEYWORDS = [
+  'escalat', 'crisis', 'emergency', 'attack', 'strike', 'tension', 'clash',
+  'military', 'war', 'conflict', 'invasion', 'sanction', 'collapse', 'crash',
+  'surge', 'spike', 'shock', 'volatile', 'turmoil', 'unrest', 'protest'
+];
+
+// Check if archived conflicts should re-emerge based on new headlines
+function checkForReemergence(headlines) {
+  if (!headlines || headlines.length === 0) return;
+  
+  const headlineText = headlines.join(' ').toLowerCase();
+  let reemergedCount = 0;
+  
+  for (const [gameId, game] of Object.entries(archivedGames)) {
+    // Check if headlines mention this archived conflict
+    const mentionsGame = game.keywords.some(kw => headlineText.includes(kw.toLowerCase()));
+    
+    if (!mentionsGame) continue;
+    
+    // Check if headlines also contain crisis/escalation keywords
+    const mentionsCrisis = REEMERGENCE_KEYWORDS.some(kw => headlineText.includes(kw));
+    
+    if (mentionsCrisis) {
+      // Re-activate this conflict
+      activeGames[gameId] = {
+        ...game,
+        currentPhase: 'ESCALATION',
+        equilibriumStatus: 'RE-EMERGED - Monitoring',
+        reemergedAt: new Date().toISOString(),
+        previousArchiveReason: game.archiveReason
+      };
+      
+      // Clean up archive record
+      delete activeGames[gameId].archivedAt;
+      delete activeGames[gameId].archiveReason;
+      delete archivedGames[gameId];
+      
+      console.log(`🔥 RE-EMERGED: ${game.title} - Crisis keywords detected in new headlines`);
+      reemergedCount++;
+    }
+  }
+  
+  if (reemergedCount > 0) {
+    broadcastGameTheoryUpdate();
+  }
+  
+  return reemergedCount;
+}
+
+// Broadcast game theory update to all clients
+function broadcastGameTheoryUpdate() {
+  cachedGameTheoryData = {
+    games: activeGames,
+    archived: archivedGames,
+    lastUpdate: new Date().toISOString()
+  };
+  
+  broadcast({
+    type: 'game_theory_update',
+    data: cachedGameTheoryData
+  });
+}
+
+// Run auto-archive check daily at midnight
+cron.schedule('0 1 * * *', () => {
+  console.log('🔄 Running daily auto-archive check...');
+  autoArchiveConflicts();
+});
 
 // Cache for game theory updates
 let cachedGameTheoryData = {
   games: activeGames,
+  archived: archivedGames,
   lastUpdate: new Date().toISOString()
 };
 
@@ -498,6 +989,17 @@ If NO significant new move, respond with:
       };
       
       console.log(`♟️ GAME UPDATE: ${game.title} - New ${result.type} move by ${result.player}`);
+      
+      // Check if this update indicates resolution - could trigger auto-archive
+      const newPhase = (result.newPhase || '').toUpperCase();
+      if (ARCHIVE_CONFIG.resolutionPhases.some(p => newPhase.includes(p))) {
+        // Start tracking stable date if not already
+        if (!stableStartDates[gameId]) {
+          stableStartDates[gameId] = new Date();
+          console.log(`📋 ${game.title} entered stable phase - tracking for potential archive`);
+        }
+      }
+      
       return activeGames[gameId];
     }
     
@@ -530,6 +1032,12 @@ async function runGameTheoryEngine() {
       .map(card => card.headline);
     
     if (relevantHeadlines.length > 0) {
+      // Check for peace/resolution keywords in headlines - could trigger auto-archive
+      if (checkForResolution(gameId, relevantHeadlines)) {
+        console.log(`🕊️ Peace detected for ${game.title} - archived`);
+        continue; // Skip AI update since conflict was archived
+      }
+      
       const updated = await updateGameWithAI(gameId, relevantHeadlines.slice(0, 5));
       if (updated) updatesFound++;
     }
@@ -590,28 +1098,82 @@ function updateMarketSnapshot(marketData) {
   for (const item of marketData) {
     // Use rawValue (the actual number), not value (formatted string)
     const val = item.rawValue;
+    const pct = item.rawChangePercent;
     if (val === undefined || val === null || isNaN(val)) continue;
     
     switch (item.symbol) {
-      case '^GSPC': snapshot.spx = val; break;
-      case '^IXIC': snapshot.nasdaq = val; break;
+      case '^GSPC': snapshot.spx = val; snapshot.spx_pct = pct; break;
+      case '^IXIC': snapshot.nasdaq = val; snapshot.nasdaq_pct = pct; break;
       case '^DJI': snapshot.dow = val; break;
       case '^VIX': snapshot.vix = val; break;
       // Yahoo Finance yields already come as percentage (4.5 = 4.5%)
       case '^TYX': snapshot.us30y = val; break;
-      case '^TNX': snapshot.us10y = val; break;
+      case '^TNX': snapshot.us10y = val; snapshot.us10y_pct = pct; break;
       case '^FVX': snapshot.us5y = val; break;
       case '2YY=F': snapshot.us2y = val; break;
       case 'DX-Y.NYB': snapshot.dxy = val; break;
       case 'EURUSD=X': snapshot.eurusd = val; break;
       case 'GBPUSD=X': snapshot.gbpusd = val; break;
       case 'USDJPY=X': snapshot.usdjpy = val; break;
-      case 'GC=F': snapshot.gold = val; break;
+      case 'CHF=X': snapshot.usdchf = val; break;
+      case 'CNH=F': snapshot.usdcnh = val; break;
+      case 'KRW=X': snapshot.krw = val; break;
+      case 'GC=F': snapshot.gold = val; snapshot.gold_pct = pct; break;
       case 'SI=F': snapshot.silver = val; break;
       case 'HG=F': snapshot.copper = val; break;
-      case 'CL=F': snapshot.wti = val; break;
+      case 'PL=F': snapshot.platinum = val; break;
+      case 'PA=F': snapshot.palladium = val; break;
+      case 'CL=F': snapshot.wti = val; snapshot.wti_pct = pct; break;
       case 'BZ=F': snapshot.brent = val; break;
-      case 'NG=F': snapshot.natgas = val; break;
+      case 'NG=F': snapshot.natgas = val; snapshot.natgas_pct = pct; break;
+      case 'RB=F': snapshot.gasoline = val; break;
+      case 'URA': snapshot.ura = val; break;
+      case 'LIT': snapshot.lit = val; break;
+      case 'BTU': snapshot.btu = val; break;
+      case 'ZW=F': snapshot.wheat = val; break;
+      case 'ZC=F': snapshot.corn = val; break;
+      case 'ZS=F': snapshot.soybeans = val; break;
+      case 'KC=F': snapshot.coffee = val; break;
+      case 'SB=F': snapshot.sugar = val; break;
+      case 'CC=F': snapshot.cocoa = val; break;
+      case 'CT=F': snapshot.cotton = val; break;
+      case 'OJ=F': snapshot.oj = val; break;
+      case 'LE=F': snapshot.cattle = val; break;
+      case 'HE=F': snapshot.hogs = val; break;
+      case 'ZO=F': snapshot.oats = val; break;
+      case 'ZR=F': snapshot.rice = val; break;
+      case 'LBS=F': snapshot.lumber = val; break;
+      case 'GF=F': snapshot.feedercattle = val; break;
+      case 'AUDUSD=X': snapshot.audusd = val; break;
+      case 'CAD=X': snapshot.usdcad = 1/val; break;  // Invert CAD=X to get USD/CAD
+      case 'MXN=X': snapshot.usdmxn = val; break;
+      case 'BRL=X': snapshot.usdbrl = val; break;
+      case 'NZDUSD=X': snapshot.nzdusd = val; break;
+      case 'EURJPY=X': snapshot.eurjpy = val; break;
+      case 'GBPJPY=X': snapshot.gbpjpy = val; break;
+      case 'EURGBP=X': snapshot.eurgbp = val; break;
+      case 'SGD=X': snapshot.usdsgd = val; break;
+      case 'HKD=X': snapshot.usdhkd = val; break;
+      case 'ZAR=X': snapshot.usdzar = val; break;
+      case 'TRY=X': snapshot.usdtry = val; break;
+      case 'INR=X': snapshot.usdinr = val; break;
+      case 'ALI=F': snapshot.aluminum = val; break;
+      case 'TSM': snapshot.tsm = val; snapshot.tsm_pct = pct; break;
+      case 'ETH-USD': snapshot.eth = val; break;
+      case 'ITA': snapshot.ita = val; snapshot.ita_pct = pct; break;
+      case 'XLE': snapshot.xle = val; snapshot.xle_pct = pct; break;
+      case 'BTC-USD': snapshot.btc = val; snapshot.btc_pct = pct; break;
+      // Enhanced beam signals
+      case '^N225': snapshot.nikkei = val; snapshot.nikkei_pct = pct; break;
+      case 'HYG': snapshot.hyg = val; snapshot.hyg_pct = pct; break;
+      case 'LQD': snapshot.lqd = val; snapshot.lqd_pct = pct; break;
+      case 'TLT': snapshot.tlt = val; snapshot.tlt_pct = pct; break;
+      case 'UUP': snapshot.uup = val; snapshot.uup_pct = pct; break;
+      case 'FXY': snapshot.fxy = val; snapshot.fxy_pct = pct; break;
+      case 'EWJ': snapshot.ewj = val; snapshot.ewj_pct = pct; break;
+      case 'FXI': snapshot.fxi = val; snapshot.fxi_pct = pct; break;
+      case 'EEM': snapshot.eem = val; snapshot.eem_pct = pct; break;
+      case 'XLF': snapshot.xlf = val; snapshot.xlf_pct = pct; break;
     }
   }
   
@@ -1092,6 +1654,516 @@ function computeKeyLevels(category, text) {
   return levels.slice(0, 4); // Allow up to 4 levels now with quarterly regime
 }
 
+// ============================================================================
+// THE "QUANT STRATEGIST" KEY LEVEL ENGINE - 8-LAYER ARCHITECTURE
+// ============================================================================
+// Layer 1: VIGILANTE (Floor Trader Pivots)
+// Layer 2: LIQUIDITY (Stop Hunt Zones)
+// Layer 3: SIGMA (Standard Deviation Bands)
+// Layer 4: STRUCTURE (Pattern State Detection)
+// Layer 5: Q-OPEN ANCHOR (Quarterly Open Regime Classification)
+// Layer 6: MOMENTUM (Multi-horizon Trend Slope)
+// Layer 7: VOLATILITY STRESS (Realized vs Implied / Squeeze Detection)
+// Layer 8: CONFLUENCE (Multi-layer Alignment Scoring)
+
+let cachedQuantLevels = [];
+
+// Quarterly Open data storage - Q1 2026 opens (January 2, 2026)
+// Data sourced from investing.com, forex.com, tradingeconomics.com, coindesk
+const QUARTERLY_OPENS = {
+  // Indices (Jan 2, 2026)
+  spx: { qOpen: 6878.11, qHigh: 6986, qLow: 6824 },
+  nasdaq: { qOpen: 23236.00, qHigh: 23800, qLow: 22500 },
+  vix: { qOpen: 15.80, qHigh: 24, qLow: 14 },
+  // Treasury Yields (Jan 2, 2026)
+  us2y: { qOpen: 4.25, qHigh: 4.50, qLow: 3.90 },
+  us5y: { qOpen: 4.35, qHigh: 4.60, qLow: 4.00 },
+  us10y: { qOpen: 4.55, qHigh: 4.80, qLow: 4.10 },
+  us30y: { qOpen: 4.78, qHigh: 5.00, qLow: 4.50 },
+  dxy: { qOpen: 98.24, qHigh: 99.57, qLow: 97.71 },
+  // Metals (Jan 2, 2026 - gold ATH $4,642 on Jan 14)
+  gold: { qOpen: 4600.00, qHigh: 4650, qLow: 4400 },
+  silver: { qOpen: 92.50, qHigh: 96, qLow: 88 },
+  copper: { qOpen: 5.72, qHigh: 6.10, qLow: 5.50 },
+  platinum: { qOpen: 2375.00, qHigh: 2500, qLow: 2200 },
+  palladium: { qOpen: 1638.00, qHigh: 1800, qLow: 1500 },
+  aluminum: { qOpen: 2985.50, qHigh: 3150, qLow: 2850 },
+  zinc: { qOpen: 3140.00, qHigh: 3300, qLow: 2950 },
+  nickel: { qOpen: 15000.00, qHigh: 18800, qLow: 14400 },
+  // Energy (Jan 2, 2026)
+  wti: { qOpen: 57.59, qHigh: 65, qLow: 54 },
+  brent: { qOpen: 61.03, qHigh: 68, qLow: 58 },
+  gasoline: { qOpen: 1.72, qHigh: 2.10, qLow: 1.55 },
+  natgas: { qOpen: 3.25, qHigh: 4.50, qLow: 2.80 },
+  ura: { qOpen: 28.00, qHigh: 35, qLow: 24 },
+  lit: { qOpen: 42.00, qHigh: 52, qLow: 36 },
+  btu: { qOpen: 24.00, qHigh: 32, qLow: 20 },
+  // Agriculture (Jan 2, 2026)
+  corn: { qOpen: 446.00, qHigh: 500, qLow: 420 },
+  wheat: { qOpen: 507.00, qHigh: 580, qLow: 480 },
+  soybeans: { qOpen: 1046.00, qHigh: 1120, qLow: 1000 },
+  coffee: { qOpen: 335.00, qHigh: 400, qLow: 300 },
+  sugar: { qOpen: 20.50, qHigh: 25, qLow: 18 },
+  cocoa: { qOpen: 6056.00, qHigh: 7000, qLow: 5500 },
+  cotton: { qOpen: 68.50, qHigh: 78, qLow: 62 },
+  oj: { qOpen: 485.00, qHigh: 550, qLow: 420 },
+  cattle: { qOpen: 195.00, qHigh: 210, qLow: 185 },
+  hogs: { qOpen: 82.50, qHigh: 95, qLow: 75 },
+  oats: { qOpen: 385.00, qHigh: 450, qLow: 350 },
+  rice: { qOpen: 14.50, qHigh: 17, qLow: 13 },
+  lumber: { qOpen: 580.00, qHigh: 720, qLow: 500 },
+  feedercattle: { qOpen: 265.00, qHigh: 285, qLow: 250 },
+  canola: { qOpen: 625.00, qHigh: 700, qLow: 580 },
+  palmoil: { qOpen: 4250.00, qHigh: 4800, qLow: 3900 },
+  // Forex (Jan 2, 2026)
+  eurusd: { qOpen: 1.0380, qHigh: 1.0650, qLow: 1.0180 },
+  usdjpy: { qOpen: 156.80, qHigh: 162, qLow: 150 },
+  gbpusd: { qOpen: 1.2485, qHigh: 1.2800, qLow: 1.2200 },
+  audusd: { qOpen: 0.6185, qHigh: 0.6450, qLow: 0.5980 },
+  usdcad: { qOpen: 1.4420, qHigh: 1.4750, qLow: 1.4050 },
+  usdchf: { qOpen: 0.8980, qHigh: 0.9250, qLow: 0.8700 },
+  usdcnh: { qOpen: 7.3150, qHigh: 7.4200, qLow: 7.1500 },
+  usdmxn: { qOpen: 20.85, qHigh: 21.60, qLow: 19.80 },
+  usdbrl: { qOpen: 6.25, qHigh: 6.60, qLow: 5.70 },
+  // Expanded Forex (Jan 2, 2026)
+  nzdusd: { qOpen: 0.5580, qHigh: 0.5850, qLow: 0.5350 },
+  eurjpy: { qOpen: 162.75, qHigh: 168, qLow: 158 },
+  gbpjpy: { qOpen: 195.80, qHigh: 202, qLow: 190 },
+  eurgbp: { qOpen: 0.8320, qHigh: 0.8550, qLow: 0.8150 },
+  usdsgd: { qOpen: 1.3620, qHigh: 1.3900, qLow: 1.3350 },
+  usdhkd: { qOpen: 7.7850, qHigh: 7.8200, qLow: 7.7500 },
+  usdzar: { qOpen: 18.75, qHigh: 19.80, qLow: 17.50 },
+  usdtry: { qOpen: 35.25, qHigh: 38.50, qLow: 33.50 },
+  usdinr: { qOpen: 85.50, qHigh: 87.50, qLow: 83.50 },
+  usdkrw: { qOpen: 1475.00, qHigh: 1550, qLow: 1400 },
+  // Crypto (Jan 2, 2026)
+  btc: { qOpen: 88960.00, qHigh: 105000, qLow: 82000 },
+  eth: { qOpen: 3024.00, qHigh: 3800, qLow: 2800 }
+};
+
+// Historical price data for momentum calculation (simulated rolling 20-period)
+const priceHistory = {};
+
+function calculateQuantLevels() {
+  const levels = [];
+  const d = cachedMarketSnapshot.data || {};
+  
+  // Helper: Narrative Scanner - checks if news mentions this price level
+  const checkNewsForLevel = (assetKeywords, priceVal) => {
+    if (!priceVal || !recentCards || recentCards.length === 0) return false;
+    const priceStr = priceVal < 10 ? priceVal.toFixed(2) : 
+                     priceVal < 100 ? priceVal.toFixed(1) : Math.floor(priceVal).toString();
+    
+    const recent = recentCards.slice(0, 50);
+    return recent.filter(card => {
+      const text = ((card.headline || '') + ' ' + (card.content || '')).toLowerCase();
+      return assetKeywords.some(kw => text.includes(kw)) && text.includes(priceStr);
+    }).length > 0;
+  };
+
+  // THE FULL ASSET LIST (32 ASSETS) with volatility profiles
+  // Vol factors: FX ~0.6%, METAL ~1.5%, ENERGY ~2.5%, AG ~2%, CRYPTO ~4%, INDEX ~1.2%, BOND ~2.5%
+  const ASSETS = [
+    // --- GENERALS (8 assets: yield curve + indices + dollar) ---
+    { key: 'us2y', s: 'us2y', label: 'US 2Y YIELD', type: 'BOND', vol: 0.025, kw: ['2-year', '2y', 'short end'], dec: 3 },
+    { key: 'us5y', s: 'us5y', label: 'US 5Y YIELD', type: 'BOND', vol: 0.025, kw: ['5-year', '5y', 'belly'], dec: 3 },
+    { key: 'us10y', s: '^TNX', label: 'US 10Y YIELD', type: 'BOND', vol: 0.025, kw: ['yield', 'treasury', 'bond', '10-year'], dec: 3 },
+    { key: 'us30y', s: 'us30y', label: 'US 30Y YIELD', type: 'BOND', vol: 0.025, kw: ['30-year', 'long bond', 'duration'], dec: 3 },
+    { key: 'dxy', s: 'DX-Y.NYB', label: 'DXY INDEX', type: 'FX', vol: 0.006, kw: ['dollar', 'dxy', 'usd index'], dec: 2 },
+    { key: 'spx', s: 'spx', label: 'S&P 500', type: 'INDEX', vol: 0.012, kw: ['s&p', 'spx', 'sp500'], dec: 0 },
+    { key: 'nasdaq', s: 'nasdaq', label: 'NASDAQ', type: 'INDEX', vol: 0.015, kw: ['nasdaq', 'tech', 'qqq'], dec: 0 },
+    { key: 'vix', s: 'vix', label: 'VIX', type: 'INDEX', vol: 0.08, kw: ['vix', 'volatility', 'fear'], dec: 2 },
+    
+    // --- METALS (8 assets: precious + industrial) ---
+    { key: 'gold', s: 'gold', label: 'GOLD', type: 'METAL', vol: 0.012, kw: ['gold', 'bullion', 'xau'], dec: 0 },
+    { key: 'silver', s: 'silver', label: 'SILVER', type: 'METAL', vol: 0.020, kw: ['silver', 'xag'], dec: 2 },
+    { key: 'copper', s: 'copper', label: 'COPPER', type: 'METAL', vol: 0.018, kw: ['copper', 'dr copper'], dec: 3 },
+    { key: 'platinum', s: 'platinum', label: 'PLATINUM', type: 'METAL', vol: 0.018, kw: ['platinum', 'plat'], dec: 0 },
+    { key: 'palladium', s: 'palladium', label: 'PALLADIUM', type: 'METAL', vol: 0.025, kw: ['palladium'], dec: 0 },
+    { key: 'aluminum', s: 'aluminum', label: 'ALUMINUM', type: 'METAL', vol: 0.015, kw: ['aluminum', 'aluminium'], dec: 0 },
+    { key: 'zinc', s: 'zinc', label: 'ZINC', type: 'METAL', vol: 0.018, kw: ['zinc'], dec: 0 },
+    { key: 'nickel', s: 'nickel', label: 'NICKEL', type: 'METAL', vol: 0.022, kw: ['nickel'], dec: 0 },
+    
+    // --- ENERGY ---
+    { key: 'wti', s: 'wti', label: 'WTI CRUDE', type: 'ENERGY', vol: 0.025, kw: ['oil', 'crude', 'wti'], dec: 2 },
+    { key: 'brent', s: 'brent', label: 'BRENT CRUDE', type: 'ENERGY', vol: 0.025, kw: ['brent', 'north sea'], dec: 2 },
+    { key: 'gasoline', s: 'gasoline', label: 'GASOLINE', type: 'ENERGY', vol: 0.025, kw: ['gasoline', 'rbob'], dec: 3 },
+    { key: 'natgas', s: 'natgas', label: 'NAT GAS', type: 'ENERGY', vol: 0.05, kw: ['natural gas', 'nat gas', 'henry hub'], dec: 3 },
+    { key: 'ura', s: 'ura', label: 'URANIUM ETF', type: 'ENERGY', vol: 0.020, kw: ['uranium', 'nuclear'], dec: 2 },
+    { key: 'lit', s: 'lit', label: 'LITHIUM ETF', type: 'ENERGY', vol: 0.020, kw: ['lithium', 'battery'], dec: 2 },
+    { key: 'btu', s: 'btu', label: 'COAL', type: 'ENERGY', vol: 0.025, kw: ['coal', 'thermal'], dec: 2 },
+    
+    // --- AGRICULTURE ---
+    { key: 'corn', s: 'corn', label: 'CORN', type: 'AG', vol: 0.015, kw: ['corn', 'grain'], dec: 2 },
+    { key: 'wheat', s: 'wheat', label: 'WHEAT', type: 'AG', vol: 0.020, kw: ['wheat', 'grain'], dec: 2 },
+    { key: 'soybeans', s: 'soybeans', label: 'SOYBEAN', type: 'AG', vol: 0.015, kw: ['soy', 'soybean'], dec: 2 },
+    { key: 'coffee', s: 'coffee', label: 'COFFEE', type: 'AG', vol: 0.025, kw: ['coffee'], dec: 2 },
+    { key: 'sugar', s: 'sugar', label: 'SUGAR', type: 'AG', vol: 0.020, kw: ['sugar'], dec: 2 },
+    { key: 'cocoa', s: 'cocoa', label: 'COCOA', type: 'AG', vol: 0.025, kw: ['cocoa', 'chocolate'], dec: 0 },
+    { key: 'cotton', s: 'cotton', label: 'COTTON', type: 'AG', vol: 0.022, kw: ['cotton', 'textile'], dec: 2 },
+    { key: 'oj', s: 'oj', label: 'ORANGE JUICE', type: 'AG', vol: 0.030, kw: ['orange', 'oj', 'juice'], dec: 2 },
+    { key: 'cattle', s: 'cattle', label: 'LIVE CATTLE', type: 'AG', vol: 0.012, kw: ['cattle', 'beef', 'livestock'], dec: 2 },
+    { key: 'hogs', s: 'hogs', label: 'LEAN HOGS', type: 'AG', vol: 0.018, kw: ['hogs', 'pork', 'swine'], dec: 2 },
+    { key: 'oats', s: 'oats', label: 'OATS', type: 'AG', vol: 0.020, kw: ['oats', 'grain'], dec: 2 },
+    { key: 'rice', s: 'rice', label: 'RICE', type: 'AG', vol: 0.018, kw: ['rice', 'grain'], dec: 2 },
+    { key: 'lumber', s: 'lumber', label: 'LUMBER', type: 'AG', vol: 0.035, kw: ['lumber', 'timber', 'wood'], dec: 0 },
+    { key: 'feedercattle', s: 'feedercattle', label: 'FEEDER CATTLE', type: 'AG', vol: 0.014, kw: ['feeder', 'cattle'], dec: 2 },
+    { key: 'canola', s: 'canola', label: 'CANOLA', type: 'AG', vol: 0.018, kw: ['canola', 'rapeseed'], dec: 2 },
+    { key: 'palmoil', s: 'palmoil', label: 'PALM OIL', type: 'AG', vol: 0.020, kw: ['palm', 'vegetable oil'], dec: 0 },
+    
+    // --- FOREX ---
+    { key: 'eurusd', s: 'eurusd', label: 'EUR/USD', type: 'FX', vol: 0.006, kw: ['euro', 'eur/usd', 'eurusd'], dec: 4 },
+    { key: 'usdjpy', s: 'usdjpy', label: 'USD/JPY', type: 'FX', vol: 0.008, kw: ['yen', 'usd/jpy', 'boj'], dec: 2 },
+    { key: 'gbpusd', s: 'gbpusd', label: 'GBP/USD', type: 'FX', vol: 0.007, kw: ['pound', 'sterling', 'cable', 'gbp'], dec: 4 },
+    { key: 'audusd', s: 'audusd', label: 'AUD/USD', type: 'FX', vol: 0.009, kw: ['aussie', 'aud'], dec: 4 },
+    { key: 'usdcad', s: 'usdcad', label: 'USD/CAD', type: 'FX', vol: 0.006, kw: ['loonie', 'cad'], dec: 4 },
+    { key: 'usdchf', s: 'usdchf', label: 'USD/CHF', type: 'FX', vol: 0.007, kw: ['swissy', 'chf'], dec: 4 },
+    { key: 'usdcnh', s: 'usdcnh', label: 'USD/CNH', type: 'FX', vol: 0.004, kw: ['yuan', 'renminbi', 'cny', 'china'], dec: 4 },
+    { key: 'usdmxn', s: 'usdmxn', label: 'USD/MXN', type: 'FX', vol: 0.012, kw: ['peso', 'mxn', 'mexico'], dec: 4 },
+    { key: 'usdbrl', s: 'usdbrl', label: 'USD/BRL', type: 'FX', vol: 0.015, kw: ['real', 'brl', 'brazil'], dec: 4 },
+    { key: 'nzdusd', s: 'nzdusd', label: 'NZD/USD', type: 'FX', vol: 0.008, kw: ['kiwi', 'nzd', 'new zealand'], dec: 4 },
+    { key: 'eurjpy', s: 'eurjpy', label: 'EUR/JPY', type: 'FX', vol: 0.007, kw: ['eurjpy', 'euro yen'], dec: 2 },
+    { key: 'gbpjpy', s: 'gbpjpy', label: 'GBP/JPY', type: 'FX', vol: 0.008, kw: ['gbpjpy', 'sterling yen'], dec: 2 },
+    { key: 'eurgbp', s: 'eurgbp', label: 'EUR/GBP', type: 'FX', vol: 0.005, kw: ['eurgbp', 'euro sterling'], dec: 4 },
+    { key: 'usdsgd', s: 'usdsgd', label: 'USD/SGD', type: 'FX', vol: 0.004, kw: ['singapore', 'sgd'], dec: 4 },
+    { key: 'usdhkd', s: 'usdhkd', label: 'USD/HKD', type: 'FX', vol: 0.002, kw: ['hong kong', 'hkd'], dec: 4 },
+    { key: 'usdzar', s: 'usdzar', label: 'USD/ZAR', type: 'FX', vol: 0.018, kw: ['rand', 'zar', 'south africa'], dec: 4 },
+    { key: 'usdtry', s: 'usdtry', label: 'USD/TRY', type: 'FX', vol: 0.025, kw: ['lira', 'try', 'turkey'], dec: 4 },
+    { key: 'usdinr', s: 'usdinr', label: 'USD/INR', type: 'FX', vol: 0.004, kw: ['rupee', 'inr', 'india'], dec: 4 },
+    { key: 'usdkrw', s: 'usdkrw', label: 'USD/KRW', type: 'FX', vol: 0.006, kw: ['won', 'krw', 'korea'], dec: 2 },
+    
+    // --- CRYPTO ---
+    { key: 'btc', s: 'btc', label: 'BITCOIN', type: 'CRYPTO', vol: 0.04, kw: ['bitcoin', 'btc', 'crypto'], dec: 0 },
+    { key: 'eth', s: 'eth', label: 'ETHEREUM', type: 'CRYPTO', vol: 0.045, kw: ['ethereum', 'eth'], dec: 0 }
+  ];
+
+  ASSETS.forEach(asset => {
+    const rawVal = d[asset.key];
+    if (!rawVal) return;
+    
+    const P = parseFloat(rawVal);
+    if (isNaN(P) || P === 0) return;
+    
+    // Estimate High/Low from volatility if not available
+    const dailyMove = P * asset.vol;
+    const H = P + (dailyMove * 0.3); // Approximate high
+    const L = P - (dailyMove * 0.3); // Approximate low
+    const C = P; // Use current as prev close approximation
+    
+    // --- LAYER 1: VIGILANTE LEVELS (Floor Trader Pivots) ---
+    const Pivot = (H + L + C) / 3;
+    const R1 = (2 * Pivot) - L;
+    const S1 = (2 * Pivot) - H;
+    const R2 = Pivot + (H - L);
+    const S2 = Pivot - (H - L);
+    
+    // --- LAYER 2: LIQUIDITY POOLS (Stop Hunts) ---
+    // Market Makers target just beyond recent extremes
+    const StopHuntUp = H * 1.002; // 0.2% above high
+    const StopHuntDown = L * 0.998; // 0.2% below low
+    
+    // --- LAYER 3: SIGMA BANDS (Standard Deviation Extremes) ---
+    const stdDevMove = P * asset.vol;
+    const Sigma2High = P + (2 * stdDevMove); // +2 Sigma (overbought)
+    const Sigma2Low = P - (2 * stdDevMove); // -2 Sigma (oversold)
+    
+    // --- LAYER 4: STRUCTURE DETECTION (Pattern State) ---
+    const currentRange = H - L;
+    const expectedRange = P * asset.vol;
+    
+    let structure = 'TRENDING';
+    let structureClass = '';
+    
+    // Compression detection (wedge/coiling)
+    if (currentRange < (expectedRange * 0.5)) {
+      structure = 'COILING';
+      structureClass = 'coiling';
+    }
+    // Exhaustion detection
+    else if (P > R1 && P > Sigma2High) {
+      structure = 'EXHAUSTION';
+      structureClass = 'exhaustion';
+    }
+    // Capitulation detection
+    else if (P < S1 && P < Sigma2Low) {
+      structure = 'CAPITULATION';
+      structureClass = 'capitulation';
+    }
+    
+    // Distance to key levels
+    const distToR1 = ((R1 - P) / P * 100).toFixed(2);
+    const distToS1 = ((S1 - P) / P * 100).toFixed(2);
+    const distToPivot = ((Pivot - P) / P * 100).toFixed(2);
+    
+    // --- LAYER 5: Q-OPEN ANCHOR (Quarterly Regime Classification) ---
+    const qData = QUARTERLY_OPENS[asset.key];
+    let qRegime = 'NEUTRAL';
+    let qDistFromOpen = 0;
+    let qOpenAnchor = null;
+    let qBuffer = 0;
+    let qSupport = null;
+    let qResistance = null;
+    
+    if (qData) {
+      qOpenAnchor = qData.qOpen;
+      // Dynamic buffer = 2% for most assets, 5% for crypto, 3% for VIX
+      qBuffer = asset.type === 'CRYPTO' ? 0.05 : asset.key === 'vix' ? 0.03 : 0.02;
+      const bufferAmt = qData.qOpen * qBuffer;
+      const upperBand = qData.qOpen + bufferAmt;
+      const lowerBand = qData.qOpen - bufferAmt;
+      
+      qDistFromOpen = ((P - qData.qOpen) / qData.qOpen * 100);
+      
+      // 4-phase regime classification
+      if (P > upperBand) {
+        qRegime = 'BULLISH'; // Above Q-Open + buffer = strong trend
+      } else if (P < lowerBand) {
+        qRegime = 'BEARISH'; // Below Q-Open - buffer = weak trend
+      } else if (P >= qData.qOpen) {
+        qRegime = 'DISTRIBUTION'; // In buffer, above midpoint = distribution phase
+      } else {
+        qRegime = 'ACCUMULATION'; // In buffer, below midpoint = accumulation phase
+      }
+      
+      // Q-Open derived support/resistance levels
+      qSupport = Math.min(qData.qLow, lowerBand);
+      qResistance = Math.max(qData.qHigh, upperBand);
+    }
+    
+    // --- LAYER 6: MOMENTUM (Multi-horizon Trend Slope) ---
+    // Track price history for momentum calculation
+    if (!priceHistory[asset.key]) {
+      priceHistory[asset.key] = [];
+    }
+    priceHistory[asset.key].push(P);
+    if (priceHistory[asset.key].length > 20) {
+      priceHistory[asset.key].shift(); // Keep last 20 readings
+    }
+    
+    let momentum = 'NEUTRAL';
+    let momentumScore = 0;
+    const history = priceHistory[asset.key];
+    
+    if (history.length >= 5) {
+      // Short-term momentum (last 5 readings)
+      const shortAvg = history.slice(-5).reduce((a, b) => a + b, 0) / 5;
+      const shortMom = (P - shortAvg) / shortAvg * 100;
+      
+      // Medium-term momentum (all available, up to 20)
+      const longAvg = history.reduce((a, b) => a + b, 0) / history.length;
+      const longMom = (P - longAvg) / longAvg * 100;
+      
+      // Combined momentum score
+      momentumScore = (shortMom * 0.6 + longMom * 0.4);
+      
+      if (momentumScore > 1.5) {
+        momentum = 'STRONG UP';
+      } else if (momentumScore > 0.5) {
+        momentum = 'UP';
+      } else if (momentumScore < -1.5) {
+        momentum = 'STRONG DOWN';
+      } else if (momentumScore < -0.5) {
+        momentum = 'DOWN';
+      } else {
+        momentum = 'NEUTRAL';
+      }
+    }
+    
+    // --- LAYER 7: VOLATILITY STRESS (Squeeze/Expansion Detection) ---
+    let volStress = 'NORMAL';
+    let volState = 'STABLE';
+    
+    // Compare current range to expected volatility
+    const impliedVol = asset.vol; // Expected daily vol
+    const realizedVol = currentRange / P; // Actual range as % of price
+    const volRatio = realizedVol / impliedVol;
+    
+    if (volRatio < 0.5) {
+      volStress = 'COMPRESSED';
+      volState = 'SQUEEZE'; // Low vol = potential breakout incoming
+    } else if (volRatio > 1.5) {
+      volStress = 'ELEVATED';
+      volState = 'EXPANSION'; // High vol = trending/panic
+    } else if (volRatio > 1.2) {
+      volStress = 'RISING';
+      volState = 'ACTIVE';
+    }
+    
+    // --- LAYER 8: CONFLUENCE (Multi-layer Alignment Scoring) ---
+    // Score each layer's bias and sum for confluence
+    let confluenceScore = 0;
+    let confluenceSignals = [];
+    
+    // Structure confluence
+    if (structure === 'EXHAUSTION') { confluenceScore -= 2; confluenceSignals.push('STRUCTURE:BEARISH'); }
+    else if (structure === 'CAPITULATION') { confluenceScore += 2; confluenceSignals.push('STRUCTURE:BULLISH'); }
+    else if (structure === 'COILING') { confluenceSignals.push('STRUCTURE:NEUTRAL'); }
+    
+    // Q-Regime confluence
+    if (qRegime === 'BULLISH') { confluenceScore += 2; confluenceSignals.push('REGIME:BULLISH'); }
+    else if (qRegime === 'BEARISH') { confluenceScore -= 2; confluenceSignals.push('REGIME:BEARISH'); }
+    else if (qRegime === 'ACCUMULATION') { confluenceScore += 1; confluenceSignals.push('REGIME:ACCUM'); }
+    else if (qRegime === 'DISTRIBUTION') { confluenceScore -= 1; confluenceSignals.push('REGIME:DISTRIB'); }
+    
+    // Momentum confluence
+    if (momentum === 'STRONG UP' || momentum === 'UP') { confluenceScore += 1; confluenceSignals.push('MOM:UP'); }
+    else if (momentum === 'STRONG DOWN' || momentum === 'DOWN') { confluenceScore -= 1; confluenceSignals.push('MOM:DOWN'); }
+    
+    // Pivot position confluence
+    if (P > R1) { confluenceScore += 1; confluenceSignals.push('PIVOT:ABOVE'); }
+    else if (P < S1) { confluenceScore -= 1; confluenceSignals.push('PIVOT:BELOW'); }
+    
+    // Volatility confluence (compression often precedes big moves)
+    if (volState === 'SQUEEZE') { confluenceSignals.push('VOL:SQUEEZE'); }
+    else if (volState === 'EXPANSION') { confluenceSignals.push('VOL:EXPANSION'); }
+    
+    // Confluence rating
+    let confluenceRating = 'MIXED';
+    if (confluenceScore >= 4) confluenceRating = 'STRONG BULLISH';
+    else if (confluenceScore >= 2) confluenceRating = 'BULLISH';
+    else if (confluenceScore <= -4) confluenceRating = 'STRONG BEARISH';
+    else if (confluenceScore <= -2) confluenceRating = 'BEARISH';
+    
+    // --- NARRATIVE VERIFICATION ---
+    const newsTop = checkNewsForLevel(asset.kw, R1);
+    const newsBot = checkNewsForLevel(asset.kw, S1);
+    
+    levels.push({
+      symbol: asset.label,
+      type: asset.type,
+      current: P.toFixed(asset.dec),
+      
+      // Layer 1: Vigilante (Pivots)
+      pivot: Pivot.toFixed(asset.dec),
+      resistance: R1.toFixed(asset.dec),
+      resistance2: R2.toFixed(asset.dec),
+      support: S1.toFixed(asset.dec),
+      support2: S2.toFixed(asset.dec),
+      
+      // Layer 2: Liquidity (Stop Hunts)
+      liquidityTop: StopHuntUp.toFixed(asset.dec),
+      liquidityBot: StopHuntDown.toFixed(asset.dec),
+      
+      // Layer 3: Sigma (Volatility Bands)
+      sigmaHigh: Sigma2High.toFixed(asset.dec),
+      sigmaLow: Sigma2Low.toFixed(asset.dec),
+      
+      // Layer 4: Structure (Pattern State)
+      structure: structure,
+      structureClass: structureClass,
+      
+      // Layer 5: Q-Open Anchor (Quarterly Regime)
+      qRegime: qRegime,
+      qOpenAnchor: qOpenAnchor ? qOpenAnchor.toFixed(asset.dec) : null,
+      qDistFromOpen: qDistFromOpen.toFixed(2),
+      qSupport: qSupport ? qSupport.toFixed(asset.dec) : null,
+      qResistance: qResistance ? qResistance.toFixed(asset.dec) : null,
+      
+      // Layer 6: Momentum
+      momentum: momentum,
+      momentumScore: momentumScore.toFixed(2),
+      
+      // Layer 7: Volatility Stress
+      volStress: volStress,
+      volState: volState,
+      
+      // Layer 8: Confluence
+      confluenceScore: confluenceScore,
+      confluenceRating: confluenceRating,
+      confluenceSignals: confluenceSignals,
+      
+      // Distances
+      distToR1: distToR1,
+      distToS1: distToS1,
+      distToPivot: distToPivot,
+      
+      // News verification
+      newsTop: newsTop,
+      newsBot: newsBot
+    });
+  });
+
+  return levels;
+}
+
+// Generate Key Levels Context for Gemini AI integration
+function getKeyLevelsContext(assetSymbol) {
+  const asset = cachedQuantLevels.find(a => 
+    a.symbol.toLowerCase().includes(assetSymbol.toLowerCase()) ||
+    assetSymbol.toLowerCase().includes(a.symbol.toLowerCase().split(' ')[0].toLowerCase())
+  );
+  
+  if (!asset) return null;
+  
+  return {
+    symbol: asset.symbol,
+    current: asset.current,
+    regime: asset.qRegime,
+    nearestResistance: asset.resistance,
+    nearestSupport: asset.support,
+    distToResistance: asset.distToR1 + '%',
+    distToSupport: asset.distToS1 + '%',
+    qOpenAnchor: asset.qOpenAnchor,
+    qDistFromOpen: asset.qDistFromOpen + '%',
+    momentum: asset.momentum,
+    structure: asset.structure,
+    volatility: asset.volStress,
+    confluence: asset.confluenceRating,
+    confluenceSignals: asset.confluenceSignals
+  };
+}
+
+// Get all relevant key levels for a headline (for Gemini context)
+function extractKeyLevelsForHeadline(headline) {
+  const contexts = [];
+  const text = headline.toLowerCase();
+  
+  // Asset keywords to match
+  const assetMatches = [
+    { kw: ['s&p', 'spx', 'sp500'], sym: 'S&P 500' },
+    { kw: ['nasdaq', 'tech', 'qqq'], sym: 'NASDAQ' },
+    { kw: ['gold', 'bullion', 'xau'], sym: 'GOLD' },
+    { kw: ['oil', 'crude', 'wti', 'brent'], sym: 'WTI CRUDE' },
+    { kw: ['bitcoin', 'btc'], sym: 'BITCOIN' },
+    { kw: ['dollar', 'dxy', 'usd'], sym: 'DXY INDEX' },
+    { kw: ['yen', 'usd/jpy', 'boj'], sym: 'USD/JPY' },
+    { kw: ['euro', 'eur/usd'], sym: 'EUR/USD' },
+    { kw: ['treasury', 'yield', '10-year'], sym: 'US 10Y YIELD' },
+    { kw: ['natural gas', 'nat gas'], sym: 'NAT GAS' },
+    { kw: ['wheat'], sym: 'WHEAT' },
+    { kw: ['corn'], sym: 'CORN' },
+    { kw: ['vix', 'volatility', 'fear'], sym: 'VIX' }
+  ];
+  
+  for (const match of assetMatches) {
+    if (match.kw.some(kw => text.includes(kw))) {
+      const ctx = getKeyLevelsContext(match.sym);
+      if (ctx) contexts.push(ctx);
+    }
+  }
+  
+  // If no specific asset matched, add SPX and DXY as defaults for market context
+  if (contexts.length === 0) {
+    const spxCtx = getKeyLevelsContext('S&P 500');
+    const dxyCtx = getKeyLevelsContext('DXY INDEX');
+    if (spxCtx) contexts.push(spxCtx);
+    if (dxyCtx) contexts.push(dxyCtx);
+  }
+  
+  return contexts;
+}
+
+// Broadcast quant levels to all clients
+function broadcastQuantLevels() {
+  cachedQuantLevels = calculateQuantLevels();
+  if (cachedQuantLevels.length > 0) {
+    broadcast({
+      type: 'quant_update',
+      data: cachedQuantLevels
+    });
+  }
+}
+
 // Serve static files with cache control
 app.use(express.static('public', {
   etag: false,
@@ -1156,6 +2228,16 @@ app.post('/api/analyze-headline', async (req, res) => {
 
     // Get live market data for accuracy grounding
     const marketContext = getMarketSnapshotForAI();
+    
+    // Get key levels context for this headline (8-layer quant engine data)
+    const keyLevelsData = extractKeyLevelsForHeadline(headline);
+    let keyLevelsContext = '';
+    if (keyLevelsData.length > 0) {
+      keyLevelsContext = '\n--- QUANTITATIVE KEY LEVELS (8-Layer Engine) ---\n';
+      keyLevelsData.forEach(kl => {
+        keyLevelsContext += `${kl.symbol}: Current ${kl.current} | Regime: ${kl.regime} | R1: ${kl.nearestResistance} (${kl.distToResistance}) | S1: ${kl.nearestSupport} (${kl.distToSupport}) | Q-Open: ${kl.qOpenAnchor || 'N/A'} (${kl.qDistFromOpen}) | Momentum: ${kl.momentum} | Vol: ${kl.volatility} | Confluence: ${kl.confluence}\n`;
+      });
+    }
 
     // Detect category for specialist desk routing
     const combinedText = (headline + " " + (implications || []).join(" ")).toLowerCase();
@@ -1190,7 +2272,7 @@ FOCUS: Risk-On/Risk-Off regime, sector rotation, volatility, key levels.`;
     const prompt = `${specialistInstruction}
 
 ${marketContext}
-
+${keyLevelsContext}
 HEADLINE: "${headline}"
 SOURCE: ${source || 'Unknown'}
 ${implications?.length ? `CONTEXT: ${implications.join(' | ')}` : ''}
@@ -1214,7 +2296,10 @@ PROVIDE (each section on its own line, with detailed bullets below):
 - Knock-on effects and what happens next (2 bullets)
 
 **KEY LEVELS**
-- Specific support/resistance prices to watch with current distance (2-3 bullets)
+- Use the QUANTITATIVE KEY LEVELS data above (R1, S1, Q-Open, Regime) to identify specific levels
+- Include distance from current price to each key level
+- Note regime classification (BULLISH/BEARISH/DISTRIBUTION/ACCUMULATION) and momentum state
+- Mention confluence rating when multi-layer alignment is strong (2-3 bullets)
 
 **TIMELINE**
 - When we'll know more, key dates/events ahead (1-2 bullets)
@@ -1354,6 +2439,176 @@ RULES:
   }
 });
 
+// Emerging Conflict API endpoints
+app.get('/api/emerging-conflicts', (req, res) => {
+  res.json({
+    success: true,
+    queue: emergingConflictQueue,
+    orphanCount: orphanHeadlineBuffer.length,
+    dailyProposals: dailyProposalCount
+  });
+});
+
+app.post('/api/emerging-conflicts/accept', (req, res) => {
+  try {
+    const { proposalId } = req.body;
+    if (!proposalId) {
+      return res.status(400).json({ error: 'proposalId is required' });
+    }
+    
+    const success = acceptEmergingConflict(proposalId);
+    if (success) {
+      res.json({ success: true, message: 'Conflict accepted and added to active games' });
+    } else {
+      res.status(404).json({ error: 'Proposal not found' });
+    }
+  } catch (error) {
+    console.error('Accept emerging conflict error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/emerging-conflicts/dismiss', (req, res) => {
+  try {
+    const { proposalId } = req.body;
+    if (!proposalId) {
+      return res.status(400).json({ error: 'proposalId is required' });
+    }
+    
+    const success = dismissEmergingConflict(proposalId);
+    if (success) {
+      res.json({ success: true, message: 'Proposal dismissed' });
+    } else {
+      res.status(404).json({ error: 'Proposal not found' });
+    }
+  } catch (error) {
+    console.error('Dismiss emerging conflict error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Analyze emerging conflict signal
+app.post('/api/analyze-emerging', async (req, res) => {
+  try {
+    const { proposalId, title, emoji, players, headlines, confidence, location } = req.body;
+    
+    if (!proposalId || !title) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const marketContext = getMarketSnapshotForAI();
+    
+    const prompt = `You are analyzing a POTENTIAL conflict that our AI detection system has flagged as "emerging" - meaning it's not yet a confirmed strategic situation but shows patterns suggesting one may be forming.
+
+EMERGING SIGNAL DETAILS:
+Title: ${title}
+Players: ${(players || []).join(' vs ')}
+Location: ${location || 'Unknown'}
+Detection Confidence: ${Math.round((confidence || 0) * 100)}%
+
+TRIGGERING HEADLINES:
+${(headlines || []).map(h => `- ${h}`).join('\n')}
+
+${marketContext}
+
+TASK: Provide a comprehensive analysis of this emerging signal:
+
+1. SIGNAL VALIDITY: How likely is this to become a genuine strategic conflict? Consider if the headlines represent real tension or just noise.
+
+2. ESCALATION PATHWAY: If this does become a conflict, what would the likely escalation path look like? What are the key trigger points?
+
+3. MARKET IMPLICATIONS: What assets, sectors, or currencies would be most affected if this situation escalates?
+
+4. KEY PLAYERS & MOTIVATIONS: Who are the actors and what are their likely objectives?
+
+5. WATCH SIGNALS: What specific events or indicators should we monitor to determine if this is escalating or de-escalating?
+
+6. HISTORICAL PARALLELS: Are there past situations that followed similar patterns?
+
+IMPORTANT: This is an UNCONFIRMED emerging signal. Be clear about the speculative nature while still providing useful analysis. Format your response in clear sections.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    const analysis = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (analysis) {
+      console.log(`🔍 AI analysis generated for emerging signal: ${title}`);
+      res.json({ analysis });
+    } else {
+      res.json({ error: 'Failed to generate analysis' });
+    }
+    
+  } catch (error) {
+    console.error('Analyze emerging error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Beam metadata and AI analysis endpoint
+app.get('/api/beam/:beamId', async (req, res) => {
+  try {
+    const { beamId } = req.params;
+    const metadata = BEAM_METADATA[beamId];
+    
+    if (!metadata) {
+      return res.status(404).json({ error: 'Beam not found' });
+    }
+    
+    // Get current tripwire status
+    const defconData = calculateDEFCONTripwires();
+    const currentTripwire = defconData.tripwires.find(t => t.id === beamId);
+    
+    if (!currentTripwire) {
+      return res.status(404).json({ error: 'Tripwire not found' });
+    }
+    
+    // Get AI analysis (cached for 15 mins)
+    const aiAnalysis = await getBeamAIAnalysis(beamId, currentTripwire);
+    
+    res.json({
+      id: beamId,
+      metadata,
+      current: currentTripwire,
+      aiAnalysis
+    });
+    
+  } catch (error) {
+    console.error('Beam analysis error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all beam metadata (no AI analysis, just static info)
+app.get('/api/beams', (req, res) => {
+  res.json({
+    beams: BEAM_METADATA
+  });
+});
+
+// Debug endpoint to check actual market values
+app.get('/api/debug/market', (req, res) => {
+  const snapshot = cachedMarketSnapshot;
+  const d = snapshot.data || {};
+  const age = snapshot.lastUpdate ? Math.round((Date.now() - snapshot.lastUpdate) / 1000) : 'N/A';
+  
+  res.json({
+    lastUpdate: new Date(snapshot.lastUpdate).toISOString(),
+    ageSeconds: age,
+    bojRelevant: {
+      usdjpy: d.usdjpy,
+      brent: d.brent,
+      nikkei: d.nikkei,
+      nikkei_pct: d.nikkei_pct,
+      ewj: d.ewj,
+      ewj_pct: d.ewj_pct
+    },
+    allData: d
+  });
+});
+
 // WebSocket handlers
 wss.on('connection', (ws) => {
   console.log('✅ Client connected');
@@ -1423,6 +2678,15 @@ async function sendInitialData(ws) {
         data: cachedGameTheoryData
       }));
       console.log('♟️ Sent game theory data');
+      
+      // Send emerging conflict queue if any pending
+      if (emergingConflictQueue.length > 0) {
+        ws.send(JSON.stringify({
+          type: 'emerging_conflict_update',
+          data: { queue: emergingConflictQueue }
+        }));
+        console.log('🔔 Sent emerging conflict queue');
+      }
     }
     
     // Fetch ALL data in parallel including FRESH sentiment (avoid stale cache on republish)
@@ -1473,6 +2737,18 @@ async function sendInitialData(ws) {
           data: cachedStrategicIntelligence
         }));
         console.log('🎖️ Sent Strategic Intelligence data');
+      }
+      
+      // Send Quant Levels data (calculate fresh if empty)
+      if (cachedQuantLevels.length === 0) {
+        cachedQuantLevels = calculateQuantLevels();
+      }
+      if (cachedQuantLevels.length > 0) {
+        ws.send(JSON.stringify({
+          type: 'quant_update',
+          data: cachedQuantLevels
+        }));
+        console.log(`📐 Sent quant levels (${cachedQuantLevels.length} assets)`);
       }
       
       console.log('📤 Sent initial market/macro/fx/commodity/sentiment data');
@@ -1638,6 +2914,48 @@ async function pollSingleFeed(feed, itemsPerFeed = 3) {
   }
 }
 
+// Filter out test/spam/placeholder articles from any source
+function isTestOrSpamHeadline(headline) {
+  if (!headline) return true;
+  
+  const h = headline.toLowerCase().trim();
+  
+  // Skip very short headlines (likely placeholders)
+  if (h.length < 10) return true;
+  
+  // Detect repeated words like "Test Test Test" or "Lorem Lorem Lorem"
+  const words = h.split(/\s+/);
+  if (words.length >= 2) {
+    const uniqueWords = new Set(words.map(w => w.replace(/[^a-z]/g, '')));
+    // If more than 60% of words are the same, it's likely a test
+    if (uniqueWords.size === 1 && words.length >= 2) return true;
+  }
+  
+  // Common test/placeholder patterns
+  const testPatterns = [
+    /^test\s*test/i,
+    /test\s+test\s+test/i,
+    /lorem\s+ipsum/i,
+    /placeholder/i,
+    /^testing\s*$/i,
+    /^sample\s+article/i,
+    /^dummy\s+/i,
+    /^xxx+\s*/i,
+    /^asdf/i,
+    /^qwerty/i,
+    /this is a test/i,
+    /test article/i,
+    /test headline/i,
+    /test news/i
+  ];
+  
+  for (const pattern of testPatterns) {
+    if (pattern.test(h)) return true;
+  }
+  
+  return false;
+}
+
 async function processRSSItem(item, defaultCategory, sourceName, pubDateStr = null, excludeFromNews = false) {
   try {
     // Filter out stale news - only show items from the last 8 hours
@@ -1652,6 +2970,11 @@ async function processRSSItem(item, defaultCategory, sourceName, pubDateStr = nu
     
     const headline = item.title || '';
     const text = headline + ' ' + (item.contentSnippet || item.content || '');
+    
+    // Filter out test/spam articles (e.g., "Test Test Test", "Lorem Ipsum", etc.)
+    if (isTestOrSpamHeadline(headline)) {
+      return; // Skip test articles entirely
+    }
     
     // Filter out opinion/analysis pieces from news ticker (not hard facts)
     const isOpinionOrAnalysis = /opinion|analysis|weekly|outlook|forecast|commentary|perspective|editorial|preview|recap|summary|review|interview|podcast|newsletter|subscription|sign up|what to watch|here's what/i.test(headline);
@@ -1716,6 +3039,9 @@ async function processRSSItem(item, defaultCategory, sourceName, pubDateStr = nu
     };
 
     broadcast(cardData);
+    
+    // Check for orphan headlines (potential emerging conflicts)
+    checkOrphanHeadline(headline, sourceName, pubDateStr ? new Date(pubDateStr).getTime() : Date.now());
     
     // Also broadcast to NEWS column for all feeds (except excluded sources and opinion pieces)
     if (category !== 'breaking' && category !== 'market' && !excludeFromNews && !isOpinionOrAnalysis) {
@@ -1821,6 +3147,11 @@ async function pollGeopoliticalNews() {
 
 async function processNewsArticle(article, forceCategory = null, publishedAt = null) {
   try {
+    // Filter out test/spam articles
+    if (isTestOrSpamHeadline(article.title)) {
+      return;
+    }
+    
     const category = forceCategory || classifyNews(article.title + ' ' + (article.description || ''));
     const smartData = generateUltimateImplications(
       article.title,
@@ -2853,13 +4184,30 @@ function generateUltimateImplications(headline, category, description = '') {
 // ============================================================================
 
 const MARKET_SYMBOLS = [
+  // US Yields
   '^TYX', '^TNX', '^FVX', '2YY=F',
+  // Dollar
   'DX-Y.NYB',
-  'USDJPY=X', 'EURUSD=X', 'GBPUSD=X',
-  'GC=F', 'PL=F', 'SI=F', 'HG=F',
-  'CL=F', 'BZ=F', 'NG=F',
+  // FX pairs (expanded - 19 pairs)
+  'USDJPY=X', 'EURUSD=X', 'GBPUSD=X', 'CHF=X', 'CNH=F', 'KRW=X',
+  'AUDUSD=X', 'CAD=X', 'MXN=X', 'BRL=X', 'NZDUSD=X',
+  'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'SGD=X', 'HKD=X', 
+  'ZAR=X', 'TRY=X', 'INR=X',
+  // Metals (8 - precious + industrial)
+  'GC=F', 'PL=F', 'SI=F', 'HG=F', 'PA=F', 'ALI=F',
+  // Energy (expanded)
+  'CL=F', 'BZ=F', 'NG=F', 'RB=F', 'URA', 'LIT', 'BTU',
+  // Agriculture (16 symbols)
+  'ZW=F', 'ZC=F', 'ZS=F', 'KC=F', 'SB=F', 'CC=F',
+  'CT=F', 'OJ=F', 'LE=F', 'HE=F', 'ZO=F', 'ZR=F', 'LBS=F', 'GF=F',
+  // Volatility
   '^VIX',
-  '^GSPC', '^DJI', '^IXIC', '^RUT'
+  // US Indices
+  '^GSPC', '^DJI', '^IXIC', '^RUT',
+  // Sector ETFs & individual stocks
+  'TSM', 'ITA', 'XLE', 'BTC-USD', 'ETH-USD',
+  // Enhanced beam signals
+  '^N225', 'HYG', 'LQD', 'TLT', 'UUP', 'FXY', 'EWJ', 'FXI', 'EEM', 'XLF'
 ];
 
 async function fetchMarketData() {
@@ -2931,7 +4279,9 @@ function getMarketLabel(symbol) {
     'CL=F': 'WTI', 'BZ=F': 'BRENT', 'NG=F': 'NAT GAS',
     '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^DJI': 'DOW', '^RUT': 'RUSSELL 2000',
     'USDJPY=X': 'USD/JPY (BOJ)', 'EURUSD=X': 'EUR/USD (ECB)', 'GBPUSD=X': 'GBP/USD (BOE)',
-    '^VIX': 'VIX'
+    'CHF=X': 'USD/CHF', 'CNH=F': 'USD/CNH', 'KRW=X': 'USD/KRW',
+    '^VIX': 'VIX',
+    'TSM': 'TSMC', 'ITA': 'Defense ETF', 'XLE': 'Energy ETF', 'BTC-USD': 'Bitcoin'
   };
   return labels[symbol] || symbol;
 }
@@ -4094,6 +5444,653 @@ cron.schedule('*/30 * * * *', async () => {
 });
 
 // ============================================================================
+// DEFCON STRUCTURAL BEAMS ENGINE (The Michael Every Fourteen)
+// ============================================================================
+
+// Beam metadata registry - detailed info for each tripwire (Multi-Factor System)
+const BEAM_METADATA = {
+  boj_spiral: {
+    name: 'BOJ DEATH SPIRAL',
+    fullExplanation: 'Japan currency crisis detector. Monitors 4 factors: Yen weakness (>156), FXY ETF stress (yen falling), EWJ stress (Japan equities), and BOJ-related news flow. Japan imports 90% of energy, so weak Yen = devastating import costs. At 160+, intervention is near-certain. The BOJ is trapped between defending the currency (crushing economy) and letting it fall (import crisis).',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. USD/JPY > 156 (approaching intervention)\n2. FXY -0.5%+ (Yen ETF falling)\n3. EWJ -1.5%+ (Japan equity stress)\n4. BOJ/YCC headlines (intervention signals)\n\nCRISIS OVERRIDE: USD/JPY > 160 = instant BREACH',
+    dataSources: ['USD/JPY', 'FXY (Yen ETF)', 'EWJ (Japan ETF)', 'News: BOJ, YCC, intervention'],
+    tags: ['MONETARY', 'ENERGY', 'ASIA', 'CURRENCY'],
+    archetype: 'Currency Crisis',
+    historicalContext: 'PATTERN DATABASE:\n• Sep 2022: USD/JPY hit 145¥ → BOJ intervened $21B → Yen strengthened 5% briefly\n• Oct 2022: USD/JPY hit 151.94¥ → BOJ intervened $42B → Yen to 140 by Jan 2023\n• Apr 2024: USD/JPY hit 160.17¥ → Suspected stealth intervention → 6¥ reversal\n• Jul 2024: USD/JPY at 161.95¥ → $36B intervention confirmed\nPATTERN: Interventions provide 3-8 week relief, then yen resumes weakening. The "widowmaker" trade returns each time.'
+  },
+  deflation_trap: {
+    name: 'DEFLATION TRAP',
+    fullExplanation: 'Global demand destruction detector. A strong dollar crushes EM dollar-denominated debt while weak copper signals industrial demand collapse. Monitors dollar strength, Dr. Copper, and EM/China stress. Classic deflationary bust pattern seen in 2015-2016 China devaluation.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. DXY > 105 (dollar strength)\n2. Copper < $4/lb (demand proxy)\n3. EEM -2%+ (EM stress)\n4. FXI -2%+ (China stress)',
+    dataSources: ['DXY', 'Copper futures', 'EEM ETF', 'FXI ETF'],
+    tags: ['MONETARY', 'INDUSTRIAL', 'EM STRESS', 'CHINA'],
+    archetype: 'Demand Destruction',
+    historicalContext: '2015-2016: China devaluation triggered copper crash and EM crisis'
+  },
+  fiat_rejection: {
+    name: 'FIAT ENDGAME',
+    fullExplanation: 'Monetary regime transition detector. Tracks the slow decay of the current dollar-based fiat system and the rise of alternatives. The "endgame" is when hard money assets reach escape velocity - gold above $5000, silver above $100, BTC above $250K. These levels signal capital has lost faith in paper money entirely. Current levels = ARMING (transition underway). Breach levels = point of no return.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. Gold > $4000 (debasement trade active)\n2. Silver > $50 (poor man\'s gold bid)\n3. BTC > $150K (digital gold thesis proven)\n4. Gold+BTC both +1% same day (simultaneous flight from fiat)\n\nBREACH THRESHOLDS (endgame confirmed):\n• Gold > $5000\n• Silver > $100\n• BTC > $250K',
+    dataSources: ['Gold spot', 'Silver spot', 'Bitcoin', 'Gold % change', 'BTC % change'],
+    tags: ['MONETARY REGIME', 'DEBASEMENT', 'HARD MONEY', 'DIGITAL ASSETS'],
+    archetype: 'Monetary Transition',
+    historicalContext: 'PATTERN DATABASE:\n• 1971: Nixon closes gold window → gold $35 to $850 by 1980 (+2300%)\n• 1980: Silver Hunt Brothers squeeze to $50 (first silver "endgame" attempt)\n• 2011: Gold peaks at $1920 after QE, silver hits $50 again\n• 2020-2025: COVID QE → gold $2800+, BTC $100K+, silver $30+\nPATTERN: Gold $5K, Silver $100, BTC $250K = "no confidence vote" in fiat complete. We are in ARMING phase - the transition is happening but endgame not yet confirmed.'
+  },
+  paper_rock: {
+    name: 'PAPER vs ROCK',
+    fullExplanation: 'War economy rotation detector. Tracks capital flowing from financial assets (Paper: SPX, tech) to hard assets (Rock: gold, oil, copper). The P/R ratio = SPX / (Gold + Oil×30 + Copper×500). Normal range is 0.65-0.80. Below 0.55 signals true regime shift to "war economy" where hard assets outperform financial engineering.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. P/R ratio < 0.55 (hard assets dominating)\n2. NASDAQ -2%+ (tech dump)\n3. XLE +1.5%+ (energy bid)\n4. Gold +1.5%+ (hard asset bid)\n\nNormal ratio: 0.65-0.80. Current calculated live.',
+    dataSources: ['S&P 500', 'NASDAQ', 'XLE ETF', 'Gold', 'Oil', 'Copper'],
+    tags: ['ROTATION', 'WAR ECONOMY', 'INFLATION HEDGE'],
+    archetype: 'Regime Shift',
+    historicalContext: 'PATTERN DATABASE:\n• 2022: Energy +59%, NASDAQ -33% (Ukraine invasion)\n• 2008-2011: Gold +150% vs SPX flat post-crisis\n• 1970s: Commodities dominated financials for decade\nPATTERN: Sustained ratio below 0.55 = capital fleeing paper for rock. Brief dips are rotation noise.'
+  },
+  liquidity_shock: {
+    name: 'LIQUIDITY SHOCK',
+    fullExplanation: 'Fire sale detector. When normally uncorrelated assets (stocks, gold, crypto, credit) all sell off together, it signals desperate cash scramble. Margin calls force liquidation of ALL assets. Usually precedes major central bank intervention. The "sell everything" phase.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. SPX -1.5%+\n2. Gold -1%+\n3. BTC -3%+\n4. HYG -1%+ (credit stress)',
+    dataSources: ['S&P 500', 'Gold', 'Bitcoin', 'HYG ETF'],
+    tags: ['CRISIS', 'DELEVERAGING', 'MARGIN CALL', 'CREDIT'],
+    archetype: 'Fire Sale',
+    historicalContext: 'March 2020: Everything sold for dollars simultaneously'
+  },
+  revolution_risk: {
+    name: 'REVOLUTION RISK',
+    fullExplanation: 'Emerging market social pressure detector. Strong dollar + high food/fuel = political instability formula. Dollar strength makes imports expensive; wheat prices determine bread affordability. Arab Spring 2011 was preceded by wheat doubling. Tracks "let them eat cake" risk.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. DXY > 104 (import cost pressure)\n2. Wheat > $650/bu (food cost)\n3. Oil > $80/bbl (fuel cost)\n4. EEM -1.5%+ (EM stress)',
+    dataSources: ['DXY', 'Wheat futures', 'WTI crude', 'EEM ETF'],
+    tags: ['GEOPOLITICAL', 'FOOD SECURITY', 'EM CRISIS'],
+    archetype: 'Social Unrest',
+    historicalContext: '2010-2011: Food spike triggered Arab Spring across MENA'
+  },
+  euro_fracture: {
+    name: 'EURO FRACTURE',
+    fullExplanation: 'European capital flight detector. EUR/CHF below 0.95 signals money fleeing Eurozone for Swiss safety. Monitors Swiss Franc bid, duration stress, bank stress (XLF), and credit spreads. When smart money runs to CHF, expect Eurozone breakup fears or banking crisis.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. EUR/CHF < 0.95 (Swiss safety bid)\n2. TLT -1%+ (duration stress)\n3. XLF -1.5%+ (bank stress)\n4. LQD/HYG > 1.40 (credit spread)\n\nCRISIS OVERRIDE: EUR/CHF < 0.92 = instant BREACH',
+    dataSources: ['EUR/CHF cross', 'TLT ETF', 'XLF ETF', 'LQD/HYG ratio'],
+    tags: ['MONETARY', 'EUROPE', 'SAFE HAVEN', 'BANKING'],
+    archetype: 'Flight to Safety',
+    historicalContext: '2022 Ukraine: EUR/CHF hit parity for first time since SNB cap removal'
+  },
+  silicon_shield: {
+    name: 'SILICON SHIELD',
+    fullExplanation: 'Taiwan conflict proxy. Taiwan produces 90% of advanced chips. When TSMC crashes while defense rallies, markets price Taiwan risk. Monitors TSM price, defense ETF, VIX, and conflict news. The "silicon shield" theory: Taiwan protected by global chip dependence. When triggered, that shield may be failing.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. TSM -2%+ (semiconductor stress)\n2. ITA +1%+ (defense bid)\n3. VIX > 22 (fear elevated)\n4. Conflict headlines (5+ hits)',
+    dataSources: ['TSM stock', 'ITA ETF', 'VIX', 'News: war, conflict, military'],
+    tags: ['GEOPOLITICAL', 'TECHNOLOGY', 'TAIWAN', 'DEFENSE'],
+    archetype: 'Conflict Hedge',
+    historicalContext: '2022 Pelosi visit: TSM dropped 4%, defense rallied'
+  },
+  mercantilist_war: {
+    name: 'MERCANTILIST WAR',
+    fullExplanation: 'Trade fragmentation detector. Monitors deglobalization through Yuan weakness, copper demand destruction, China ETF stress, and tariff/sanction news flow. When price AND news signals align, economic nationalism is escalating. Friend-shoring, decoupling, reshoring = mercantilist war.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. USD/CNH > 7.25 (Yuan weakness)\n2. Copper < $4 (trade damage)\n3. FXI -1.5%+ (China stress)\n4. Trade war headlines (5+ hits)',
+    dataSources: ['USD/CNH', 'Copper', 'FXI ETF', 'News: tariff, sanction, reshoring'],
+    tags: ['TRADE', 'GEOPOLITICAL', 'DEGLOBALIZATION', 'CHINA'],
+    archetype: 'Economic Warfare',
+    historicalContext: '2018-2019: US-China trade war first phase'
+  },
+  fed_trap: {
+    name: 'FED TRAP',
+    fullExplanation: 'Stagflation corner detector. When yields fall (growth fears) but oil rises (inflation), the Fed is trapped: cut rates = fuel inflation, hold rates = crash economy. Monitors yield direction, oil direction, yield curve, and gold bid. The 1970s nightmare returning.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. 10Y yield falling (growth fear)\n2. Oil +1.5%+ (inflation signal)\n3. 2s10s < 0.25% (curve flat/inverted)\n4. Gold +0.5%+ (stagflation hedge)',
+    dataSources: ['10Y yield % change', 'WTI crude % change', '2s10s spread', 'Gold'],
+    tags: ['MONETARY', 'STAGFLATION', 'POLICY TRAP', 'INFLATION'],
+    archetype: 'Dual Mandate Failure',
+    historicalContext: '1973-74: Oil embargo + recession = stagflation'
+  },
+  kinetic_fear: {
+    name: 'KINETIC FEAR',
+    fullExplanation: 'Volatility regime shift detector. VIX above 22 signals elevated tail risk. Monitors VIX level, SPX drawdown, credit stress (HYG), and conflict news. At VIX >30, hedging costs spike, margin requirements surge, and risk models force deleveraging.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. VIX > 22 (fear elevated)\n2. SPX -1%+ (equity stress)\n3. HYG -0.5%+ (credit stress)\n4. Conflict headlines (3+ hits)\n\nCRISIS OVERRIDE: VIX > 30 = instant BREACH',
+    dataSources: ['VIX', 'S&P 500', 'HYG ETF', 'News: war, conflict, military'],
+    tags: ['VOLATILITY', 'RISK-OFF', 'TAIL RISK', 'CREDIT'],
+    archetype: 'Fear Regime',
+    historicalContext: 'COVID peak: VIX hit 82. Normal: 12-18'
+  },
+  energy_shock: {
+    name: 'ENERGY REGIME',
+    fullExplanation: 'Energy market stress detector - tracks BOTH supply shocks AND demand destruction. Supply shock: prices spike (geopolitical disruption). Demand destruction: prices crash (recession signal). WTI below $55 signals global demand collapse. WTI above $90 signals supply crisis. Either extreme = market stress.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\nSUPPLY SHOCK signals:\n1. Oil +3%+ single day (geopolitical)\n2. Nat Gas +5%+ (infrastructure risk)\nDEMAND DESTRUCTION signals:\n3. Oil < $55 (recession proxy)\n4. XLE -2%+ (energy sector dump)\n\nEither direction = stress. Middle = calm.',
+    dataSources: ['WTI crude', 'Natural Gas', 'XLE ETF', 'Price levels'],
+    tags: ['ENERGY', 'RECESSION', 'INFLATION', 'DEMAND'],
+    archetype: 'Energy Regime Shift',
+    historicalContext: 'PATTERN DATABASE:\n• 2008: Oil $147 → $32 in 6 months (demand destruction)\n• 2014-16: Oil $100 → $26 (shale glut + China slowdown)\n• 2020: WTI went NEGATIVE (COVID demand shock)\n• 2022: WTI $130+ (Russia invasion supply shock)\nPATTERN: Oil < $50 = recession confirmed. Oil > $100 = inflation confirmed. Current ~$60 = deflationary bias, demand weakness.'
+  },
+  liars_poker: {
+    name: "LIAR'S POKER",
+    fullExplanation: 'Narrative vs reality divergence detector. Compares retail sentiment against prediction market war odds and market behavior. Large divergence = HOPIUM (sentiment too bullish vs. war risk) or FEAR PORN (panic exceeds market pricing). Monitors sentiment gap, VIX complacency, news, and SPX positioning.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. Sentiment/odds gap > 25 pts\n2. VIX < 15 (complacency)\n3. Conflict headlines rising (5+ hits)\n4. SPX near highs (bullish positioning)',
+    dataSources: ['Fear & Greed Index', 'Polymarket odds', 'VIX', 'News'],
+    tags: ['SENTIMENT', 'NARRATIVE', 'CONTRARIAN', 'BEHAVIORAL'],
+    archetype: 'Information Game',
+    historicalContext: 'Markets often right at extremes; sentiment often wrong'
+  },
+  vassal_state: {
+    name: 'VASSAL STATE',
+    fullExplanation: 'Currency bloc alignment detector. Tracks whether Korea (proxy for Asian middle powers) tilts toward USD or CNH orbit. Monitors KRW correlation, Yuan stress, China news, and EM stress. When middle powers align with one pole, expect geopolitical restructuring.',
+    calculation: 'FACTORS (2/4 = ARMING, 3/4 = BREACH):\n1. KRW correlation shift (to USD or CNH)\n2. USD/CNH > 7.2 (Yuan stress)\n3. China headlines (3+ hits)\n4. EEM -1%+ (EM stress)',
+    dataSources: ['USD/KRW', 'USD/CNH', 'News: China, decoupling', 'EEM ETF'],
+    tags: ['GEOPOLITICAL', 'ASIA', 'CURRENCY BLOC', 'KOREA'],
+    archetype: 'Alliance Shift',
+    historicalContext: 'THAAD deployment showed US-China tug-of-war over Korea'
+  }
+};
+
+// Cache for AI beam analysis (15-minute TTL)
+const beamAnalysisCache = {};
+const BEAM_ANALYSIS_TTL = 15 * 60 * 1000; // 15 minutes
+
+// Get AI analysis for a specific beam
+async function getBeamAIAnalysis(beamId, currentTripwire) {
+  const metadata = BEAM_METADATA[beamId];
+  if (!metadata || !currentTripwire) return null;
+  
+  // Check cache
+  const cached = beamAnalysisCache[beamId];
+  if (cached && (Date.now() - cached.timestamp < BEAM_ANALYSIS_TTL)) {
+    return cached.analysis;
+  }
+  
+  try {
+    const marketContext = getMarketSnapshotForAI();
+    
+    // Build active factors list for context
+    const activeFactorsList = currentTripwire.factors
+      ?.filter(f => f.active)
+      ?.map(f => `• ${f.label}: ${f.value}`)
+      ?.join('\n') || 'No factors currently active';
+    
+    const inactiveFactorsList = currentTripwire.factors
+      ?.filter(f => !f.active)
+      ?.map(f => `• ${f.label}: ${f.value}`)
+      ?.join('\n') || 'All factors active';
+    
+    const prompt = `You are a macro strategist analyzing a structural early warning indicator. You specialize in PATTERN RECOGNITION across historical crises.
+
+BEAM: ${metadata.name}
+ARCHETYPE: ${metadata.archetype || 'Structural Stress'}
+
+CURRENT STATUS: ${currentTripwire.status}
+CURRENT VALUE: ${currentTripwire.value} ${currentTripwire.unit}
+THRESHOLD: ${currentTripwire.threshold} ${currentTripwire.unit}
+DISTANCE FROM THRESHOLD: ${currentTripwire.distance}%
+
+ACTIVE FACTORS (triggered):
+${activeFactorsList}
+
+INACTIVE FACTORS (not yet triggered):
+${inactiveFactorsList}
+
+WHAT THIS BEAM MEASURES:
+${metadata.fullExplanation}
+
+HISTORICAL PRECEDENT:
+${metadata.historicalContext}
+
+CALCULATION METHOD:
+${metadata.calculation}
+
+DATA SOURCES: ${metadata.dataSources.join(', ')}
+
+${marketContext}
+
+=== PATTERN RECOGNITION TASK ===
+
+Analyze this beam with deep historical pattern matching. Provide:
+
+1. **CURRENT READ** (1-2 sentences): What exactly is happening right now based on the active/inactive factors?
+
+2. **HISTORICAL PATTERN MATCH** (2-3 sentences): Compare current conditions to the most relevant historical crisis. Be specific:
+   - What past event does this MOST resemble? (e.g., "2022 BOJ intervention at 150¥", "2015 China deval", "1973 oil shock")
+   - How similar is the current setup (0-100% pattern match)?
+   - What was the outcome last time?
+
+3. **ESCALATION SEQUENCE** (2 sentences): Based on past patterns, what is the TYPICAL sequence of events if this beam escalates? What happens FIRST, SECOND, THIRD?
+
+4. **ACTIONABLE LEVELS** (1-2 sentences): What specific price levels or news triggers would push this to the next status (ARMING → BREACHED, or SAFE → ARMING)?
+
+Be direct, use specific numbers. This is for a professional trading desk.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    const analysis = response.candidates?.[0]?.content?.parts?.[0]?.text || 'Analysis unavailable';
+    
+    // Cache the result
+    beamAnalysisCache[beamId] = {
+      analysis,
+      timestamp: Date.now(),
+      status: currentTripwire.status
+    };
+    
+    console.log(`🔍 AI analysis generated for beam: ${beamId}`);
+    return analysis;
+    
+  } catch (error) {
+    console.error(`Beam analysis error for ${beamId}:`, error.message);
+    return 'AI analysis temporarily unavailable. Check back in a few minutes.';
+  }
+}
+
+function calculateDEFCONTripwires() {
+  const d = cachedMarketSnapshot.data || {};
+  const news = recentCards || [];
+  const tripwires = [];
+  
+  // Helper: Get market value with fallback
+  const getVal = (key, fallback = 0) => parseFloat(d[key]) || fallback;
+  const getPct = (key) => parseFloat(d[`${key}_pct`]) || 0;
+  
+  // Market data extraction - now with enhanced signals
+  const price = {
+    yen: getVal('usdjpy', 150),
+    oil: getVal('wti', 75),
+    brent: getVal('brent', 80),
+    dxy: getVal('dxy', 104),
+    gold: getVal('gold', 2000),
+    copper: getVal('copper', 4.0),
+    wheat: getVal('wheat', 580),
+    us10y: getVal('us10y', 4.2),
+    us2y: getVal('us2y', 4.0),
+    vix: getVal('vix', 18),
+    eur: getVal('eurusd', 1.08),
+    chf: getVal('usdchf', 0.88),
+    cnh: getVal('usdcnh', 7.2),
+    natgas: getVal('natgas', 3.0),
+    spx: getVal('spx', 4500),
+    nasdaq: getVal('nasdaq', 15000),
+    nikkei: getVal('nikkei', 38000),
+    tsm: getVal('tsm', 150),
+    ita: getVal('ita', 130),
+    xle: getVal('xle', 92),
+    btc: getVal('btc', 45000),
+    hyg: getVal('hyg', 78),
+    lqd: getVal('lqd', 108),
+    tlt: getVal('tlt', 92),
+    fxi: getVal('fxi', 28),
+    eem: getVal('eem', 42),
+    xlf: getVal('xlf', 42),
+    ewj: getVal('ewj', 68)
+  };
+  
+  // Percent changes for momentum checks - enhanced
+  const pct = {
+    us10y: getPct('us10y'),
+    oil: getPct('wti'),
+    spx: getPct('spx'),
+    nasdaq: getPct('nasdaq'),
+    nikkei: getPct('nikkei'),
+    gold: getPct('gold'),
+    btc: getPct('btc'),
+    xle: getPct('xle'),
+    tsm: getPct('tsm'),
+    ita: getPct('ita'),
+    natgas: getPct('natgas'),
+    hyg: getPct('hyg'),
+    lqd: getPct('lqd'),
+    tlt: getPct('tlt'),
+    fxi: getPct('fxi'),
+    eem: getPct('eem'),
+    xlf: getPct('xlf'),
+    ewj: getPct('ewj'),
+    fxy: getPct('fxy')  // Yen ETF - for BOJ spiral detection
+  };
+  
+  // Derived calculations
+  const eur_chf = price.eur && price.chf ? price.eur * price.chf : 0.95;
+  const rockBasket = (price.gold || 4000) + ((price.oil || 60) * 30) + ((price.copper || 4) * 500);
+  // P/R ratio: lower = money flowing to hard assets. Adjusted for gold at $4000+ levels
+  const paperRockRatio = (price.spx || 5900) / rockBasket;
+  const creditSpread = price.lqd > 0 && price.hyg > 0 ? (price.lqd / price.hyg) : 1.38;
+  const yieldCurve = price.us10y - price.us2y; // 2s10s spread
+  
+  // News keyword scanning
+  const newsText = news.map(n => (n.title || '') + ' ' + (n.summary || '')).join(' ').toLowerCase();
+  const countKeywords = (pattern) => (newsText.match(pattern) || []).length;
+  
+  const mercHits = countKeywords(/tariff|sanction|ban|blockade|subsidy|national security|friend-shoring|decouple|reshoring|protectionism/gi);
+  const bojHits = countKeywords(/boj|bank of japan|yen intervention|jgb|yield curve control|ycc/gi);
+  const chinaHits = countKeywords(/china.*tariff|china.*sanction|export control|chip ban|rare earth|decoupling/gi);
+  const warHits = countKeywords(/war|conflict|invasion|military|strike|missile|attack|escalat/gi);
+  
+  // ============================================================================
+  // MULTI-FACTOR BEAM SCORING SYSTEM
+  // Each beam has 4 factors. Scoring: 2/4 = ARMING, 3+/4 = BREACHED
+  // Some critical single factors can trigger crisis override
+  // ============================================================================
+  
+  let beamOrder = 0;
+  const createBeam = (id, name, emoji, factors, crisisOverride = null) => {
+    beamOrder++;
+    const activeFactors = factors.filter(f => f.active);
+    const count = activeFactors.length;
+    const total = factors.length;
+    
+    let status = 'SAFE';
+    let color = '#22c55e';
+    
+    // Crisis override - extreme single factor triggers breach
+    if (crisisOverride && crisisOverride.condition) {
+      status = 'BREACHED';
+      color = '#ef4444';
+    } else if (count >= 3) {
+      status = 'BREACHED';
+      color = '#ef4444';
+    } else if (count >= 2) {
+      status = 'ARMING';
+      color = '#f59e0b';
+    }
+    
+    // Build description from active factors
+    const desc = activeFactors.length > 0 
+      ? activeFactors.map(f => f.label).join(' + ')
+      : 'All signals clear';
+    
+    tripwires.push({
+      id, name, emoji, 
+      order: beamOrder,
+      desc: crisisOverride?.condition ? `🚨 ${crisisOverride.label}` : desc,
+      status, color,
+      value: `${count}/${total}`,
+      threshold: '3/4',
+      distance: ((3 - count) / total * 100).toFixed(0),
+      unit: 'factors',
+      factors: factors.map(f => ({ ...f, active: f.active }))
+    });
+  };
+  
+  // === THE 14 STRUCTURAL BEAMS (Multi-Factor) ===
+  
+  // 1. BOJ DEATH SPIRAL - Japan currency crisis
+  // FXY is Yen ETF - when it drops, yen is weakening
+  const fxyStress = pct.fxy < -0.5; // Yen ETF falling
+  const ewjStress = pct.ewj < -1.5; // Japan equities stress
+  createBeam('boj_spiral', 'BOJ DEATH SPIRAL', '', [
+    { id: 'yen_weak', label: 'Yen > 156', active: price.yen > 156, value: (price.yen || 150).toFixed(2) },
+    { id: 'yen_etf_stress', label: 'FXY -0.5%+', active: fxyStress, value: `${pct.fxy?.toFixed(1) || 0}%` },
+    { id: 'japan_stress', label: 'EWJ -1.5%+', active: ewjStress, value: `${pct.ewj?.toFixed(1) || 0}%` },
+    { id: 'boj_news', label: 'BOJ headlines', active: bojHits >= 2, value: `${bojHits} hits` }
+  ], { condition: price.yen > 160, label: 'YEN CRISIS: >160' });
+  
+  // 2. DEFLATION TRAP - Demand destruction
+  createBeam('deflation_trap', 'DEFLATION TRAP', '', [
+    { id: 'dxy_strong', label: 'DXY > 105', active: price.dxy > 105, value: (price.dxy || 99).toFixed(1) },
+    { id: 'copper_weak', label: 'Copper < $4', active: price.copper < 4.0, value: `$${(price.copper || 4).toFixed(2)}` },
+    { id: 'em_stress', label: 'EM ETF -2%+', active: pct.eem < -2, value: `${(pct.eem || 0).toFixed(1)}%` },
+    { id: 'china_weak', label: 'FXI -2%+', active: pct.fxi < -2, value: `${(pct.fxi || 0).toFixed(1)}%` }
+  ]);
+  
+  // 3. FIAT ENDGAME - Monetary regime transition / Debasement trade
+  // ARMING: Gold >$4K, Silver >$50, BTC >$150K (transition underway)
+  // BREACH: Gold >$5K, Silver >$100, BTC >$250K (endgame confirmed)
+  const simultaneousHardMoneyBid = pct.gold > 1 && pct.btc > 1; // Both hard monies bid same day
+  const goldArming = price.gold > 4000; // Debasement trade active
+  const silverArming = price.silver > 50; // Poor man's gold bid  
+  const btcArming = price.btc > 150000; // Digital gold thesis proven
+  createBeam('fiat_rejection', 'FIAT ENDGAME', '', [
+    { id: 'gold_high', label: 'Gold > $4000', active: goldArming, value: `$${(price.gold || 2000).toFixed(0)}` },
+    { id: 'silver_high', label: 'Silver > $50', active: silverArming, value: `$${(price.silver || 25).toFixed(1)}` },
+    { id: 'btc_high', label: 'BTC > $150K', active: btcArming, value: `$${((price.btc || 50000)/1000).toFixed(0)}K` },
+    { id: 'simultaneous', label: 'Gold+BTC both +1%', active: simultaneousHardMoneyBid, value: simultaneousHardMoneyBid ? '✓ ALIGNED' : 'Not aligned' }
+  ], { condition: price.gold > 5000 || price.silver > 100 || price.btc > 250000, label: price.gold > 5000 ? 'GOLD ENDGAME: >$5K' : (price.silver > 100 ? 'SILVER ENDGAME: >$100' : 'BTC ENDGAME: >$250K') });
+  
+  // 4. PAPER vs ROCK - War economy rotation
+  // Ratio = SPX / (Gold + Oil×30 + Copper×500). Lower = capital in hard assets
+  // Normal range ~0.65-0.80. Below 0.55 = true war economy shift
+  createBeam('paper_rock', 'PAPER vs ROCK', '', [
+    { id: 'ratio_low', label: 'P/R ratio < 0.55', active: paperRockRatio < 0.55, value: (paperRockRatio || 0.7).toFixed(3) },
+    { id: 'tech_dump', label: 'NASDAQ -2%+', active: pct.nasdaq < -2, value: `${(pct.nasdaq || 0).toFixed(1)}%` },
+    { id: 'energy_bid', label: 'XLE +1.5%+', active: pct.xle > 1.5, value: `${(pct.xle || 0).toFixed(1)}%` },
+    { id: 'gold_bid', label: 'Gold +1.5%+', active: pct.gold > 1.5, value: `${(pct.gold || 0).toFixed(1)}%` }
+  ]);
+  
+  // 5. LIQUIDITY SHOCK - Correlated sell-off
+  createBeam('liquidity_shock', 'LIQUIDITY SHOCK', '', [
+    { id: 'spx_down', label: 'SPX -1.5%+', active: pct.spx < -1.5, value: `${(pct.spx || 0).toFixed(1)}%` },
+    { id: 'gold_down', label: 'Gold -1%+', active: pct.gold < -1, value: `${(pct.gold || 0).toFixed(1)}%` },
+    { id: 'btc_down', label: 'BTC -3%+', active: pct.btc < -3, value: `${(pct.btc || 0).toFixed(1)}%` },
+    { id: 'credit_stress', label: 'HYG -1%+', active: pct.hyg < -1, value: `${(pct.hyg || 0).toFixed(1)}%` }
+  ]);
+  
+  // 6. REVOLUTION RISK - EM social pressure
+  createBeam('revolution_risk', 'REVOLUTION RISK', '', [
+    { id: 'dxy_strong', label: 'DXY > 104', active: price.dxy > 104, value: (price.dxy || 99).toFixed(1) },
+    { id: 'wheat_high', label: 'Wheat > $650', active: price.wheat > 650, value: `$${(price.wheat || 550).toFixed(0)}` },
+    { id: 'oil_high', label: 'Oil > $80', active: price.oil > 80, value: `$${(price.oil || 60).toFixed(1)}` },
+    { id: 'em_stress', label: 'EEM -1.5%+', active: pct.eem < -1.5, value: `${(pct.eem || 0).toFixed(1)}%` }
+  ]);
+  
+  // 7. EURO FRACTURE - Capital flight to CHF
+  createBeam('euro_fracture', 'EURO FRACTURE', '', [
+    { id: 'eur_chf_low', label: 'EUR/CHF < 0.95', active: eur_chf < 0.95, value: (eur_chf || 0.95).toFixed(3) },
+    { id: 'bund_stress', label: 'TLT -1%+', active: pct.tlt < -1, value: `${(pct.tlt || 0).toFixed(1)}%` },
+    { id: 'xlf_stress', label: 'Financials -1.5%+', active: pct.xlf < -1.5, value: `${(pct.xlf || 0).toFixed(1)}%` },
+    { id: 'credit_wide', label: 'LQD/HYG > 1.40', active: creditSpread > 1.40, value: (creditSpread || 1.38).toFixed(3) }
+  ], { condition: eur_chf < 0.92, label: 'EURO CRISIS: EUR/CHF < 0.92' });
+  
+  // 8. SILICON SHIELD - Taiwan conflict proxy
+  createBeam('silicon_shield', 'SILICON SHIELD', '', [
+    { id: 'tsm_crash', label: 'TSM -2%+', active: pct.tsm < -2, value: `${(pct.tsm || 0).toFixed(1)}%` },
+    { id: 'defense_bid', label: 'ITA +1%+', active: pct.ita > 1, value: `${(pct.ita || 0).toFixed(1)}%` },
+    { id: 'vix_elevated', label: 'VIX > 22', active: price.vix > 22, value: (price.vix || 15).toFixed(1) },
+    { id: 'war_news', label: 'Conflict headlines', active: warHits >= 5, value: `${warHits} hits` }
+  ]);
+  
+  // 9. MERCANTILIST WAR - Trade fragmentation
+  createBeam('mercantilist_war', 'MERCANTILIST WAR', '', [
+    { id: 'cnh_weak', label: 'USD/CNH > 7.25', active: price.cnh > 7.25, value: (price.cnh || 7.1).toFixed(2) },
+    { id: 'copper_weak', label: 'Copper < $4', active: price.copper < 4.0, value: `$${(price.copper || 4).toFixed(2)}` },
+    { id: 'fxi_stress', label: 'FXI -1.5%+', active: pct.fxi < -1.5, value: `${(pct.fxi || 0).toFixed(1)}%` },
+    { id: 'merc_news', label: 'Trade war headlines', active: mercHits >= 5, value: `${mercHits} hits` }
+  ]);
+  
+  // 10. FED TRAP - Stagflation corner
+  createBeam('fed_trap', 'FED TRAP', '', [
+    { id: 'yields_falling', label: '10Y yield down', active: pct.us10y < -0.5, value: `${(pct.us10y || 0).toFixed(1)}%` },
+    { id: 'oil_rising', label: 'Oil +1.5%+', active: pct.oil > 1.5, value: `${(pct.oil || 0).toFixed(1)}%` },
+    { id: 'curve_flat', label: '2s10s < 0.25', active: yieldCurve < 0.25, value: `${(yieldCurve || 0.5).toFixed(2)}%` },
+    { id: 'gold_bid', label: 'Gold +0.5%+', active: pct.gold > 0.5, value: `${(pct.gold || 0).toFixed(1)}%` }
+  ]);
+  
+  // 11. KINETIC FEAR - Volatility regime shift
+  createBeam('kinetic_fear', 'KINETIC FEAR', '', [
+    { id: 'vix_high', label: 'VIX > 22', active: price.vix > 22, value: (price.vix || 15).toFixed(1) },
+    { id: 'spx_down', label: 'SPX -1%+', active: pct.spx < -1, value: `${(pct.spx || 0).toFixed(1)}%` },
+    { id: 'credit_stress', label: 'HYG -0.5%+', active: pct.hyg < -0.5, value: `${(pct.hyg || 0).toFixed(1)}%` },
+    { id: 'war_news', label: 'Conflict headlines', active: warHits >= 3, value: `${warHits} hits` }
+  ], { condition: price.vix > 30, label: 'FEAR SPIKE: VIX > 30' });
+  
+  // 12. ENERGY REGIME - Tracks BOTH supply shocks AND demand destruction
+  const demandDestruction = price.oil < 55; // Recession signal
+  const supplyShock = price.oil > 95; // Geopolitical disruption
+  const xleCollapse = pct.xle < -2; // Energy sector dump
+  createBeam('energy_shock', 'ENERGY REGIME', '', [
+    { id: 'oil_spike', label: 'Oil +3%+ spike', active: pct.oil > 3, value: `${(pct.oil || 0).toFixed(1)}%` },
+    { id: 'natgas_spike', label: 'Nat Gas +5%+', active: pct.natgas > 5, value: `${(pct.natgas || 0).toFixed(1)}%` },
+    { id: 'demand_crash', label: 'Oil < $55', active: demandDestruction, value: `$${(price.oil || 60).toFixed(1)}` },
+    { id: 'xle_collapse', label: 'XLE -2%+', active: xleCollapse, value: `${(pct.xle || 0).toFixed(1)}%` }
+  ], { condition: price.oil < 45 || price.oil > 110, label: price.oil < 45 ? 'DEMAND COLLAPSE: <$45' : 'SUPPLY CRISIS: >$110' });
+  
+  // 13. LIAR'S POKER - Narrative vs reality divergence
+  const sentimentData = calculateSentimentDashboard();
+  const sentiment = parseFloat(sentimentData?.fearGreed?.value) || 50;
+  const warOdds = cachedPredictionData?.markets?.find(m => {
+    const q = (m.question || '').toLowerCase();
+    return q.includes('war') || q.includes('conflict') || q.includes('invasion');
+  });
+  const warOddsValue = warOdds ? parseFloat(warOdds.probability) : 15;
+  const impliedPeace = 100 - warOddsValue;
+  const divergence = Math.abs(sentiment - impliedPeace);
+  
+  createBeam('liars_poker', "LIAR'S POKER", '', [
+    { id: 'divergence', label: 'Sentiment/odds gap > 25', active: divergence > 25, value: `${(divergence || 0).toFixed(0)} pts` },
+    { id: 'vix_low', label: 'VIX < 15 (complacent)', active: price.vix < 15, value: (price.vix || 15).toFixed(1) },
+    { id: 'war_news', label: 'Conflict headlines rising', active: warHits >= 5, value: `${warHits} hits` },
+    { id: 'spx_high', label: 'SPX near highs', active: pct.spx > 0.5, value: `${(pct.spx || 0).toFixed(1)}%` }
+  ]);
+  
+  // 14. VASSAL STATE - Currency bloc alignment
+  const vassalData = detectVassalState();
+  createBeam('vassal_state', 'VASSAL STATE', '', [
+    { id: 'krw_correlation', label: vassalData.master !== 'NEUTRAL' ? `KRW → ${vassalData.master}` : 'KRW neutral', active: vassalData.master !== 'NEUTRAL', value: vassalData.master },
+    { id: 'cnh_move', label: 'CNH > 7.2', active: price.cnh > 7.2, value: (price.cnh || 7.1).toFixed(2) },
+    { id: 'china_news', label: 'China headlines', active: chinaHits >= 3, value: `${chinaHits} hits` },
+    { id: 'eem_stress', label: 'EM stress', active: pct.eem < -1, value: `${(pct.eem || 0).toFixed(1)}%` }
+  ]);
+  
+  // Summary counts
+  const breached = tripwires.filter(t => t.status === 'BREACHED').length;
+  const arming = tripwires.filter(t => t.status === 'ARMING').length;
+  const safe = tripwires.filter(t => t.status === 'SAFE').length;
+  
+  // COMPOUND STRESS DETECTION
+  // Detect when multiple tripwires are correlating - signals systemic stress forming
+  const stressedTripwires = tripwires.filter(t => t.status === 'BREACHED' || t.status === 'ARMING');
+  const compoundLevel = stressedTripwires.length;
+  
+  // Define thematic clusters - tripwires that correlate together
+  const clusters = {
+    financial: ['liquidity_shock', 'fed_trap', 'boj_spiral', 'euro_fracture'],
+    geopolitical: ['silicon_shield', 'kinetic_fear', 'liars_poker', 'vassal_state'],
+    commodity: ['energy_shock', 'revolution_risk', 'mercantilist_war'],
+    monetary: ['fiat_rejection', 'deflation_trap', 'paper_rock']
+  };
+  
+  // Check which clusters have 2+ stressed tripwires
+  const activeStressClusters = [];
+  for (const [clusterName, clusterIds] of Object.entries(clusters)) {
+    const stressedInCluster = stressedTripwires.filter(t => clusterIds.includes(t.id));
+    if (stressedInCluster.length >= 2) {
+      activeStressClusters.push({
+        name: clusterName.toUpperCase(),
+        count: stressedInCluster.length,
+        tripwires: stressedInCluster.map(t => t.name)
+      });
+    }
+  }
+  
+  // Compound stress status
+  let compoundStatus = 'ISOLATED';
+  let compoundDesc = 'Stress signals not correlating';
+  if (activeStressClusters.length >= 2) {
+    compoundStatus = 'SYSTEMIC';
+    compoundDesc = `${activeStressClusters.length} clusters resonating - regime shift forming`;
+  } else if (activeStressClusters.length === 1) {
+    compoundStatus = 'CLUSTERING';
+    compoundDesc = `${activeStressClusters[0].name} cluster active`;
+  } else if (compoundLevel >= 3) {
+    compoundStatus = 'CORRELATING';
+    compoundDesc = `${compoundLevel} tripwires stressed but not clustered`;
+  }
+  
+  return {
+    tripwires,
+    summary: { breached, arming, safe },
+    compound: {
+      status: compoundStatus,
+      level: compoundLevel,
+      description: compoundDesc,
+      clusters: activeStressClusters
+    },
+    timestamp: Date.now()
+  };
+}
+
+// COMPOUND STRESS SIGNAL GENERATOR
+// When clusters resonate, analyze with AI to propose new conflict formations
+let lastCompoundAnalysis = 0;
+const COMPOUND_ANALYSIS_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
+
+async function analyzeCompoundStressSignal(compound, tripwires) {
+  if (compound.status !== 'SYSTEMIC' && compound.status !== 'CLUSTERING') return null;
+  if (emergingConflictQueue.length >= MAX_EMERGING_QUEUE) return null;
+  if (dailyProposalCount >= MAX_DAILY_PROPOSALS) return null;
+  if (Date.now() - lastCompoundAnalysis < COMPOUND_ANALYSIS_INTERVAL) return null;
+  
+  lastCompoundAnalysis = Date.now();
+  
+  const stressedList = tripwires
+    .filter(t => t.status === 'BREACHED' || t.status === 'ARMING')
+    .map(t => `- ${t.name}: ${t.desc} (${t.status})`)
+    .join('\n');
+  
+  const clusterList = compound.clusters
+    .map(c => `- ${c.name} cluster: ${c.tripwires.join(', ')}`)
+    .join('\n');
+  
+  const prompt = `Multiple tripwires in our early warning system are correlating, suggesting a NEW conflict may be forming.
+
+STRESSED TRIPWIRES:
+${stressedList}
+
+ACTIVE CLUSTERS:
+${clusterList}
+
+COMPOUND STATUS: ${compound.status}
+
+Based on this pattern of correlated stress signals, determine if this represents an emerging strategic situation that isn't already being tracked:
+
+If this represents a NEW emerging conflict formation, respond in JSON:
+{
+  "isConflict": true,
+  "confidence": 0.0-1.0,
+  "title": "Short title describing the forming situation (max 25 chars)",
+  "emoji": "Single emoji",
+  "players": ["Actor 1", "Actor 2"],
+  "currentPhase": "FORMATION",
+  "keywords": ["keyword1", "keyword2"],
+  "summary": "One sentence describing what's forming",
+  "signalType": "COMPOUND_STRESS",
+  "location": {"lat": 0.0, "lon": 0.0, "city": "Key location"}
+}
+
+If this is NOT a new conflict (existing situation, routine stress, or unclear), respond:
+{"isConflict": false, "reason": "explanation"}
+
+Respond ONLY with valid JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    
+    const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const result = JSON.parse(text);
+    
+    if (result.isConflict && result.confidence > 0.6) {
+      dailyProposalCount++;
+      const proposal = {
+        id: `compound_${Date.now()}`,
+        ...result,
+        headlines: compound.clusters.flatMap(c => c.tripwires.map(t => `Tripwire: ${t}`)),
+        sources: ['COMPOUND STRESS DETECTOR'],
+        proposedAt: Date.now()
+      };
+      
+      emergingConflictQueue.push(proposal);
+      console.log(`🔥 Compound stress signal detected: ${proposal.title}`);
+      
+      broadcast({
+        type: 'emerging_conflict_update',
+        data: { queue: emergingConflictQueue }
+      });
+      
+      return proposal;
+    }
+    
+    return null;
+  } catch (e) {
+    console.error('Compound stress analysis failed:', e.message);
+    return null;
+  }
+}
+
+// ============================================================================
 // STRATEGIC INTELLIGENCE ENGINE (War Room)
 // ============================================================================
 
@@ -4159,12 +6156,23 @@ function calculateStrategicIntelligence() {
     updateStrategicHistoryBuffer(d);
     const vassalState = detectVassalState();
     
+    // Calculate DEFCON tripwires (The Michael Every Fourteen)
+    const defconData = calculateDEFCONTripwires();
+    
+    // Check for compound stress and feed into emerging conflicts
+    if (defconData.compound && (defconData.compound.status === 'SYSTEMIC' || defconData.compound.status === 'CLUSTERING')) {
+      analyzeCompoundStressSignal(defconData.compound, defconData.tripwires).catch(e => {
+        console.error('Compound stress analysis error:', e.message);
+      });
+    }
+    
     const intelligenceData = {
       liarsPoker,
       revRisk,
       warEco,
       fragScore,
       vassalState,
+      defcon: defconData,
       timestamp: Date.now()
     };
     
@@ -4320,6 +6328,16 @@ cron.schedule('*/60 * * * * *', () => {
     }
   } catch (error) {
     console.error('Strategic Intelligence update error:', error.message);
+  }
+});
+
+// Quant Strategist levels update every 30 seconds
+cron.schedule('*/30 * * * * *', () => {
+  try {
+    broadcastQuantLevels();
+    console.log(`📐 Quant levels broadcast (${cachedQuantLevels.length} assets)`);
+  } catch (error) {
+    console.error('Quant levels update error:', error.message);
   }
 });
 
