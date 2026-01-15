@@ -3295,6 +3295,81 @@
             }
         }
 
+        /* Beam Analysis Modal - Mobile Responsive Fixes */
+        #beamAnalysisModal .chart-modal-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+
+        #beamAnalysisModal #beamModalBody {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+
+        #beamAnalysisModal #beamModalBody p,
+        #beamAnalysisModal #beamModalBody div,
+        #beamAnalysisModal #beamModalBody span {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            #beamAnalysisModal .chart-modal-content {
+                width: 94%;
+                max-width: 94vw;
+                max-height: 85vh;
+                padding: 1rem;
+                margin: 0.5rem;
+                box-sizing: border-box;
+            }
+
+            #beamAnalysisModal #beamModalBody {
+                max-height: 60vh;
+                padding-right: 4px;
+                font-size: 0.9rem;
+            }
+
+            #beamAnalysisModal #beamModalTitle {
+                font-size: 1rem;
+            }
+
+            #beamAnalysisModal #beamModalStatus {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #beamAnalysisModal .chart-modal-content {
+                width: 96%;
+                max-width: 96vw;
+                max-height: 90vh;
+                padding: 0.75rem;
+                margin: 0.25rem;
+            }
+
+            #beamAnalysisModal #beamModalBody {
+                max-height: 55vh;
+                font-size: 0.85rem;
+                line-height: 1.5;
+            }
+
+            #beamAnalysisModal #beamModalTitle {
+                font-size: 0.9rem;
+                letter-spacing: 1px;
+            }
+
+            #beamAnalysisModal .chart-close-btn {
+                top: 10px;
+                right: 10px;
+                width: 40px;
+                height: 40px;
+                font-size: 1.25rem;
+            }
+        }
+
         /* Intel Legend Modal specific styles - match Games Legend */
         #intelLegendModal .chart-modal-content,
         #statecraftExplainerModal .chart-modal-content {
