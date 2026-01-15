@@ -1838,7 +1838,7 @@
             border: 1px solid #8fbc8f;
             border-radius: 8px;
             margin-bottom: 12px;
-            overflow: hidden;
+            overflow: visible;
         }
         .dashboard-section {
             padding: 10px;
@@ -2199,6 +2199,345 @@
             font-size: 0.6rem;
         }
         
+        /* DEFCON Panel Styles - The Michael Every Fourteen */
+        .defcon-panel {
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .defcon-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            gap: 8px;
+        }
+        .defcon-header:hover {
+            background: rgba(168, 85, 247, 0.1);
+        }
+        .defcon-header-top {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .defcon-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .defcon-summary {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            width: 100%;
+            padding: 4px 0;
+        }
+        .defcon-count-group {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .defcon-count-number {
+            font-size: 1rem;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: right;
+        }
+        .defcon-count-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .defcon-count-group.safe .defcon-count-number { color: #22c55e; }
+        .defcon-count-group.safe .defcon-count-label { color: #22c55e; }
+        .defcon-count-group.arming .defcon-count-number { color: #f59e0b; }
+        .defcon-count-group.arming .defcon-count-label { color: #f59e0b; }
+        .defcon-count-group.breached .defcon-count-number { color: #ef4444; }
+        .defcon-count-group.breached .defcon-count-label { color: #ef4444; }
+        .compound-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: help;
+            width: 100%;
+        }
+        .compound-status {
+            font-size: 0.75rem;
+        }
+        .compound-status.isolated { color: #6a7585; }
+        .compound-status.correlating { color: #3b82f6; }
+        .compound-status.clustering { color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 8px; border-radius: 4px; }
+        .compound-status.systemic { color: #ef4444; background: rgba(239, 68, 68, 0.2); padding: 2px 8px; border-radius: 4px; animation: pulse-red 1.5s infinite; }
+        .defcon-toggle {
+            color: #a78bfa;
+            font-size: 0.7rem;
+            transition: transform 0.3s ease;
+        }
+        .defcon-toggle.expanded {
+            transform: rotate(180deg);
+        }
+        .defcon-body {
+            padding: 0;
+            border-top: 1px solid rgba(168, 85, 247, 0.2);
+        }
+        .defcon-grid {
+            display: flex;
+            flex-direction: column;
+        }
+        .defcon-tripwire {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(100, 100, 120, 0.2);
+            transition: all 0.2s ease;
+        }
+        .defcon-tripwire:last-child {
+            border-bottom: none;
+        }
+        .defcon-tripwire:hover {
+            background: rgba(168, 85, 247, 0.08);
+        }
+        .defcon-tripwire-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+        }
+        .defcon-tripwire-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #e5e5e5;
+            letter-spacing: 0.3px;
+        }
+        .defcon-tripwire-info {
+            font-size: 0.6rem;
+            color: #8a8a9a;
+            line-height: 1.2;
+        }
+        .defcon-tripwire-status {
+            font-size: 0.55rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .defcon-tripwire.safe .defcon-tripwire-status { 
+            background: rgba(34, 197, 94, 0.15); 
+            color: #22c55e;
+        }
+        .defcon-tripwire.arming { 
+            background: rgba(245, 158, 11, 0.08);
+        }
+        .defcon-tripwire.arming .defcon-tripwire-status { 
+            background: rgba(245, 158, 11, 0.2); 
+            color: #f59e0b;
+        }
+        .defcon-tripwire.breached { 
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .defcon-tripwire.breached .defcon-tripwire-status { 
+            background: rgba(239, 68, 68, 0.2); 
+            color: #ef4444;
+        }
+        .defcon-emoji {
+            font-size: 1rem;
+            width: 24px;
+            text-align: center;
+        }
+        .defcon-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .defcon-name {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #e6e8eb;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .defcon-desc {
+            font-size: 0.6rem;
+            color: #6a7585;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .defcon-status {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+        .defcon-status.safe { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .defcon-status.arming { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .defcon-status.breached { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .defcon-loading {
+            text-align: center;
+            color: #6a7585;
+            font-size: 0.7rem;
+            padding: 10px;
+        }
+        
+        /* Emerging Conflict Styles */
+        .emerging-badge {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #ef4444;
+            cursor: pointer;
+            animation: pulse-red 1.5s infinite;
+        }
+        .emerging-badge.visible {
+            display: flex;
+        }
+        .emerging-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .emerging-section.hidden {
+            display: none;
+        }
+        .emerging-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .emerging-header:hover {
+            background: rgba(239, 68, 68, 0.15);
+        }
+        .emerging-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #ef4444;
+            text-transform: uppercase;
+        }
+        .emerging-count {
+            font-size: 0.65rem;
+            color: #6a7585;
+        }
+        .emerging-proposals {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        /* Emerging cards now use same structure as game-card */
+        .emerging-card {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 0;
+            border-left: 3px solid #ff6b6b;
+            position: relative;
+        }
+        .emerging-card::before {
+            content: 'EMERGING';
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 0.5rem;
+            font-weight: 700;
+            padding: 2px 5px;
+            background: rgba(255, 107, 107, 0.25);
+            color: #ff6b6b;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .emerging-card .game-header {
+            padding-right: 55px;
+        }
+        .emerging-card .game-phase {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+        }
+        .emerging-card .game-equilibrium {
+            margin-bottom: 8px;
+        }
+        .emerging-card .equilibrium-dot {
+            background: #ff6b6b;
+            box-shadow: 0 0 6px #ff6b6b;
+            animation: pulse-emerging 1.5s infinite;
+        }
+        @keyframes pulse-emerging {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+        .emerging-card .game-last-move {
+            background: rgba(255, 107, 107, 0.08);
+            border-left: 2px solid rgba(255, 107, 107, 0.4);
+        }
+        .emerging-decision-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 107, 107, 0.2);
+        }
+        .emerging-btn {
+            flex: 1;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        .emerging-btn.accept {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+        .emerging-btn.accept:hover {
+            background: rgba(34, 197, 94, 0.3);
+        }
+        .emerging-btn.dismiss {
+            background: rgba(107, 114, 128, 0.2);
+            color: #9ca3af;
+            border: 1px solid rgba(107, 114, 128, 0.4);
+        }
+        .emerging-btn.dismiss:hover {
+            background: rgba(107, 114, 128, 0.3);
+        }
+        
         .game-analyze-btn {
             display: flex;
             align-items: center;
@@ -2380,6 +2719,45 @@
         .gt-desc { color: #a0aec0; font-size: 0.7rem; line-height: 1.4; margin-bottom: 8px; }
         .gt-theory { color: var(--accent-orange); font-size: 0.65rem; font-weight: 600; border-left: 2px solid var(--accent-orange); padding-left: 8px; line-height: 1.3; }
         
+        /* Cluster tooltip styling */
+        .gt-cluster-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 6px;
+            margin: 8px 0;
+        }
+        .gt-cluster-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .gt-cluster-list::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+        }
+        .gt-cluster-list::-webkit-scrollbar-thumb {
+            background: rgba(212, 113, 74, 0.5);
+            border-radius: 2px;
+        }
+        .gt-cluster-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(212, 113, 74, 0.7);
+        }
+        .gt-cluster-item {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .gt-cluster-item:last-child {
+            border-bottom: none;
+        }
+        .gt-cluster-item-title {
+            font-weight: 600;
+            font-size: 0.75rem;
+            line-height: 1.3;
+        }
+        .gt-cluster-item-type {
+            font-size: 0.6rem;
+            color: #888;
+            margin-top: 2px;
+        }
+        
         /* Mobile-Responsive Globe Modal */
         @media (max-width: 768px) {
             .globe-modal-content {
@@ -2467,6 +2845,189 @@
             font-size: 0.7rem;
             color: var(--text-secondary);
             line-height: 1.3;
+        }
+
+        /* QUANT STRATEGIST ACCORDION & CARDS */
+        .quant-accordion-section {
+            margin-bottom: 4px;
+        }
+        .quant-accordion-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: rgba(15, 19, 26, 0.95);
+            border: 1px solid rgba(42, 48, 64, 0.8);
+            border-radius: 4px;
+            color: #fff;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .quant-accordion-header:hover {
+            background: rgba(30, 38, 52, 0.95);
+        }
+        .quant-accordion-arrow {
+            color: var(--accent-moss);
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+        .quant-accordion-arrow.expanded {
+            transform: rotate(90deg);
+        }
+        .quant-accordion-count {
+            margin-left: auto;
+            background: rgba(0, 217, 255, 0.15);
+            color: #00D9FF;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+        }
+        .quant-accordion-body {
+            padding: 6px 4px 0 0;
+            max-height: 280px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 217, 255, 0.4) rgba(15, 19, 26, 0.6);
+        }
+        .quant-accordion-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .quant-accordion-body::-webkit-scrollbar-track {
+            background: rgba(15, 19, 26, 0.6);
+            border-radius: 3px;
+        }
+        .quant-accordion-body::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(0, 217, 255, 0.5) 0%, rgba(0, 180, 220, 0.3) 100%);
+            border-radius: 3px;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+        }
+        .quant-accordion-body::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(0, 217, 255, 0.7) 0%, rgba(0, 180, 220, 0.5) 100%);
+        }
+
+        .quant-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+            margin-top: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 217, 255, 0.4) rgba(15, 19, 26, 0.6);
+        }
+        .quant-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+        .quant-grid::-webkit-scrollbar-track {
+            background: rgba(15, 19, 26, 0.6);
+            border-radius: 3px;
+        }
+        .quant-grid::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(0, 217, 255, 0.5) 0%, rgba(0, 180, 220, 0.3) 100%);
+            border-radius: 3px;
+        }
+
+        .quant-card {
+            background: rgba(15, 19, 26, 0.9);
+            border: 1px solid rgba(42, 48, 64, 0.8);
+            border-left: 3px solid #4a5568;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.7rem;
+            position: relative;
+        }
+
+        .quant-card.coiling { border-left-color: #ffbb33; }
+        .quant-card.exhaustion { border-left-color: #ff4466; }
+        .quant-card.capitulation { border-left-color: #00D9FF; }
+
+        .quant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .quant-symbol {
+            font-weight: 700;
+            color: #fff;
+            font-size: 0.75rem;
+        }
+
+        .quant-price {
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+        }
+
+        .quant-structure {
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.65rem;
+            margin-bottom: 6px;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .quant-structure.coiling { background: rgba(255, 187, 51, 0.15); color: #ffbb33; }
+        .quant-structure.exhaustion { background: rgba(255, 68, 102, 0.15); color: #ff4466; }
+        .quant-structure.capitulation { background: rgba(0, 217, 255, 0.15); color: #00D9FF; }
+        .quant-structure.trending { background: rgba(255,255,255,0.05); color: #8b9cb3; }
+
+        .quant-levels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+
+        .quant-level-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: #6a7585;
+            padding: 2px 0;
+        }
+
+        .quant-level-val {
+            font-weight: 600;
+            color: #e6e8eb;
+        }
+
+        .quant-resist { color: #ff6b6b !important; }
+        .quant-support { color: #4cd137 !important; }
+        .quant-pivot { color: #4ec9b0 !important; }
+        .quant-liquidity { 
+            background: rgba(255, 68, 102, 0.12);
+            color: #ff4466;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 0.6rem;
+        }
+
+        .quant-sigma {
+            font-size: 0.55rem;
+            color: #4a5568;
+            text-align: right;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .quant-news-badge {
+            font-size: 0.55rem;
+            color: #22c55e;
+            margin-left: 3px;
+        }
+
+        .quant-divider {
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+            margin: 4px 0;
         }
 
         /* TradingView Chart Modal */
@@ -2631,6 +3192,105 @@
             }
 
             #gameLegendModal .modal-title {
+                font-size: 1rem;
+            }
+        }
+
+        /* Command Briefing Modal specific styles - match Games Legend */
+        #commandBriefingModal .chart-modal-content {
+            height: auto;
+            max-height: 85vh;
+            padding: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-color: #9333ea;
+        }
+
+        #commandBriefingModal .modal-title {
+            flex-shrink: 0;
+            padding-bottom: 0.5rem;
+        }
+
+        #commandBriefingModal .modal-analysis {
+            flex: 1;
+            overflow-y: auto;
+            max-height: none;
+            scrollbar-width: thin;
+            scrollbar-color: #a855f7 var(--bg-column);
+        }
+
+        #commandBriefingModal .modal-analysis::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #commandBriefingModal .modal-analysis::-webkit-scrollbar-track {
+            background: var(--bg-column);
+            border-radius: 3px;
+        }
+
+        #commandBriefingModal .modal-analysis::-webkit-scrollbar-thumb {
+            background: #a855f7;
+            border-radius: 3px;
+        }
+
+        #commandBriefingModal h3 {
+            color: var(--accent-orange);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        #commandBriefingModal h3:first-of-type {
+            margin-top: 0;
+        }
+
+        #commandBriefingModal .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        #commandBriefingModal .legend-icon {
+            flex-shrink: 0;
+            width: 20px;
+            text-align: center;
+        }
+
+        #commandBriefingModal .legend-text {
+            color: #94a3b8;
+        }
+
+        @media (max-width: 768px) {
+            #commandBriefingModal .chart-modal-content {
+                width: 94%;
+                max-height: 80vh;
+                padding: 0.75rem;
+                margin: 1rem;
+            }
+
+            #commandBriefingModal .modal-analysis {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #commandBriefingModal .chart-modal-content {
+                width: 96%;
+                max-height: 85vh;
+                padding: 0.5rem;
+            }
+
+            #commandBriefingModal .modal-analysis {
+                font-size: 0.8rem;
+                padding: 0.25rem;
+            }
+
+            #commandBriefingModal .modal-title {
                 font-size: 1rem;
             }
         }
@@ -3910,67 +4570,75 @@
                     <div class="dashboard-title" style="color: #a855f7;">STATECRAFT</div>
                     <div class="dashboard-section-subtitle">Strategic Intel • Active Games</div>
                     
-                    <!-- Statecraft Explainer Button -->
-                    <div class="statecraft-legend-btn" onclick="openStatecraftExplainer()">
-                        <span class="legend-text">STATECRAFT EXPLAINER</span>
+                    <!-- Unified Command Briefing Button -->
+                    <div class="statecraft-legend-btn" onclick="openCommandBriefing()">
+                        <span class="legend-text">COMMAND BRIEFING</span>
                     </div>
                     
-                    <!-- Strategic Intelligence Section Label -->
-                    <div class="statecraft-section-label">SIGNALS • RISK METRICS</div>
+                    <!-- DEFCON STRUCTURAL BEAMS - The Michael Every Fourteen -->
+                    <div class="statecraft-section-label">STRUCTURAL BEAMS • DEFCON</div>
                     
-                    <!-- Intel Legend Button -->
-                    <div class="statecraft-legend-btn" onclick="openIntelLegend()">
-                        <span class="legend-text">INTEL LEGEND</span>
+                    <!-- DEFCON Panel - Collapsible -->
+                    <div class="defcon-panel" id="defconPanel">
+                        <div class="defcon-header" onclick="toggleDefconPanel()">
+                            <div class="defcon-header-top">
+                                <span class="defcon-title">STRUCTURAL BEAMS</span>
+                                <span class="defcon-toggle" id="defconToggle">▼</span>
+                            </div>
+                            <div class="defcon-summary" id="defconSummary">
+                                <div class="defcon-count-group safe">
+                                    <span class="defcon-count-number">14</span>
+                                    <span class="defcon-count-label">SAFE</span>
+                                </div>
+                                <div class="defcon-count-group arming">
+                                    <span class="defcon-count-number">0</span>
+                                    <span class="defcon-count-label">ARMING</span>
+                                </div>
+                                <div class="defcon-count-group breached">
+                                    <span class="defcon-count-number">0</span>
+                                    <span class="defcon-count-label">BREACHED</span>
+                                </div>
+                            </div>
+                            <div class="compound-indicator" id="compoundIndicator" title="Compound stress level">
+                                <span class="compound-status isolated">ISOLATED</span>
+                            </div>
+                        </div>
+                        <div class="defcon-body" id="defconBody" style="display:none;">
+                            <div class="defcon-grid" id="defconGrid">
+                                <!-- Tripwires will be populated by JS -->
+                                <div class="defcon-loading">Loading tripwires...</div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <!-- Strategic Intelligence Widgets -->
-                    <div class="strategic-intel-grid">
-                        <div class="intel-widget" id="widget-rev-risk" onclick="openIntelDetailModal('revRiskModal')">
-                            <div class="intel-widget-header">REVOLUTION RISK</div>
-                            <div class="intel-widget-value" id="val-rev-risk">CALCULATING</div>
-                            <div class="intel-widget-sub">Bread + Fuel x DXY</div>
-                            <div class="intel-meter"><div class="intel-meter-fill" id="meter-rev"></div></div>
-                        </div>
-                        <div class="intel-widget" id="widget-liar" onclick="openIntelDetailModal('liarModal')">
-                            <div class="intel-widget-header">LIAR'S POKER</div>
-                            <div class="intel-widget-value" id="val-liar">CALCULATING</div>
-                            <div class="intel-widget-sub">Narrative vs Money</div>
-                        </div>
-                        <div class="intel-widget" id="widget-war-eco" onclick="openIntelDetailModal('paperRockModal')">
-                            <div class="intel-widget-header">PAPER VS ROCK</div>
-                            <div class="intel-widget-value" id="val-war-eco">CALCULATING</div>
-                            <div class="intel-widget-sub">Stocks / Commodities</div>
-                        </div>
-                        <div class="intel-widget" id="widget-vassal" onclick="openIntelDetailModal('vassalModal')">
-                            <div class="intel-widget-header">VASSAL DETECTOR</div>
-                            <div class="intel-widget-value" id="val-vassal">CALCULATING</div>
-                            <div class="intel-widget-sub">KRW Correlation</div>
-                        </div>
-                    </div>
-                    <div class="intel-fragmentation" id="widget-frag" onclick="openIntelDetailModal('mercantilismModal')">
-                        <span class="intel-frag-label">MERCANTILISM:</span>
-                        <span class="intel-frag-value" id="val-frag">OPEN TRADE</span>
-                        <span class="intel-frag-hits" id="val-frag-hits">(0 signals)</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:9px;color:#6a7585;">
-                        <span>🎯</span>
-                        <span>Click "Revolution Risk" for deep-dive details</span>
-                    </div>
                     
                     <!-- Section Divider -->
                     <div style="border-top: 1px solid rgba(168, 85, 247, 0.25); margin: 12px 0;"></div>
                     
-                    <!-- Game Theory Section Label -->
-                    <div class="statecraft-section-label">GAME THEORY • CONFLICTS</div>
-                    
-                    <!-- Games Legend Button -->
-                    <div class="statecraft-legend-btn" onclick="openGameLegend()">
-                        <span class="legend-text">GAMES LEGEND</span>
+                    <!-- Active Kinetic Theaters Title with Emerging Badge -->
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:10px;">
+                        <div class="dashboard-title" style="color: #a855f7; text-align: center; margin-bottom: 0;">ACTIVE KINETIC THEATERS</div>
+                        <div class="statecraft-section-label" style="margin-bottom:0;text-align:center;font-size:0.65rem;">GAME THEORY • CONFLICTS</div>
+                        <div class="emerging-badge" id="emergingBadge" onclick="scrollToEmergingSection()" style="margin-top:4px;">
+                            <span id="emergingBadgeCount">0</span> EMERGING
+                        </div>
                     </div>
+                    
                     
                     <!-- Game Theory Cards -->
                     <div id="gameTheoryList" class="game-theory-container">
                         <div class="game-theory-loading">Loading strategic games...</div>
+                    </div>
+                    
+                    <!-- Emerging Signals Section -->
+                    <div class="emerging-section hidden" id="emergingSection">
+                        <div class="emerging-header" onclick="toggleEmergingSection()">
+                            <span class="emerging-title">🔔 EMERGING SIGNALS</span>
+                            <span class="emerging-count" id="emergingCount">0 pending</span>
+                        </div>
+                        <div class="emerging-proposals" id="emergingProposals">
+                            <!-- Proposals populated by JS -->
+                        </div>
                     </div>
                 </div>
                 <!-- Geo cards appear below -->
@@ -4059,8 +4727,69 @@
                 <div class="column-subtitle">Probabilities • Tail Risk</div>
             </div>
             <div class="column-content" id="predictionColumn">
-                <!-- Sentiment Dashboard -->
+                <!-- Prediction Dashboard - QUANT FIRST as per user request -->
                 <div class="prediction-dashboard" id="predictionsDashboard">
+                    <!-- QUANT STRUCTURE - TOP PRIORITY (Navigation Computer) -->
+                    <div class="dashboard-section">
+                        <div class="dashboard-title">TACTICAL STRUCTURE</div>
+                        <div class="dashboard-section-subtitle">ENGINE • CIPHER • SIGMA</div>
+                        <!-- ACCORDION STRUCTURE FOR 4 ASSET CATEGORIES -->
+                        <div id="quantAccordion" style="margin-top:8px;">
+                            <!-- GENERALS Section -->
+                            <div class="quant-accordion-section">
+                                <button class="quant-accordion-header" onclick="toggleQuantSection('generals')" id="quantHeaderGenerals">
+                                    <span class="quant-accordion-arrow" id="quantArrowGenerals">&#9658;</span>
+                                    <span>GENERALS</span>
+                                    <span class="quant-accordion-count" id="quantCountGenerals">0</span>
+                                </button>
+                                <div class="quant-accordion-body" id="quantBodyGenerals" style="display:none;"></div>
+                            </div>
+                            <!-- METALS Section -->
+                            <div class="quant-accordion-section">
+                                <button class="quant-accordion-header" onclick="toggleQuantSection('metals')" id="quantHeaderMetals">
+                                    <span class="quant-accordion-arrow" id="quantArrowMetals">&#9658;</span>
+                                    <span>METALS</span>
+                                    <span class="quant-accordion-count" id="quantCountMetals">0</span>
+                                </button>
+                                <div class="quant-accordion-body" id="quantBodyMetals" style="display:none;"></div>
+                            </div>
+                            <!-- ENERGY Section -->
+                            <div class="quant-accordion-section">
+                                <button class="quant-accordion-header" onclick="toggleQuantSection('energy')" id="quantHeaderEnergy">
+                                    <span class="quant-accordion-arrow" id="quantArrowEnergy">&#9658;</span>
+                                    <span>ENERGY</span>
+                                    <span class="quant-accordion-count" id="quantCountEnergy">0</span>
+                                </button>
+                                <div class="quant-accordion-body" id="quantBodyEnergy" style="display:none;"></div>
+                            </div>
+                            <!-- AG/FX Section -->
+                            <div class="quant-accordion-section">
+                                <button class="quant-accordion-header" onclick="toggleQuantSection('agfx')" id="quantHeaderAgfx">
+                                    <span class="quant-accordion-arrow" id="quantArrowAgfx">&#9658;</span>
+                                    <span>AG / FX / CRYPTO</span>
+                                    <span class="quant-accordion-count" id="quantCountAgfx">0</span>
+                                </button>
+                                <div class="quant-accordion-body" id="quantBodyAgfx" style="display:none;"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#6a7585;">
+                            <span style="color:#00D9FF;">&#9670;</span>
+                            <span>Click arrows to expand categories - click any asset for 8-layer analysis</span>
+                        </div>
+                    </div>
+                    <!-- POLYMARKET ODDS -->
+                    <div class="dashboard-section">
+                        <div class="dashboard-title">POLYMARKET ODDS</div>
+                        <div class="dashboard-section-subtitle">MACRO • CRYPTO • POLITICS</div>
+                        <div id="polymarketList" class="polymarket-container">
+                            <div class="polymarket-empty">Loading prediction markets...</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#6a7585;">
+                            <span style="color:#c4b5fd;">&#9679;</span>
+                            <span>Click for Polymarket (e.g. Fed Cut 65%)</span>
+                        </div>
+                    </div>
+                    <!-- SENTIMENT - Bottom -->
                     <div class="dashboard-section">
                         <div class="dashboard-title">MARKET SENTIMENT</div>
                         <div class="dashboard-section-subtitle">VIX • Fear/Greed • Yields</div>
@@ -4068,19 +4797,8 @@
                             <div class="sentiment-loading">Loading sentiment data...</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#6a7585;">
-                            <span>📊</span>
-                            <span>Live indicators (e.g. VIX CALM <20)</span>
-                        </div>
-                    </div>
-                    <div class="dashboard-section">
-                        <div class="dashboard-title">POLYMARKET ODDS</div>
-                        <div class="dashboard-section-subtitle">Macro • Crypto • Politics • Geo</div>
-                        <div id="polymarketList" class="polymarket-container">
-                            <div class="polymarket-empty">Loading prediction markets...</div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#6a7585;">
-                            <span>🎯</span>
-                            <span>Click for Polymarket (e.g. Fed Cut 65%)</span>
+                            <span style="color:#4ade80;">&#9632;</span>
+                            <span>Live indicators (e.g. VIX CALM below 20)</span>
                         </div>
                     </div>
                 </div>
@@ -4769,60 +5487,784 @@
                 case 'strategic_intelligence':
                     updateStrategicIntelligence(message.data);
                     break;
+                case 'emerging_conflict_update':
+                    updateEmergingConflicts(message.data);
+                    break;
+                case 'quant_update':
+                    console.log('QUANT UPDATE RECEIVED:', message.data ? message.data.length : 'null');
+                    updateQuantLevels(message.data);
+                    break;
             }
+        }
+        
+        // ========================================================================
+        // QUANT STRATEGIST LEVEL ENGINE UI
+        // ========================================================================
+        
+        // Global quant data storage for expansion
+        var quantDataCache = [];
+        
+        // Category mapping for assets
+        var ASSET_CATEGORIES = {
+            // GENERALS: Yield curve + indices + dollar (8 assets)
+            'US 2Y YIELD': 'generals', 'US 5Y YIELD': 'generals', 
+            'US 10Y YIELD': 'generals', 'US 30Y YIELD': 'generals',
+            'DXY INDEX': 'generals', 'S&P 500': 'generals', 'NASDAQ': 'generals', 'VIX': 'generals',
+            // METALS (8 assets)
+            'GOLD': 'metals', 'SILVER': 'metals', 'COPPER': 'metals', 
+            'PLATINUM': 'metals', 'PALLADIUM': 'metals',
+            'ALUMINUM': 'metals', 'ZINC': 'metals', 'NICKEL': 'metals',
+            // ENERGY (7 assets)
+            'WTI CRUDE': 'energy', 'BRENT CRUDE': 'energy', 'GASOLINE': 'energy', 
+            'NAT GAS': 'energy', 'URANIUM ETF': 'energy', 'LITHIUM ETF': 'energy', 'COAL': 'energy',
+            // AGRICULTURE (16 assets)
+            'CORN': 'ag', 'WHEAT': 'ag', 'SOYBEAN': 'ag', 'COFFEE': 'ag', 
+            'SUGAR': 'ag', 'COCOA': 'ag', 'COTTON': 'ag', 'ORANGE JUICE': 'ag',
+            'LIVE CATTLE': 'ag', 'LEAN HOGS': 'ag', 'OATS': 'ag', 'RICE': 'ag',
+            'LUMBER': 'ag', 'FEEDER CATTLE': 'ag', 'CANOLA': 'ag', 'PALM OIL': 'ag',
+            // FX/CRYPTO (21 assets)
+            'EUR/USD': 'fxcrypto', 'USD/JPY': 'fxcrypto', 'GBP/USD': 'fxcrypto', 'AUD/USD': 'fxcrypto',
+            'USD/CAD': 'fxcrypto', 'USD/CHF': 'fxcrypto', 'USD/CNH': 'fxcrypto', 'USD/MXN': 'fxcrypto', 'USD/BRL': 'fxcrypto',
+            'NZD/USD': 'fxcrypto', 'EUR/JPY': 'fxcrypto', 'GBP/JPY': 'fxcrypto', 'EUR/GBP': 'fxcrypto',
+            'USD/SGD': 'fxcrypto', 'USD/HKD': 'fxcrypto', 'USD/ZAR': 'fxcrypto', 'USD/TRY': 'fxcrypto',
+            'USD/INR': 'fxcrypto', 'USD/KRW': 'fxcrypto',
+            'BITCOIN': 'fxcrypto', 'ETHEREUM': 'fxcrypto'
+        };
+        
+        // Toggle accordion section
+        function toggleQuantSection(section) {
+            var body = document.getElementById('quantBody' + section.charAt(0).toUpperCase() + section.slice(1));
+            var arrow = document.getElementById('quantArrow' + section.charAt(0).toUpperCase() + section.slice(1));
+            if (body && arrow) {
+                var isHidden = body.style.display === 'none';
+                body.style.display = isHidden ? 'block' : 'none';
+                arrow.classList.toggle('expanded', isHidden);
+            }
+        }
+        
+        // Get regime color
+        function getRegimeColor(regime) {
+            switch(regime) {
+                case 'BULLISH': return '#4ade80';
+                case 'BEARISH': return '#ff6b6b';
+                case 'DISTRIBUTION': return '#fbbf24';
+                case 'ACCUMULATION': return '#3b82f6';
+                default: return '#6a7585';
+            }
+        }
+        
+        // Build single asset card HTML
+        function buildAssetCardHtml(item, index) {
+            var regimeColor = getRegimeColor(item.qRegime);
+            var distSign = parseFloat(item.qDistFromOpen) >= 0 ? '+' : '';
+            
+            var html = '<div class="quant-card" onclick="showQuantDetail(' + index + ')" style="cursor:pointer;">';
+            html += '<div class="quant-header">';
+            html += '<span class="quant-symbol">' + item.symbol + '</span>';
+            html += '<span class="quant-price">' + item.current + '</span>';
+            html += '</div>';
+            
+            // Regime badge row
+            html += '<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap;">';
+            html += '<span style="background:' + regimeColor + '22;color:' + regimeColor + ';padding:1px 5px;border-radius:2px;font-size:9px;font-weight:600;">' + (item.qRegime || 'N/A') + '</span>';
+            html += '<span style="background:#00D9FF22;color:#00D9FF;padding:1px 5px;border-radius:2px;font-size:9px;font-weight:600;">' + (item.structure || 'TREND') + '</span>';
+            if (item.momentum && item.momentum !== 'NEUTRAL') {
+                var momColor = item.momentum.includes('UP') ? '#4ade80' : '#ff6b6b';
+                html += '<span style="background:' + momColor + '22;color:' + momColor + ';padding:1px 5px;border-radius:2px;font-size:9px;font-weight:600;">' + item.momentum + '</span>';
+            }
+            html += '</div>';
+            
+            // Key levels row
+            html += '<div style="display:flex;justify-content:space-between;font-size:9px;color:#9ca3af;">';
+            html += '<span style="color:#ff6b6b;">R1:' + item.resistance + '</span>';
+            html += '<span style="color:#4ade80;">S1:' + item.support + '</span>';
+            html += '</div>';
+            
+            // Q-Open row
+            html += '<div style="font-size:8px;color:#6a7585;margin-top:3px;border-top:1px solid #333;padding-top:3px;">';
+            html += 'Q-Open: ' + (item.qOpenAnchor || 'N/A') + ' (' + distSign + item.qDistFromOpen + '%)';
+            html += '</div>';
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function updateQuantLevels(data) {
+            console.log('updateQuantLevels called with', data ? data.length : 0, 'items');
+            if (!data || !Array.isArray(data) || data.length === 0) return;
+            quantDataCache = data;
+            
+            // Get the accordion container - scope all queries to this
+            var accordion = document.getElementById('quantAccordion');
+            if (!accordion) {
+                console.error('quantAccordion container not found');
+                return;
+            }
+            
+            // Bucket assets by category (5 categories)
+            var buckets = { generals: [], metals: [], energy: [], ag: [], fxcrypto: [] };
+            
+            data.forEach(function(item, index) {
+                var cat = ASSET_CATEGORIES[item.symbol] || 'fxcrypto';
+                if (buckets[cat]) {
+                    buckets[cat].push({ item: item, index: index });
+                } else {
+                    buckets.fxcrypto.push({ item: item, index: index });
+                }
+            });
+            
+            console.log('Bucket counts:', buckets.generals.length, buckets.metals.length, buckets.energy.length, buckets.ag.length, buckets.fxcrypto.length);
+            
+            // Category labels map
+            var catLabels = {
+                generals: 'GENERALS',
+                metals: 'METALS', 
+                energy: 'ENERGY',
+                ag: 'AGRICULTURE',
+                fxcrypto: 'FX / CRYPTO'
+            };
+            
+            // Rebuild the entire accordion content to ensure fresh DOM
+            var html = '';
+            ['generals', 'metals', 'energy', 'ag', 'fxcrypto'].forEach(function(cat) {
+                var capCat = cat.charAt(0).toUpperCase() + cat.slice(1);
+                var label = catLabels[cat] || cat.toUpperCase();
+                var count = buckets[cat].length;
+                
+                html += '<div class="quant-accordion-section">';
+                html += '<button class="quant-accordion-header" onclick="toggleQuantSection(\'' + cat + '\')" id="quantHeader' + capCat + '">';
+                html += '<span class="quant-accordion-arrow" id="quantArrow' + capCat + '">&#9658;</span>';
+                html += '<span>' + label + '</span>';
+                html += '<span class="quant-accordion-count" id="quantCount' + capCat + '">' + count + '</span>';
+                html += '</button>';
+                html += '<div class="quant-accordion-body" id="quantBody' + capCat + '" style="display:none;">';
+                
+                buckets[cat].forEach(function(entry) {
+                    html += '<div class="quant-card" style="cursor:pointer;" data-index="' + entry.index + '" onclick="showQuantDetail(' + entry.index + ')">';
+                    html += buildCardInnerHtml(entry.item);
+                    html += '</div>';
+                });
+                
+                if (count === 0) {
+                    html += '<div style="color:#6a7585;font-size:10px;padding:8px;">No data available</div>';
+                }
+                
+                html += '<div style="color:#6a7585;font-size:7px;font-style:italic;padding:6px 4px 2px 4px;border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;line-height:1.3;">* DISCLAIMER: This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.</div>';
+                html += '</div></div>';
+            });
+            
+            accordion.innerHTML = html;
+            console.log('Quant accordion rebuilt with', data.length, 'assets');
+        }
+        
+        // Helper to build card inner HTML
+        function buildCardInnerHtml(item) {
+            var regimeColor = getRegimeColor(item.qRegime);
+            var distSign = parseFloat(item.qDistFromOpen) >= 0 ? '+' : '';
+            
+            var html = '<div class="quant-header">';
+            html += '<span class="quant-symbol">' + item.symbol + '</span>';
+            html += '<span class="quant-price">' + item.current + '</span>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap;">';
+            html += '<span style="background:' + regimeColor + '22;color:' + regimeColor + ';padding:1px 5px;border-radius:2px;font-size:9px;font-weight:600;">' + (item.qRegime || 'N/A') + '</span>';
+            html += '<span style="background:#00D9FF22;color:#00D9FF;padding:1px 5px;border-radius:2px;font-size:9px;font-weight:600;">' + (item.structure || 'TREND') + '</span>';
+            html += '</div>';
+            html += '<div style="display:flex;justify-content:space-between;font-size:9px;color:#9ca3af;">';
+            html += '<span style="color:#ff6b6b;">R1:' + item.resistance + '</span>';
+            html += '<span style="color:#4ade80;">S1:' + item.support + '</span>';
+            html += '</div>';
+            return html;
+        }
+        
+        // Show detailed quant modal for asset
+        function showQuantDetail(index) {
+            var item = quantDataCache[index];
+            if (!item) return;
+            
+            var modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+            
+            var regimeColor = item.qRegime === 'BULLISH' ? '#4ade80' : item.qRegime === 'BEARISH' ? '#ff6b6b' : '#fbbf24';
+            
+            modal.innerHTML = '<div class="modal-content" style="max-width:500px;">' +
+                '<div class="modal-header">' +
+                    '<h3 style="margin:0;color:#00D9FF;">' + item.symbol + ' - 8-LAYER ANALYSIS</h3>' +
+                    '<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">[X]</button>' +
+                '</div>' +
+                '<div class="modal-body" style="padding:15px;">' +
+                    '<div style="text-align:center;font-size:24px;font-weight:700;color:#fff;margin-bottom:10px;">' + item.current + '</div>' +
+                    
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">' +
+                        '<div style="background:#1a1f2b;padding:10px;border-radius:4px;border-left:3px solid ' + regimeColor + ';">' +
+                            '<div style="font-size:10px;color:#6a7585;">REGIME</div>' +
+                            '<div style="font-size:14px;font-weight:700;color:' + regimeColor + ';">' + item.qRegime + '</div>' +
+                            '<div style="font-size:9px;color:#9ca3af;">Q-Open: ' + item.qOpenAnchor + ' (' + (parseFloat(item.qDistFromOpen) >= 0 ? '+' : '') + item.qDistFromOpen + '%)</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:10px;border-radius:4px;border-left:3px solid #00D9FF;">' +
+                            '<div style="font-size:10px;color:#6a7585;">CONFLUENCE</div>' +
+                            '<div style="font-size:14px;font-weight:700;color:#00D9FF;">' + item.confluenceRating + '</div>' +
+                            '<div style="font-size:9px;color:#9ca3af;">Score: ' + item.confluenceScore + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    
+                    '<div style="font-size:11px;font-weight:600;color:#fff;margin-bottom:8px;">8 ANALYTICAL LAYERS:</div>' +
+                    
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px;">' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#ff6b6b;font-weight:600;">1. VIGILANTE</div>' +
+                            '<div style="color:#9ca3af;">R1: ' + item.resistance + ' | S1: ' + item.support + '</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#fbbf24;font-weight:600;">2. LIQUIDITY</div>' +
+                            '<div style="color:#9ca3af;">Top: ' + item.liquidityTop + ' | Bot: ' + item.liquidityBot + '</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#3b82f6;font-weight:600;">3. SIGMA</div>' +
+                            '<div style="color:#9ca3af;">+2s: ' + item.sigmaHigh + ' | -2s: ' + item.sigmaLow + '</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#00D9FF;font-weight:600;">4. STRUCTURE</div>' +
+                            '<div style="color:#9ca3af;">' + item.structure + '</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#4ade80;font-weight:600;">5. Q-OPEN ANCHOR</div>' +
+                            '<div style="color:#9ca3af;">' + item.qRegime + ' (' + item.qDistFromOpen + '%)</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#a855f7;font-weight:600;">6. MOMENTUM</div>' +
+                            '<div style="color:#9ca3af;">' + item.momentum + ' (Score: ' + item.momentumScore + ')</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#ec4899;font-weight:600;">7. VOLATILITY</div>' +
+                            '<div style="color:#9ca3af;">' + item.volStress + ' / ' + item.volState + '</div>' +
+                        '</div>' +
+                        '<div style="background:#1a1f2b;padding:8px;border-radius:4px;">' +
+                            '<div style="color:#14b8a6;font-weight:600;">8. CONFLUENCE</div>' +
+                            '<div style="color:#9ca3af;">' + (item.confluenceSignals || []).slice(0,3).join(', ') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    
+                '</div>' +
+            '</div>';
+            
+            document.body.appendChild(modal);
         }
         
         function updateStrategicIntelligence(data) {
             if (!data) return;
             
-            // 1. REVOLUTION RISK
-            const revEl = document.getElementById('val-rev-risk');
-            if (revEl && data.revRisk) {
-                revEl.innerText = data.revRisk.level;
-                revEl.style.color = data.revRisk.color;
-                document.getElementById('widget-rev-risk').style.borderColor = data.revRisk.color;
-                const revPct = Math.min((parseFloat(data.revRisk.score) / 3.0) * 100, 100);
-                const meterEl = document.getElementById('meter-rev');
-                if (meterEl) {
-                    meterEl.style.width = `${revPct}%`;
-                    meterEl.style.background = data.revRisk.color;
+            // Update DEFCON Panel with tripwires data
+            if (data.defcon) {
+                updateDEFCONPanel(data.defcon);
+            }
+        }
+        
+        // Toggle DEFCON panel expand/collapse
+        function toggleDefconPanel() {
+            const body = document.getElementById('defconBody');
+            const toggle = document.getElementById('defconToggle');
+            if (body && toggle) {
+                const isHidden = body.style.display === 'none';
+                body.style.display = isHidden ? 'block' : 'none';
+                toggle.classList.toggle('expanded', isHidden);
+            }
+        }
+        
+        // Update DEFCON Panel with tripwires data
+        function updateDEFCONPanel(defconData) {
+            if (!defconData || !defconData.tripwires) return;
+            
+            const { tripwires, summary, compound } = defconData;
+            
+            // Update summary counts with labels
+            const summaryEl = document.getElementById('defconSummary');
+            if (summaryEl && summary) {
+                summaryEl.innerHTML = `
+                    <div class="defcon-count-group safe">
+                        <span class="defcon-count-number">${summary.safe}</span>
+                        <span class="defcon-count-label">SAFE</span>
+                    </div>
+                    <div class="defcon-count-group arming">
+                        <span class="defcon-count-number">${summary.arming}</span>
+                        <span class="defcon-count-label">ARMING</span>
+                    </div>
+                    <div class="defcon-count-group breached">
+                        <span class="defcon-count-number">${summary.breached}</span>
+                        <span class="defcon-count-label">BREACHED</span>
+                    </div>
+                `;
+                
+                // Auto-expand if any breached
+                if (summary.breached > 0) {
+                    const body = document.getElementById('defconBody');
+                    const toggle = document.getElementById('defconToggle');
+                    if (body) body.style.display = 'block';
+                    if (toggle) toggle.classList.add('expanded');
                 }
             }
             
-            // 2. LIAR'S POKER
-            const liarEl = document.getElementById('val-liar');
-            if (liarEl && data.liarsPoker) {
-                liarEl.innerText = data.liarsPoker.label;
-                liarEl.style.color = data.liarsPoker.color;
-                document.getElementById('widget-liar').style.borderColor = data.liarsPoker.color;
-            }
-            
-            // 3. PAPER VS ROCK (War Economy)
-            const warEl = document.getElementById('val-war-eco');
-            if (warEl && data.warEco) {
-                warEl.innerText = data.warEco.label;
-                warEl.style.color = data.warEco.color;
-                document.getElementById('widget-war-eco').style.borderColor = data.warEco.color;
-            }
-            
-            // 4. VASSAL STATE
-            const vasEl = document.getElementById('val-vassal');
-            if (vasEl && data.vassalState) {
-                vasEl.innerText = data.vassalState.master;
-                vasEl.style.color = data.vassalState.color;
-                document.getElementById('widget-vassal').style.borderColor = data.vassalState.color;
-            }
-            
-            // 5. MERCANTILISM COUNTER
-            const fragEl = document.getElementById('val-frag');
-            const fragHitsEl = document.getElementById('val-frag-hits');
-            if (fragEl && data.fragScore) {
-                fragEl.innerText = data.fragScore.level;
-                fragEl.style.color = data.fragScore.color;
-                if (fragHitsEl) {
-                    fragHitsEl.innerText = `(${data.fragScore.hits} signals)`;
+            // Update compound stress indicator
+            const compoundEl = document.getElementById('compoundIndicator');
+            if (compoundEl && compound) {
+                const statusClass = compound.status.toLowerCase();
+                compoundEl.innerHTML = `
+                    <span class="compound-status ${statusClass}">${compound.status}</span>
+                `;
+                compoundEl.title = compound.description + (compound.clusters?.length > 0 ? 
+                    '\n\nActive clusters:\n' + compound.clusters.map(c => `• ${c.name}: ${c.tripwires.join(', ')}`).join('\n') : '');
+                
+                // Auto-expand if systemic stress detected
+                if (compound.status === 'SYSTEMIC') {
+                    const body = document.getElementById('defconBody');
+                    const toggle = document.getElementById('defconToggle');
+                    if (body) body.style.display = 'block';
+                    if (toggle) toggle.classList.add('expanded');
                 }
             }
+            
+            // Render tripwires grid
+            const grid = document.getElementById('defconGrid');
+            if (!grid) return;
+            
+            // Sort by status first (BREACHED > ARMING > SAFE), then by beam order (1-14) within each status
+            const sorted = [...tripwires].sort((a, b) => {
+                const statusOrder = { 'BREACHED': 0, 'ARMING': 1, 'SAFE': 2 };
+                const statusDiff = (statusOrder[a.status] || 2) - (statusOrder[b.status] || 2);
+                if (statusDiff !== 0) return statusDiff;
+                return (a.order || 0) - (b.order || 0);
+            });
+            
+            grid.innerHTML = sorted.map(tw => `
+                <div class="defcon-tripwire ${tw.status.toLowerCase()}" onclick="openBeamAnalysis('${tw.id}')" style="cursor: pointer;" title="Click for detailed analysis">
+                    <div class="defcon-tripwire-left">
+                        <div class="defcon-tripwire-name">${tw.name}</div>
+                        <div class="defcon-tripwire-info">${tw.desc}</div>
+                    </div>
+                    <div class="defcon-tripwire-status">${tw.status}</div>
+                </div>
+            `).join('');
+        }
+        
+        // ========================================================================
+        // EMERGING CONFLICT FUNCTIONS
+        // ========================================================================
+        
+        let emergingQueue = [];
+        
+        function updateEmergingConflicts(data) {
+            if (!data || !data.queue) return;
+            
+            emergingQueue = data.queue;
+            const count = emergingQueue.length;
+            
+            // Update badge
+            const badge = document.getElementById('emergingBadge');
+            const badgeCount = document.getElementById('emergingBadgeCount');
+            if (badge && badgeCount) {
+                badgeCount.textContent = count;
+                badge.classList.toggle('visible', count > 0);
+            }
+            
+            // Update section visibility
+            const section = document.getElementById('emergingSection');
+            const countEl = document.getElementById('emergingCount');
+            if (section && countEl) {
+                section.classList.toggle('hidden', count === 0);
+                countEl.textContent = `${count} pending`;
+            }
+            
+            // Render proposals
+            renderEmergingProposals();
+        }
+        
+        function renderEmergingProposals() {
+            const container = document.getElementById('emergingProposals');
+            if (!container) return;
+            
+            if (emergingQueue.length === 0) {
+                container.innerHTML = '<div style="color:#6a7585;font-size:0.65rem;padding:10px;text-align:center;">No emerging signals detected</div>';
+                return;
+            }
+            
+            // Store emerging data for analysis lookup
+            emergingQueue.forEach(p => {
+                emergingDataStore[p.id] = p;
+            });
+            
+            container.innerHTML = emergingQueue.map(proposal => {
+                const confidence = Math.round((proposal.confidence || 0) * 100);
+                const headlinePreview = (proposal.headlines || []).slice(0, 1)[0] || 'Analyzing situation...';
+                const truncatedHeadline = headlinePreview.length > 70 ? headlinePreview.slice(0, 70) + '...' : headlinePreview;
+                
+                return `
+                    <div class="emerging-card" data-id="${proposal.id}">
+                        <div class="game-header">
+                            <span class="game-title">${proposal.emoji || '🔍'} ${proposal.title || 'Unknown Situation'}</span>
+                            <span class="game-phase">${confidence}%</span>
+                        </div>
+                        <div class="game-players">${(proposal.players || []).join(' vs ')}</div>
+                        <div class="game-last-move">
+                            <div class="game-move-label">Latest Signal</div>
+                            <div class="game-move-text">${truncatedHeadline}</div>
+                        </div>
+                        <div class="game-equilibrium">
+                            <span class="equilibrium-dot"></span>
+                            <span class="equilibrium-text" style="color: #ff6b6b;">Unconfirmed - Awaiting Review</span>
+                        </div>
+                        <div class="game-next-move" style="color:#6a7585;font-size:0.7rem;">${(proposal.headlines || []).length} related headlines detected</div>
+                        <div class="game-buttons-row">
+                            <div class="game-analyze-btn" onclick="analyzeEmergingSignal('${proposal.id}')">
+                                <span>GET AI ANALYSIS</span>
+                            </div>
+                            <div class="game-map-btn" onclick="openEmergingMap('${proposal.id}')">
+                                <span>VIEW MAP</span>
+                            </div>
+                        </div>
+                        <div class="emerging-decision-row">
+                            <button class="emerging-btn accept" onclick="acceptEmergingProposal('${proposal.id}')">✓ CONFIRM</button>
+                            <button class="emerging-btn dismiss" onclick="dismissEmergingProposal('${proposal.id}')">✕ DISMISS</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Store for emerging signals
+        let emergingDataStore = {};
+        
+        function scrollToEmergingSection() {
+            const section = document.getElementById('emergingSection');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        
+        function toggleEmergingSection() {
+            const proposals = document.getElementById('emergingProposals');
+            if (proposals) {
+                proposals.style.display = proposals.style.display === 'none' ? 'flex' : 'none';
+            }
+        }
+        
+        async function acceptEmergingProposal(proposalId) {
+            try {
+                const response = await fetch('/api/emerging-conflicts/accept', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposalId })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to accept');
+                }
+                
+                // Remove from local queue immediately for responsiveness
+                emergingQueue = emergingQueue.filter(p => p.id !== proposalId);
+                updateEmergingConflicts({ queue: emergingQueue });
+                
+            } catch (error) {
+                console.error('Error accepting proposal:', error);
+                alert('Failed to accept proposal: ' + error.message);
+            }
+        }
+        
+        async function dismissEmergingProposal(proposalId) {
+            try {
+                const response = await fetch('/api/emerging-conflicts/dismiss', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposalId })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to dismiss');
+                }
+                
+                // Remove from local queue immediately for responsiveness
+                emergingQueue = emergingQueue.filter(p => p.id !== proposalId);
+                updateEmergingConflicts({ queue: emergingQueue });
+                
+            } catch (error) {
+                console.error('Error dismissing proposal:', error);
+                alert('Failed to dismiss proposal: ' + error.message);
+            }
+        }
+        
+        // Analyze emerging signal with AI
+        function analyzeEmergingSignal(proposalId) {
+            const proposal = emergingQueue.find(p => p.id === proposalId);
+            if (!proposal) {
+                console.error('Emerging signal not found:', proposalId);
+                return;
+            }
+
+            const modal = document.getElementById('analysisModal');
+            const modalHeadline = document.getElementById('modalHeadline');
+            const modalBody = document.getElementById('modalBody');
+            const modalSource = document.getElementById('modalSource');
+
+            modalHeadline.textContent = `${proposal.emoji || '🔍'} ${proposal.title || 'Emerging Signal'}`;
+            modalSource.innerHTML = `<span class="modal-source-label" style="color:#ef4444;">EMERGING SIGNAL</span> ${(proposal.players || []).join(' vs ')}`;
+            modalBody.innerHTML = `
+                <div class="modal-loading">
+                    <div class="modal-spinner"></div>
+                    <div class="modal-loading-text">Analyzing emerging signal with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Assessing potential conflict formation</span></div>
+                </div>
+            `;
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            fetch('/api/analyze-emerging', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    proposalId: proposal.id,
+                    title: proposal.title,
+                    emoji: proposal.emoji,
+                    players: proposal.players,
+                    headlines: proposal.headlines,
+                    confidence: proposal.confidence,
+                    location: proposal.location
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.analysis) {
+                    modalBody.innerHTML = `
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 10px; margin-bottom: 16px;">
+                            <div style="color: #ef4444; font-weight: 700; font-size: 0.8rem; margin-bottom: 6px;">⚠ UNCONFIRMED EMERGING SIGNAL</div>
+                            <div style="color: #94a3b8; font-size: 0.75rem;">This is a potential conflict detected by AI pattern matching. It has not been confirmed by human review. Confidence: ${Math.round((proposal.confidence || 0) * 100)}%</div>
+                        </div>
+                        <div class="modal-analysis">${parseMarkdown(data.analysis)}</div>
+                    `;
+                } else {
+                    modalBody.innerHTML = `<div class="modal-error">${data.error || 'Failed to analyze. Please try again.'}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Analysis error:', error);
+                modalBody.innerHTML = `<div class="modal-error">Network error. Please try again.</div>`;
+            });
+        }
+        
+        // Show emerging signal on map with distinct EMERGING styling
+        function openEmergingMap(proposalId) {
+            const proposal = emergingQueue.find(p => p.id === proposalId);
+            if (!proposal) {
+                console.error('Emerging signal not found:', proposalId);
+                return;
+            }
+            
+            const modal = document.getElementById('mapModal');
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            document.body.style.overflow = 'hidden';
+            
+            // Parse location - can be string or object {lat, lon, city}
+            let locName = 'Location Unknown';
+            let lat = 0;
+            let lon = -30; // Default to Atlantic Ocean (global)
+            
+            if (proposal.location) {
+                if (typeof proposal.location === 'object') {
+                    locName = proposal.location.city || 'Global';
+                    lat = proposal.location.lat || 0;
+                    lon = proposal.location.lon || -30;
+                } else {
+                    locName = proposal.location;
+                }
+            }
+            
+            // Use explicit lat/lon if provided at top level
+            if (proposal.lat !== undefined) lat = proposal.lat;
+            if (proposal.lon !== undefined) lon = proposal.lon;
+            
+            // Create a temporary emerging zone for the globe
+            const emergingZone = {
+                id: proposal.id,
+                title: proposal.title || 'Emerging Signal',
+                location: locName,
+                lat: lat,
+                lon: lon,
+                color: '#ff6b6b', // Distinct red-pink for emerging
+                isEmerging: true,
+                confidence: proposal.confidence || 0
+            };
+            
+            currentFocusedZone = emergingZone;
+            
+            // Update header with EMERGING indicator
+            const headerTitle = document.getElementById('globe-header');
+            if (headerTitle) {
+                headerTitle.innerHTML = `
+                    <div style="color: #ef4444; font-size: 0.75rem; font-weight: 700; letter-spacing: 2px; background: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 4px; display: inline-block; margin-bottom: 6px;">⚠ EMERGING SIGNAL</div>
+                    <div style="color: #00D9FF; font-size: 1.1rem; font-weight: 700; letter-spacing: 2px;">POTENTIAL THEATER</div>
+                    <div style="color: #ff6b6b; font-size: 0.9rem; font-weight: 600; margin-top: 4px;">${emergingZone.title}</div>
+                    <div style="color: #888; font-size: 0.75rem;">${emergingZone.location} | ${Math.round((emergingZone.confidence || 0) * 100)}% confidence</div>
+                `;
+            }
+
+            // Dispose and recreate globe with emerging zone
+            if (globeRoot) {
+                try { globeRoot.dispose(); } catch(e) {}
+                globeRoot = null;
+                globeChart = null;
+            }
+            
+            setTimeout(() => {
+                initGlobeWithEmergingZone(emergingZone);
+            }, 100);
+        }
+        
+        // Initialize globe focused on an emerging zone
+        function initGlobeWithEmergingZone(emergingZone) {
+            const container = document.getElementById('globe-div');
+            if (!container) return;
+            
+            // Use same globe initialization but with emerging zone styling
+            const root = am5.Root.new('globe-div');
+            globeRoot = root;
+            
+            root.setThemes([am5themes_Animated.new(root)]);
+            
+            const chart = root.container.children.push(am5map.MapChart.new(root, {
+                panX: "rotateX",
+                panY: "rotateY",
+                projection: am5map.geoOrthographic(),
+                homeGeoPoint: { latitude: emergingZone.lat, longitude: emergingZone.lon }
+            }));
+            globeChart = chart;
+            
+            // Add polygon series for countries
+            const polygonSeries = chart.series.push(am5map.MapPolygonSeries.new(root, {
+                geoJSON: am5geodata_worldLow
+            }));
+            
+            polygonSeries.mapPolygons.template.setAll({
+                fill: am5.color(0x1a1a2e),
+                stroke: am5.color(0x333355),
+                strokeWidth: 0.5
+            });
+            
+            // Add emerging zone marker with pulsating effect and tooltip
+            const pointSeries = chart.series.push(am5map.MapPointSeries.new(root, {}));
+            
+            pointSeries.bullets.push(() => {
+                const hitArea = am5.Container.new(root, {
+                    width: 45,
+                    height: 45,
+                    centerX: am5.p50,
+                    centerY: am5.p50,
+                    interactive: true,
+                    cursorOverStyle: "pointer",
+                    tooltipHTML: `
+                        <div class="am5-tooltip-container">
+                            <div style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; text-align: center;">
+                                <span style="color: #ef4444; font-weight: 700; font-size: 0.7rem; letter-spacing: 1px;">EMERGING SIGNAL</span>
+                            </div>
+                            <div class="gt-title" style="color: #ff6b6b;">${emergingZone.title}</div>
+                            <div class="gt-location" style="color: #888; font-size: 0.6rem; margin-bottom: 6px;">${emergingZone.location}</div>
+                            <div class="gt-type" style="background: rgba(255, 107, 107, 0.2); color: #ff6b6b;">EMERGING</div>
+                            <div class="gt-desc">Unconfirmed signal detected by AI pattern matching</div>
+                            <div class="gt-theory">Awaiting human confirmation</div>
+                            <div class="gt-why" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); color: #6a7585; font-size: 0.6rem; font-style: italic;">Confidence: ${Math.round((emergingZone.confidence || 0) * 100)}%</div>
+                        </div>
+                    `
+                });
+                
+                // Invisible hit circle
+                hitArea.children.push(am5.Circle.new(root, {
+                    radius: 18,
+                    fill: am5.color(0x000000),
+                    fillOpacity: 0,
+                    strokeOpacity: 0,
+                    x: am5.p50,
+                    y: am5.p50,
+                    centerX: am5.p50,
+                    centerY: am5.p50
+                }));
+                
+                // Outer pulsing ring
+                const outerCircle = hitArea.children.push(am5.Circle.new(root, {
+                    radius: 20,
+                    fill: am5.color(0xff6b6b),
+                    fillOpacity: 0.3,
+                    x: am5.p50,
+                    y: am5.p50,
+                    centerX: am5.p50,
+                    centerY: am5.p50
+                }));
+                
+                outerCircle.animate({
+                    key: "radius",
+                    from: 15,
+                    to: 30,
+                    duration: 1500,
+                    loops: Infinity,
+                    easing: am5.ease.out(am5.ease.cubic)
+                });
+                
+                outerCircle.animate({
+                    key: "fillOpacity",
+                    from: 0.4,
+                    to: 0,
+                    duration: 1500,
+                    loops: Infinity,
+                    easing: am5.ease.out(am5.ease.cubic)
+                });
+                
+                // Inner dot
+                hitArea.children.push(am5.Circle.new(root, {
+                    radius: 8,
+                    fill: am5.color(0xff6b6b),
+                    x: am5.p50,
+                    y: am5.p50,
+                    centerX: am5.p50,
+                    centerY: am5.p50,
+                    stroke: am5.color(0xffffff),
+                    strokeWidth: 2
+                }));
+                
+                // EMERGING label
+                hitArea.children.push(am5.Label.new(root, {
+                    text: "EMERGING",
+                    fontSize: 10,
+                    fontWeight: "700",
+                    fill: am5.color(0xef4444),
+                    x: am5.p50,
+                    centerX: am5.p50,
+                    dy: 18
+                }));
+                
+                return am5.Bullet.new(root, { sprite: hitArea });
+            });
+            
+            pointSeries.data.setAll([{
+                geometry: { type: "Point", coordinates: [emergingZone.lon, emergingZone.lat] },
+                title: emergingZone.title,
+                location: emergingZone.location,
+                isEmerging: true
+            }]);
+            
+            // Rotate to show the emerging zone
+            chart.animate({
+                key: "rotationX",
+                to: -emergingZone.lon,
+                duration: 1500,
+                easing: am5.ease.inOut(am5.ease.cubic)
+            });
+            chart.animate({
+                key: "rotationY",
+                to: -emergingZone.lat,
+                duration: 1500,
+                easing: am5.ease.inOut(am5.ease.cubic)
+            });
         }
 
         function handleInitialData(message) {
@@ -6031,6 +7473,23 @@
         </div>
     </div>
 
+    <!-- Beam Analysis Modal -->
+    <div id="beamAnalysisModal" class="chart-modal-overlay" style="display: none;" onclick="closeBeamModal(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 680px; border-color: #f59e0b; padding: 1.75rem;">
+            <button class="chart-close-btn" onclick="closeBeamModal()" style="top: 18px; right: 18px; position: absolute; color: #f59e0b; font-size: 1.5rem;">×</button>
+            <div id="beamModalHeader" style="padding: 0 0 1rem 0; border-bottom: 1px solid rgba(245, 158, 11, 0.2); margin-bottom: 1.25rem;">
+                <div class="modal-title" style="color: #f59e0b; font-size: 1.2rem; letter-spacing: 1.5px;" id="beamModalTitle">BEAM ANALYSIS</div>
+                <div id="beamModalStatus" style="margin-top: 12px; font-size: 0.9rem;"></div>
+            </div>
+            <div class="modal-analysis info-modal-scroll" id="beamModalBody" style="max-height: 65vh; overflow-y: auto; padding-right: 8px;">
+                <div class="modal-loading" id="beamLoading">
+                    <div class="modal-spinner"></div>
+                    <div class="modal-loading-text">Analyzing with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Loading beam intelligence...</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Statecraft Explainer Modal -->
     <div id="statecraftExplainerModal" class="chart-modal-overlay" style="display: none;" onclick="closeStatecraftExplainer(event)">
         <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 750px; border-color: #9333ea;">
@@ -6219,6 +7678,111 @@
                 <div style="margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(147, 51, 234, 0.3); background: rgba(0,0,0,0.3); border-radius: 6px;">
                     <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
                         <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Investing involves risk, and you should always do your own due diligence (DYOR) and consult with a professional financial advisor before making any investment decisions.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Command Briefing Modal -->
+    <div id="commandBriefingModal" class="chart-modal-overlay" style="display: none;" onclick="closeCommandBriefing(event)">
+        <div class="chart-modal-content" onclick="event.stopPropagation()" style="max-width: 700px;">
+            <button class="chart-close-btn" onclick="closeCommandBriefing()">×</button>
+            <div class="modal-title" style="color: #a855f7; padding: 0.5rem 0;">COMMAND BRIEFING</div>
+            <div class="modal-analysis info-modal-scroll">
+                
+                <h3 style="color: var(--accent-orange); margin-top: 0;">WHAT IS STATECRAFT?</h3>
+                <p style="line-height: 1.6;"><strong>Statecraft</strong> is the art of conducting state affairs - the strategies, tactics, and maneuvers that nations, leaders, and institutions use to advance their interests, project power, and shape the global order.</p>
+                <p style="line-height: 1.6;">Every major market move has a statecraft dimension. Central banks conduct monetary statecraft. Governments wage economic warfare through sanctions. Trade negotiations reshape supply chains. <strong>Understanding statecraft gives you an edge - you see the chess moves before they appear in headlines.</strong></p>
+                
+                <h3 style="color: var(--accent-orange);">THE TOOLS OF STATECRAFT</h3>
+                <div class="legend-item"><span class="legend-icon">$</span><span class="legend-text"><strong>ECONOMIC</strong> = Sanctions, tariffs, trade deals, currency manipulation, debt diplomacy. China's Belt & Road, US dollar hegemony, Russian energy leverage.</span></div>
+                <div class="legend-item"><span class="legend-icon">†</span><span class="legend-text"><strong>COERCIVE</strong> = Military positioning, arms sales, security guarantees, gray zone operations. NATO expansion, South China Sea patrols.</span></div>
+                <div class="legend-item"><span class="legend-icon">◎</span><span class="legend-text"><strong>DIPLOMATIC</strong> = Alliances, treaties, summits, international institutions. BRICS expansion, G7 coordination, UN maneuvering.</span></div>
+                <div class="legend-item"><span class="legend-icon">≡</span><span class="legend-text"><strong>INFORMATION</strong> = Propaganda, narrative warfare, strategic leaks, perception management. State media, controlled disclosures.</span></div>
+                <div class="legend-item"><span class="legend-icon">¤</span><span class="legend-text"><strong>MONETARY</strong> = Central bank policy as geopolitical tool. Dollar swap lines, SWIFT access, CBDC development. The Fed manages the global financial order.</span></div>
+                
+                <h3 style="color: var(--accent-orange);">STATECRAFT ARCHETYPES</h3>
+                <div class="legend-item"><span class="legend-icon">◆</span><span class="legend-text"><strong>HEGEMON</strong> = Maintains order through power and institutional control. Sets and enforces rules. (US post-WWII)</span></div>
+                <div class="legend-item"><span class="legend-icon">◇</span><span class="legend-text"><strong>REVISIONIST</strong> = Seeks to overturn existing order, builds alternative institutions. (China, Russia, Iran)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊖</span><span class="legend-text"><strong>BALANCER</strong> = Plays both sides to maximize leverage, never fully commits. (India, Saudi Arabia, Turkey)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊗</span><span class="legend-text"><strong>SPOILER</strong> = Disrupts to create leverage. Uses chaos as bargaining chip. (North Korea)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊂</span><span class="legend-text"><strong>VASSAL</strong> = Trades sovereignty for protection, aligns with patron state. (Japan, NATO states)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊃</span><span class="legend-text"><strong>MERCHANT</strong> = Prioritizes commerce over ideology, trades with everyone. (Singapore, Switzerland)</span></div>
+                
+                <h3 style="color: var(--accent-orange);">DICTATOR'S PLAYBOOK</h3>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;line-height:1.5;">Autocrats use distinct patterns that create trading opportunities:</p>
+                <div class="legend-item"><span class="legend-icon">!</span><span class="legend-text"><strong>MANUFACTURED CRISIS</strong> = Create external threat to consolidate domestic power. Markets spike on headlines, then normalize.</span></div>
+                <div class="legend-item"><span class="legend-icon">⊠</span><span class="legend-text"><strong>HOSTAGE ECONOMICS</strong> = Use economic interdependence as leverage. Gas cutoffs, rare earth threats. Creates volatility spikes.</span></div>
+                <div class="legend-item"><span class="legend-icon">?</span><span class="legend-text"><strong>STRATEGIC AMBIGUITY</strong> = Keep intentions unclear to maximize leverage. Markets hate uncertainty - they exploit it.</span></div>
+                
+                <h3 style="color: #ef4444;">⚡ STRUCTURAL BEAMS (DEFCON System)</h3>
+                <p style="line-height: 1.6;">This is where statecraft becomes measurable. Our 14 tripwires detect systemic stress before it hits headlines - the structural pressures that statecraft creates:</p>
+                <p style="line-height: 1.6;">14 tripwires that detect systemic stress before it hits headlines. These are the <strong>early warning signals</strong> - the structural pressures building beneath the surface.</p>
+                
+                <div class="legend-item"><span class="legend-icon" style="color:#22c55e;">○</span><span class="legend-text"><strong>SAFE</strong> = Normal conditions, no stress detected</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#f59e0b;">◐</span><span class="legend-text"><strong>ARMING</strong> = Approaching threshold, watch closely</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#ef4444;">●</span><span class="legend-text"><strong>BREACHED</strong> = Alert triggered, stress confirmed</span></div>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;">The 14 Tripwires: Yield Curve, Credit Stress, Fragmentation, Paper vs Rock, Dollar Weaponization, Revolution Risk, Eurodollar Squeeze, Liar's Poker, Mercantilist War, De-Dollarization, Vassal State, Taiwan Tension, Migration Pressure, Secular Stagnation</p>
+                
+                <h3 style="color: #f87171;">◈ COMPOUND STRESS (Meta-Tripwire)</h3>
+                <p style="line-height: 1.6;">When multiple tripwires stress together, it signals a NEW conflict may be forming. The AI analyzes correlated stress and proposes emerging situations.</p>
+                
+                <div class="legend-item"><span class="legend-icon" style="color:#6a7585;">○</span><span class="legend-text"><strong>ISOLATED</strong> = Signals not correlating</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#3b82f6;">◐</span><span class="legend-text"><strong>CORRELATING</strong> = Multiple stressed but scattered</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#f59e0b;">◉</span><span class="legend-text"><strong>CLUSTERING</strong> = Theme cluster active (2+ in same category)</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#ef4444;">●</span><span class="legend-text"><strong>SYSTEMIC</strong> = 2+ clusters resonating - regime shift forming</span></div>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;">Clusters: FINANCIAL (liquidity, Fed, BOJ, Euro) • GEOPOLITICAL (Taiwan, kinetic, liar's poker) • COMMODITY (energy, revolution, mercantilism) • MONETARY (fiat, deflation, paper vs rock)</p>
+                
+                <h3 style="color: #a855f7;">◆ ACTIVE KINETIC THEATERS</h3>
+                <p style="line-height: 1.6;">Where structural stress becomes action. A living game theory engine tracking 20+ global conflicts. AI detects "moves" - actions by players that shift equilibrium.</p>
+                
+                <div class="legend-item"><span class="legend-icon" style="color:#22c55e;">○</span><span class="legend-text"><strong>STABLE</strong> = Nash equilibrium holding, balance maintained</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#f59e0b;">◐</span><span class="legend-text"><strong>SHIFTING</strong> = Players repositioning, strategy changes</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#ef4444;">●</span><span class="legend-text"><strong>UNSTABLE</strong> = Equilibrium breaking down, volatility risk</span></div>
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;">Phase Progression: SETUP → ESCALATION → BRINKMANSHIP → CONFLICT</p>
+                
+                <h3 style="color: var(--accent-orange);">▸ MOVE CLASSIFICATION</h3>
+                <div class="legend-item"><span class="legend-icon" style="color:#ef4444;">▼</span><span class="legend-text"><strong>DEFECT</strong> = Aggressive/competitive action (sanctions, tariffs, military moves)</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#22c55e;">▲</span><span class="legend-text"><strong>COOPERATE</strong> = De-escalation or collaborative action (deals, diplomacy)</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#3b82f6;">►</span><span class="legend-text"><strong>SIGNAL</strong> = Communication without action (rhetoric, posturing, warnings)</span></div>
+                
+                <h3 style="color: var(--accent-orange);">◇ GAME THEORY PATTERNS</h3>
+                <div class="legend-item"><span class="legend-icon">⊘</span><span class="legend-text"><strong>Chicken Game</strong> = Brinkmanship, high accident risk (first to swerve loses)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊗</span><span class="legend-text"><strong>Prisoner's Dilemma</strong> = Escalation spiral risk (tariffs, retaliation)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊕</span><span class="legend-text"><strong>Coordination Game</strong> = Finding focal points together (G7/G20)</span></div>
+                <div class="legend-item"><span class="legend-icon">⊖</span><span class="legend-text"><strong>Zero-Sum</strong> = Winner-take-all confrontation</span></div>
+                <div class="legend-item"><span class="legend-icon">⋮</span><span class="legend-text"><strong>Signaling Game</strong> = Forward guidance, market expectation shaping</span></div>
+                <div class="legend-item"><span class="legend-icon">∴</span><span class="legend-text"><strong>Reputation Game</strong> = Credibility stakes, precedent-setting</span></div>
+                
+                <h3 style="color: #ef4444;">▣ EMERGING SIGNALS</h3>
+                <p style="line-height: 1.6;">The system continuously scans for NEW conflicts forming - situations not yet tracked in Active Theaters.</p>
+                
+                <p style="font-weight:600;color:#a78bfa;margin-top:12px;margin-bottom:8px;">How it works:</p>
+                <div class="legend-item"><span class="legend-icon">1</span><span class="legend-text">Headlines not matching existing conflicts are tagged as "orphans"</span></div>
+                <div class="legend-item"><span class="legend-icon">2</span><span class="legend-text">AI clusters similar orphans (needs 3+ headlines from 2+ sources)</span></div>
+                <div class="legend-item"><span class="legend-icon">3</span><span class="legend-text">Gemini analyzes: "Is this a genuine emerging strategic situation?"</span></div>
+                <div class="legend-item"><span class="legend-icon">4</span><span class="legend-text">If confidence >60%, a proposal appears with title, players, phase, and location</span></div>
+                
+                <p style="font-weight:600;color:#a78bfa;margin-top:12px;margin-bottom:8px;">Your decision:</p>
+                <div class="legend-item"><span class="legend-icon" style="color:#22c55e;">✓</span><span class="legend-text"><strong>ACCEPT</strong> = Adds to Active Theaters, starts tracking moves, appears on globe, AI monitors for updates</span></div>
+                <div class="legend-item"><span class="legend-icon" style="color:#ef4444;">✗</span><span class="legend-text"><strong>DISMISS</strong> = Removes from queue, similar headlines suppressed temporarily (can reappear with new evidence)</span></div>
+                
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;margin-top:8px;">Compound Stress signals also feed here - when tripwires cluster together, AI proposes conflicts forming from structural stress patterns, not just headlines.</p>
+                
+                <h3 style="color: #22c55e;">◎ AUTO-ARCHIVE (Conflict Resolution)</h3>
+                <p style="line-height: 1.6;">Conflicts automatically leave the active list and map when resolved:</p>
+                
+                <div class="legend-item"><span class="legend-icon">○</span><span class="legend-text"><strong>STABLE 7+ days</strong> = Phase stays STABLE/COORDINATION for a week → archived</span></div>
+                <div class="legend-item"><span class="legend-icon">○</span><span class="legend-text"><strong>INACTIVE 30+ days</strong> = No new moves detected for a month → archived</span></div>
+                <div class="legend-item"><span class="legend-icon">○</span><span class="legend-text"><strong>PEACE DETECTED</strong> = Headlines mention ceasefire, peace deal, treaty → archived</span></div>
+                
+                <p style="margin-left:24px;color:#6a7585;font-size:0.95em;margin-top:8px;">Archived conflicts are preserved for history but removed from active tracking. The system self-cleans so you only see what matters NOW.</p>
+                
+                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <p style="font-size: 0.75rem; color: #6a7585; line-height: 1.5; text-align: center;">
+                        <strong>DISCLAIMER:</strong> This is not financial advice. This content is for informational and educational purposes only. Always do your own due diligence and consult with a professional before making investment decisions.
                     </p>
                 </div>
                 
@@ -6713,7 +8277,14 @@
             'sudan': { lat: 15.5007, lon: 32.5599 },                // Khartoum
             'north-korea': { lat: 39.0392, lon: 125.7625 },         // Pyongyang
             'syria-vacuum': { lat: 36.2021, lon: 37.1343 },         // Aleppo
-            'iran-regime': { lat: 35.6892, lon: 51.3890 }           // Tehran
+            'iran-regime': { lat: 35.6892, lon: 51.3890 },          // Tehran
+            'red-sea': { lat: 12.5833, lon: 43.3333 },              // Bab el-Mandeb Strait
+            'sahel': { lat: 15.0000, lon: 3.0000 },                 // Mali/Niger border
+            'monroe-doctrine': { lat: 8.5000, lon: -77.5000 },      // Panama-Colombia border (Western Hemisphere)
+            'global': { lat: 0.0000, lon: -30.0000 },               // Atlantic Ocean - global/systemic events
+            'global-systemic': { lat: 0.0000, lon: -30.0000 },      // Atlantic Ocean - systemic risk
+            'global-monetary': { lat: 0.0000, lon: -30.0000 },      // Atlantic Ocean - monetary regime
+            'global-crisis': { lat: 0.0000, lon: -30.0000 }         // Atlantic Ocean - worldwide crisis
         });
         
         // Get fresh, deep-cloned conflict data sorted by criticality
@@ -6757,9 +8328,9 @@
                 id: "us-china-tech", title: "US-China Tech War", 
                 latitude: 37.3861, longitude: -122.0839, // Silicon Valley
                 location: "Silicon Valley, USA",
-                type: "ESCALATION", color: "#ff4466",
+                type: "STANDOFF", color: "#ffbb33",
                 desc: "LAST MOVE: US new export controls on AI chips to China (DEFECT).",
-                theory: "UNSTABLE: China restricts rare earth exports or retaliates on US firms.",
+                theory: "COLD WAR: China restricts rare earth exports or retaliates on US firms.",
                 locationWhy: "Silicon Valley is ground zero for the tech war - home to NVIDIA, AMD, and AI chip designers targeted by export controls."
             },
             { 
@@ -6784,9 +8355,9 @@
                 id: "russia-ukraine", title: "Russia-Ukraine War", 
                 latitude: 48.3794, longitude: 37.5000, // Donbas
                 location: "Donbas Region, Ukraine",
-                type: "ATTRITION", color: "#ff4466",
+                type: "CONFLICT", color: "#ff4466",
                 desc: "LAST MOVE: Russia winter offensive push in Donbas (DEFECT).",
-                theory: "FROZEN CONFLICT: Ceasefire talks or new Western aid package.",
+                theory: "ACTIVE HOT WAR: Trump peace deal pressure or continued attrition.",
                 locationWhy: "The industrial heartland of Ukraine. Control of Donbas determines energy routes and Europe's security architecture."
             },
             { 
@@ -6874,7 +8445,7 @@
                 id: "iran-israel", title: "Iran-Israel Shadow War", 
                 latitude: 31.7683, longitude: 35.2137, // Jerusalem (offset from Damascus)
                 location: "Jerusalem, Israel",
-                type: "ESCALATION", color: "#ff4466",
+                type: "BRINKMANSHIP", color: "#ff4466",
                 desc: "LAST MOVE: Israel strikes on Iranian proxy positions in Syria (DEFECT).",
                 theory: "VOLATILE: Proxy retaliation or Iranian nuclear program acceleration.",
                 locationWhy: "Israel's strategic command directs strikes against Iranian proxies. Jerusalem is the decision center for regional operations."
@@ -6932,6 +8503,33 @@
                 desc: "LAST MOVE: Regime crackdown on Women Life Freedom protests (DEFECT).",
                 theory: "CRITICAL: Economic collapse accelerates unrest or regime consolidates.",
                 locationWhy: "Iran's capital faces unprecedented protests. Regime survival determines Middle East power balance for decades."
+            },
+            { 
+                id: "red-sea", title: "Red Sea / Houthis", 
+                latitude: 12.5833, longitude: 43.3333, // Bab el-Mandeb Strait
+                location: "Bab el-Mandeb Strait, Yemen",
+                type: "CONFLICT", color: "#ff4466",
+                desc: "LAST MOVE: Houthi drone and missile attacks on commercial shipping (DEFECT).",
+                theory: "CRITICAL: US/UK airstrikes or global shipping reroutes via Cape of Good Hope.",
+                locationWhy: "The Bab el-Mandeb Strait is the chokepoint where Houthi attacks threaten 12% of global trade transiting to Suez Canal."
+            },
+            { 
+                id: "sahel", title: "Sahel Insurgency", 
+                latitude: 15.0000, longitude: 3.0000, // Mali/Niger border
+                location: "Sahel Region, West Africa",
+                type: "FRAGMENTATION", color: "#ff4466",
+                desc: "LAST MOVE: Islamist attacks across Mali, Niger, and Burkina Faso (DEFECT).",
+                theory: "UNSTABLE: Military junta realignment or Wagner/Russian intervention expansion.",
+                locationWhy: "The Sahel is the world's fastest-growing jihadist theater. Wagner presence and French withdrawal reshape African security."
+            },
+            { 
+                id: "monroe-doctrine", title: "Monroe Doctrine Revival", 
+                latitude: 8.5000, longitude: -77.5000, // Panama-Colombia border
+                location: "Western Hemisphere",
+                type: "ESCALATION", color: "#ff4466",
+                desc: "LAST MOVE: Trump demands Greenland purchase, threatens Canada, Panama Canal (DEFECT).",
+                theory: "VOLATILE: NATO allies respond, Denmark rejects, trade tensions escalate.",
+                locationWhy: "The Panama-Colombia border symbolizes US hemispheric influence. Control of the Canal and regional trade routes echo 19th century expansionism."
             }
         ].map(zone => deepFreeze(zone)));
         
@@ -6960,7 +8558,10 @@
             'sudan_civil_war': 'sudan',
             'north_korea_nuclear': 'north-korea',
             'syria_power_vacuum': 'syria-vacuum',
-            'iran_regime_unrest': 'iran-regime'
+            'iran_regime_unrest': 'iran-regime',
+            'red_sea_houthis': 'red-sea',
+            'sahel_islamism': 'sahel',
+            'monroe_doctrine': 'monroe-doctrine'
         };
 
         function openConflictMap(gameId) {
@@ -7017,6 +8618,56 @@
             
             // Small delay to ensure modal is fully rendered
             setTimeout(() => initializeGlobe(targetZone), 100);
+        }
+        
+        // Cluster conflicts that are within threshold distance (in degrees)
+        function clusterConflicts(zones, threshold = 2.0) {
+            const clusters = [];
+            const used = new Set();
+            
+            zones.forEach((zone, i) => {
+                if (used.has(zone.id)) return;
+                
+                // Find all zones within threshold of this one
+                const nearby = zones.filter((other, j) => {
+                    if (i === j || used.has(other.id)) return false;
+                    const latDiff = Math.abs(zone.latitude - other.latitude);
+                    const lonDiff = Math.abs(zone.longitude - other.longitude);
+                    return latDiff < threshold && lonDiff < threshold;
+                });
+                
+                if (nearby.length > 0) {
+                    // Create a cluster
+                    const clusterMembers = [zone, ...nearby];
+                    clusterMembers.forEach(z => used.add(z.id));
+                    
+                    // Use highest criticality conflict as cluster center
+                    const primary = clusterMembers.sort((a, b) => b.criticalityScore - a.criticalityScore)[0];
+                    
+                    clusters.push({
+                        isCluster: true,
+                        count: clusterMembers.length,
+                        members: clusterMembers,
+                        latitude: primary.latitude,
+                        longitude: primary.longitude,
+                        id: `cluster_${primary.id}`,
+                        title: clusterMembers.length + ' CONFLICTS',
+                        location: primary.location + ' region',
+                        type: 'CLUSTER',
+                        color: primary.color,
+                        desc: clusterMembers.map(m => m.title).join(' | '),
+                        theory: 'Multiple strategic situations converging',
+                        locationWhy: 'Multiple conflicts are occurring in this geographic region',
+                        criticalityScore: primary.criticalityScore
+                    });
+                } else {
+                    // Single conflict - not clustered
+                    used.add(zone.id);
+                    clusters.push({ ...zone, isCluster: false, count: 1 });
+                }
+            });
+            
+            return clusters;
         }
         
         function initializeGlobe(targetZone) {
@@ -7083,16 +8734,33 @@
             pointSeries.bullets.push(function(root, series, dataItem) {
                 const data = dataItem.dataContext;
                 const markerColor = am5.color(data.color);
+                const isCluster = data.isCluster;
+                const count = data.count || 1;
                 
-                // Larger hit area container for better hover detection
-                let hitArea = am5.Container.new(globeRoot, {
-                    width: 30,
-                    height: 30,
-                    centerX: am5.p50,
-                    centerY: am5.p50,
-                    interactive: true,
-                    cursorOverStyle: "pointer",
-                    tooltipHTML: `
+                // Cluster markers are larger
+                const baseRadius = isCluster ? 10 : 5;
+                const hitRadius = isCluster ? 18 : 12;
+                const containerSize = isCluster ? 45 : 30;
+                
+                // Build tooltip HTML - different for clusters vs single
+                let tooltipHTML;
+                if (isCluster && data.members) {
+                    const memberList = data.members.map(m => 
+                        `<div class="gt-cluster-item">
+                            <div class="gt-cluster-item-title" style="color: ${m.color};">${m.title}</div>
+                            <div class="gt-cluster-item-type">${m.type}</div>
+                        </div>`
+                    ).join('');
+                    tooltipHTML = `
+                        <div class="am5-tooltip-container" style="max-width: 300px; padding: 14px;">
+                            <div style="background: ${data.color}; color: #fff; padding: 6px 12px; border-radius: 4px; font-weight: 700; font-size: 0.85rem; margin-bottom: 10px; text-align: center;">${count} CONFLICTS IN REGION</div>
+                            <div style="color: #888; font-size: 0.65rem; margin-bottom: 10px; text-align: center;">{location}</div>
+                            <div class="gt-cluster-list">${memberList}</div>
+                            <div style="margin-top: 10px; color: #6a7585; font-size: 0.6rem; font-style: italic; text-align: center;">Hover for details</div>
+                        </div>
+                    `;
+                } else {
+                    tooltipHTML = `
                         <div class="am5-tooltip-container">
                             <div class="gt-title">{title}</div>
                             <div class="gt-location" style="color: #888; font-size: 0.6rem; margin-bottom: 6px;">{location}</div>
@@ -7101,12 +8769,23 @@
                             <div class="gt-theory">{theory}</div>
                             <div class="gt-why" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); color: #6a7585; font-size: 0.6rem; font-style: italic;">{locationWhy}</div>
                         </div>
-                    `
+                    `;
+                }
+                
+                // Larger hit area container for better hover detection
+                let hitArea = am5.Container.new(globeRoot, {
+                    width: containerSize,
+                    height: containerSize,
+                    centerX: am5.p50,
+                    centerY: am5.p50,
+                    interactive: true,
+                    cursorOverStyle: "pointer",
+                    tooltipHTML: tooltipHTML
                 });
                 
-                // Invisible hit circle for reliable hover detection - centered in container
+                // Invisible hit circle for reliable hover detection
                 hitArea.children.push(am5.Circle.new(globeRoot, {
-                    radius: 12,
+                    radius: hitRadius,
                     fill: am5.color(0x000000),
                     fillOpacity: 0,
                     strokeOpacity: 0,
@@ -7116,20 +8795,36 @@
                     centerY: am5.p50
                 }));
 
-                // Center Dot - colored based on conflict status - centered in container
+                // Center Dot - larger for clusters
                 hitArea.children.push(am5.Circle.new(globeRoot, {
-                    radius: 5,
+                    radius: baseRadius,
                     fill: markerColor,
-                    strokeOpacity: 0,
+                    stroke: isCluster ? am5.color(0xffffff) : undefined,
+                    strokeWidth: isCluster ? 2 : 0,
+                    strokeOpacity: isCluster ? 0.8 : 0,
                     x: am5.p50,
                     y: am5.p50,
                     centerX: am5.p50,
                     centerY: am5.p50
                 }));
+                
+                // Cluster count badge
+                if (isCluster && count > 1) {
+                    hitArea.children.push(am5.Label.new(globeRoot, {
+                        text: String(count),
+                        fontSize: 9,
+                        fontWeight: "700",
+                        fill: am5.color(0xffffff),
+                        x: am5.p50,
+                        y: am5.p50,
+                        centerX: am5.p50,
+                        centerY: am5.p50
+                    }));
+                }
 
-                // Pulse Animation Ring - colored (reduced for performance) - centered in container
+                // Pulse Animation Ring
                 let ring = hitArea.children.push(am5.Circle.new(globeRoot, {
-                    radius: 5,
+                    radius: baseRadius,
                     fill: markerColor,
                     fillOpacity: 0.3,
                     strokeOpacity: 0,
@@ -7142,17 +8837,17 @@
                 ring.animate({
                     key: "scale",
                     from: 1,
-                    to: 2.5,
-                    duration: 2500,
+                    to: isCluster ? 3 : 2.5,
+                    duration: isCluster ? 2000 : 2500,
                     loops: Infinity,
                     easing: am5.ease.out(am5.ease.cubic)
                 });
                 
                 ring.animate({
                     key: "opacity",
-                    from: 0.5,
+                    from: isCluster ? 0.6 : 0.5,
                     to: 0,
-                    duration: 2500,
+                    duration: isCluster ? 2000 : 2500,
                     loops: Infinity,
                     easing: am5.ease.out(am5.ease.cubic)
                 });
@@ -7166,12 +8861,56 @@
             // Always deep-clone to prevent any stale/mutated data from affecting display
             const freshZones = getFreshConflictData();
             
-            // DEBUG: Log the first few zones to verify coordinates are correct
-            console.log('Globe zones loaded:', freshZones.slice(0, 3).map(z => 
-                `${z.id}: lat=${z.latitude}, lon=${z.longitude}`
-            ));
+            // Add emerging signals to the zones
+            const emergingZones = (emergingQueue || []).map(proposal => {
+                // Parse location - can be string or object {lat, lon, city}
+                let locName = 'Global';
+                let lat = 0;
+                let lon = -30; // Default to Atlantic Ocean (global)
+                
+                if (proposal.location) {
+                    if (typeof proposal.location === 'object') {
+                        locName = proposal.location.city || 'Global';
+                        lat = proposal.location.lat || 0;
+                        lon = proposal.location.lon || -30;
+                    } else {
+                        locName = proposal.location;
+                    }
+                }
+                
+                // Use explicit lat/lon if provided at top level
+                if (proposal.lat !== undefined) lat = proposal.lat;
+                if (proposal.lon !== undefined) lon = proposal.lon;
+                
+                return {
+                    id: proposal.id,
+                    title: proposal.title || 'Emerging Signal',
+                    location: locName,
+                    latitude: lat,
+                    longitude: lon,
+                    type: 'EMERGING',
+                    color: '#ff6b6b',
+                    desc: proposal.summary || 'Unconfirmed emerging signal',
+                    theory: 'Awaiting confirmation',
+                    locationWhy: 'AI-detected pattern requiring human review',
+                    criticalityScore: 95, // High priority for emerging
+                    isEmerging: true,
+                    confidence: proposal.confidence || 0
+                };
+            });
             
-            pointSeries.data.setAll(freshZones.map(z => ({
+            // Combine confirmed and emerging zones
+            const allZones = [...freshZones, ...emergingZones];
+            
+            // Cluster conflicts that are geographically close (within 2 degrees)
+            const clusteredZones = clusterConflicts(allZones, 2.0);
+            
+            // DEBUG: Log clustering info
+            const clusterCount = clusteredZones.filter(z => z.isCluster).length;
+            const emergingCount = emergingZones.length;
+            console.log(`Globe: ${freshZones.length} confirmed + ${emergingCount} emerging -> ${clusteredZones.length} markers (${clusterCount} clusters)`);
+            
+            pointSeries.data.setAll(clusteredZones.map(z => ({
                 geometry: { type: "Point", coordinates: [z.longitude, z.latitude] },
                 id: z.id,
                 title: z.title,
@@ -7181,7 +8920,10 @@
                 desc: z.desc,
                 theory: z.theory,
                 locationWhy: z.locationWhy,
-                criticalityScore: z.criticalityScore
+                criticalityScore: z.criticalityScore,
+                isCluster: z.isCluster,
+                count: z.count,
+                members: z.members || null
             })));
 
             // Center on target zone after globe appears
@@ -7273,6 +9015,152 @@
             }
         }
         
+        // ========================================================================
+        // BEAM ANALYSIS MODAL FUNCTIONS
+        // ========================================================================
+        
+        async function openBeamAnalysis(beamId) {
+            const modal = document.getElementById('beamAnalysisModal');
+            const title = document.getElementById('beamModalTitle');
+            const status = document.getElementById('beamModalStatus');
+            const body = document.getElementById('beamModalBody');
+            
+            // Show modal with loading state
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'flex-start';
+            modal.style.paddingTop = '3rem';
+            document.body.style.overflow = 'hidden';
+            
+            title.textContent = 'LOADING BEAM DATA...';
+            status.innerHTML = '';
+            body.innerHTML = `
+                <div class="modal-loading">
+                    <div class="modal-spinner"></div>
+                    <div class="modal-loading-text">Analyzing structural beam with Gemini AI...<br><span style="font-size: 0.85em; opacity: 0.8;">Gathering market data and generating insights</span></div>
+                    <div style="margin-top: 1.5rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 6px; max-width: 400px;">
+                        <p style="font-size: 0.7rem; color: #6a7585; line-height: 1.4; text-align: center; margin: 0;">
+                            <strong>DISCLAIMER:</strong> This is not financial advice. I am not a financial advisor. This content is for informational and educational purposes only. Always do your own due diligence before making any investment decisions.
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch(`/api/beam/${beamId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    body.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">${data.error}</div>`;
+                    return;
+                }
+                
+                const { metadata, current, aiAnalysis } = data;
+                
+                // Status color mapping
+                const statusColors = {
+                    'BREACHED': '#ef4444',
+                    'ARMING': '#f59e0b',
+                    'SAFE': '#22c55e'
+                };
+                const statusColor = statusColors[current.status] || '#6a7585';
+                
+                // Update header
+                title.innerHTML = `${current.emoji} ${metadata.name}`;
+                status.innerHTML = `
+                    <span style="display: inline-block; padding: 4px 12px; border-radius: 4px; background: ${statusColor}20; color: ${statusColor}; font-weight: 600; margin-right: 10px;">
+                        ${current.status}
+                    </span>
+                    <span style="color: #94a3b8;">Value: ${current.value} ${current.unit} | Threshold: ${current.threshold} ${current.unit}</span>
+                `;
+                
+                // Build tags HTML
+                const tagsHtml = metadata.tags.map(tag => `
+                    <span style="display: inline-block; padding: 3px 8px; margin: 2px; border-radius: 12px; background: rgba(147, 51, 234, 0.2); color: #a78bfa; font-size: 0.75rem; font-weight: 500;">${tag}</span>
+                `).join('');
+                
+                // Build factors HTML if available
+                const factorsHtml = current.factors ? current.factors.map(f => `
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: ${f.active ? 'rgba(239, 68, 68, 0.15)' : 'rgba(0,0,0,0.2)'}; border-radius: 6px; border-left: 3px solid ${f.active ? '#ef4444' : '#4a5568'};">
+                        <span style="font-size: 1rem;">${f.active ? '🔴' : '⚪'}</span>
+                        <div style="flex: 1;">
+                            <div style="color: ${f.active ? '#ef4444' : '#94a3b8'}; font-weight: ${f.active ? '600' : '400'}; font-size: 0.85rem;">${f.label}</div>
+                        </div>
+                        <div style="color: ${f.active ? '#fca5a5' : '#6b7280'}; font-size: 0.8rem; font-family: 'IBM Plex Mono', monospace;">${f.value}</div>
+                    </div>
+                `).join('') : '';
+                
+                const activeCount = current.factors ? current.factors.filter(f => f.active).length : 0;
+                const totalCount = current.factors ? current.factors.length : 4;
+                
+                // Build body content
+                body.innerHTML = `
+                    <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 6px;">
+                        ${tagsHtml}
+                        <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-size: 0.75rem; font-weight: 600;">${metadata.archetype}</span>
+                    </div>
+                    
+                    ${current.factors ? `
+                    <div style="background: rgba(0,0,0,0.25); border-radius: 8px; padding: 16px; margin-bottom: 20px; border: 1px solid rgba(245, 158, 11, 0.2);">
+                        <h3 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 0.9rem; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>ACTIVE FACTORS</span>
+                            <span style="background: ${activeCount >= 3 ? '#ef4444' : activeCount >= 2 ? '#f59e0b' : '#22c55e'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem;">${activeCount}/${totalCount}</span>
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${factorsHtml}
+                        </div>
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.75rem; color: #6a7585; text-align: center;">
+                            2/4 = ARMING | 3+/4 = BREACHED
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <h3 style="color: #f59e0b; margin: 0 0 10px 0; font-size: 0.9rem; letter-spacing: 0.5px;">WHAT THIS BEAM MEASURES</h3>
+                        <p style="line-height: 1.75; color: #e5e5e5; margin: 0; font-size: 0.95rem;">${metadata.fullExplanation}</p>
+                    </div>
+                    
+                    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <h3 style="color: #f59e0b; margin: 0 0 10px 0; font-size: 0.9rem; letter-spacing: 0.5px;">SCORING RULES</h3>
+                        <div style="background: rgba(0,0,0,0.4); padding: 14px; border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: #94a3b8; white-space: pre-wrap; border-left: 3px solid #f59e0b;">${metadata.calculation}</div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px;">
+                            <h3 style="color: #f59e0b; margin: 0 0 8px 0; font-size: 0.85rem; letter-spacing: 0.5px;">DATA SOURCES</h3>
+                            <p style="color: #94a3b8; margin: 0; font-size: 0.9rem; line-height: 1.6;">${metadata.dataSources.join('<br>')}</p>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px;">
+                            <h3 style="color: #f59e0b; margin: 0 0 8px 0; font-size: 0.85rem; letter-spacing: 0.5px;">HISTORICAL CONTEXT</h3>
+                            <p style="color: #94a3b8; margin: 0; font-size: 0.9rem; line-height: 1.6; font-style: italic;">${metadata.historicalContext}</p>
+                        </div>
+                    </div>
+                    
+                    <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05)); padding: 18px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 20px;">
+                        <h3 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 0.9rem; letter-spacing: 0.5px;">🤖 AI ANALYSIS (Live)</h3>
+                        <p style="line-height: 1.75; color: #e5e5e5; margin: 0; font-size: 0.95rem;">${aiAnalysis || 'Analysis unavailable'}</p>
+                    </div>
+                    
+                    <div style="padding: 12px 16px; border: 1px solid rgba(245, 158, 11, 0.15); background: rgba(0,0,0,0.15); border-radius: 6px;">
+                        <p style="font-size: 0.7rem; color: #6a7585; line-height: 1.5; text-align: center; margin: 0;">
+                            <strong>DISCLAIMER:</strong> This is not financial advice. For informational and educational purposes only.
+                        </p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Beam analysis error:', error);
+                body.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Failed to load beam analysis. Please try again.</div>`;
+            }
+        }
+        
+        function closeBeamModal(event) {
+            if (!event || event.target.id === 'beamAnalysisModal' || event.target.classList.contains('chart-close-btn')) {
+                document.getElementById('beamAnalysisModal').style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+        
         function openIntelLegend() {
             document.getElementById('intelLegendModal').style.display = 'flex';
             document.getElementById('intelLegendModal').style.justifyContent = 'center';
@@ -7294,6 +9182,21 @@
             document.getElementById('statecraftExplainerModal').style.alignItems = 'flex-start';
             document.getElementById('statecraftExplainerModal').style.paddingTop = '3rem';
             document.body.style.overflow = 'hidden';
+        }
+        
+        function openCommandBriefing() {
+            document.getElementById('commandBriefingModal').style.display = 'flex';
+            document.getElementById('commandBriefingModal').style.justifyContent = 'center';
+            document.getElementById('commandBriefingModal').style.alignItems = 'flex-start';
+            document.getElementById('commandBriefingModal').style.paddingTop = '3rem';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeCommandBriefing(event) {
+            if (!event || event.target.id === 'commandBriefingModal' || event.target.classList.contains('chart-close-btn')) {
+                document.getElementById('commandBriefingModal').style.display = 'none';
+                document.body.style.overflow = '';
+            }
         }
         
         function closeStatecraftExplainer(event) {
