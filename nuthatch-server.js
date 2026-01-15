@@ -2118,21 +2118,68 @@ function extractKeyLevelsForHeadline(headline) {
   const contexts = [];
   const text = headline.toLowerCase();
   
-  // Asset keywords to match
+  // Asset keywords to match (expanded to 55 assets)
   const assetMatches = [
-    { kw: ['s&p', 'spx', 'sp500'], sym: 'S&P 500' },
-    { kw: ['nasdaq', 'tech', 'qqq'], sym: 'NASDAQ' },
-    { kw: ['gold', 'bullion', 'xau'], sym: 'GOLD' },
-    { kw: ['oil', 'crude', 'wti', 'brent'], sym: 'WTI CRUDE' },
-    { kw: ['bitcoin', 'btc'], sym: 'BITCOIN' },
-    { kw: ['dollar', 'dxy', 'usd'], sym: 'DXY INDEX' },
-    { kw: ['yen', 'usd/jpy', 'boj'], sym: 'USD/JPY' },
-    { kw: ['euro', 'eur/usd'], sym: 'EUR/USD' },
-    { kw: ['treasury', 'yield', '10-year'], sym: 'US 10Y YIELD' },
-    { kw: ['natural gas', 'nat gas'], sym: 'NAT GAS' },
-    { kw: ['wheat'], sym: 'WHEAT' },
-    { kw: ['corn'], sym: 'CORN' },
-    { kw: ['vix', 'volatility', 'fear'], sym: 'VIX' }
+    // GENERALS (8)
+    { kw: ['s&p', 'spx', 'sp500', 'spy'], sym: 'S&P 500' },
+    { kw: ['nasdaq', 'tech', 'qqq', 'ndx'], sym: 'NASDAQ' },
+    { kw: ['dow jones', 'dow', 'djia'], sym: 'DOW JONES' },
+    { kw: ['russell', 'small cap', 'iwm'], sym: 'RUSSELL 2000' },
+    { kw: ['vix', 'volatility', 'fear index'], sym: 'VIX' },
+    { kw: ['treasury', 'yield', '10-year', 'tlt', 'bond'], sym: 'US 10Y YIELD' },
+    { kw: ['dollar', 'dxy', 'usd index', 'greenback'], sym: 'DXY INDEX' },
+    { kw: ['bitcoin', 'btc', 'crypto'], sym: 'BITCOIN' },
+    // METALS (6)
+    { kw: ['gold', 'bullion', 'xau', 'precious metal'], sym: 'GOLD' },
+    { kw: ['silver', 'xag'], sym: 'SILVER' },
+    { kw: ['copper', 'dr copper', 'hg'], sym: 'COPPER' },
+    { kw: ['platinum', 'xpt'], sym: 'PLATINUM' },
+    { kw: ['palladium', 'xpd'], sym: 'PALLADIUM' },
+    { kw: ['uranium', 'nuclear', 'ura'], sym: 'URANIUM ETF' },
+    // ENERGY (7)
+    { kw: ['oil', 'crude', 'wti'], sym: 'WTI CRUDE' },
+    { kw: ['brent', 'north sea'], sym: 'BRENT CRUDE' },
+    { kw: ['natural gas', 'nat gas', 'lng'], sym: 'NAT GAS' },
+    { kw: ['heating oil', 'distillate'], sym: 'HEATING OIL' },
+    { kw: ['gasoline', 'rbob'], sym: 'GASOLINE' },
+    { kw: ['coal', 'thermal coal'], sym: 'COAL ETF' },
+    { kw: ['carbon', 'emission'], sym: 'CARBON CREDITS' },
+    // AGRICULTURE (14)
+    { kw: ['wheat', 'grain'], sym: 'WHEAT' },
+    { kw: ['corn', 'maize'], sym: 'CORN' },
+    { kw: ['soybean', 'soy'], sym: 'SOYBEANS' },
+    { kw: ['coffee', 'arabica', 'robusta'], sym: 'COFFEE' },
+    { kw: ['sugar', 'sweetener'], sym: 'SUGAR' },
+    { kw: ['cocoa', 'chocolate'], sym: 'COCOA' },
+    { kw: ['cotton', 'textile'], sym: 'COTTON' },
+    { kw: ['orange juice', 'citrus'], sym: 'ORANGE JUICE' },
+    { kw: ['cattle', 'beef'], sym: 'LIVE CATTLE' },
+    { kw: ['hog', 'pork', 'lean hog'], sym: 'LEAN HOGS' },
+    { kw: ['oats'], sym: 'OATS' },
+    { kw: ['rice', 'paddy'], sym: 'RICE' },
+    { kw: ['lumber', 'timber', 'wood'], sym: 'LUMBER' },
+    { kw: ['feeder cattle'], sym: 'FEEDER CATTLE' },
+    // FX/CRYPTO (20)
+    { kw: ['yen', 'usd/jpy', 'boj', 'japan'], sym: 'USD/JPY' },
+    { kw: ['euro', 'eur/usd', 'ecb'], sym: 'EUR/USD' },
+    { kw: ['pound', 'gbp/usd', 'sterling', 'boe'], sym: 'GBP/USD' },
+    { kw: ['aussie', 'aud/usd', 'rba', 'australian'], sym: 'AUD/USD' },
+    { kw: ['loonie', 'usd/cad', 'boc', 'canadian'], sym: 'USD/CAD' },
+    { kw: ['swissie', 'usd/chf', 'snb', 'swiss'], sym: 'USD/CHF' },
+    { kw: ['kiwi', 'nzd/usd', 'rbnz', 'new zealand'], sym: 'NZD/USD' },
+    { kw: ['eur/jpy'], sym: 'EUR/JPY' },
+    { kw: ['gbp/jpy'], sym: 'GBP/JPY' },
+    { kw: ['eur/gbp'], sym: 'EUR/GBP' },
+    { kw: ['singapore', 'usd/sgd', 'mas'], sym: 'USD/SGD' },
+    { kw: ['hong kong', 'usd/hkd', 'hkma'], sym: 'USD/HKD' },
+    { kw: ['rand', 'usd/zar', 'south africa'], sym: 'USD/ZAR' },
+    { kw: ['lira', 'usd/try', 'turkey'], sym: 'USD/TRY' },
+    { kw: ['rupee', 'usd/inr', 'rbi', 'india'], sym: 'USD/INR' },
+    { kw: ['won', 'usd/krw', 'korea'], sym: 'USD/KRW' },
+    { kw: ['yuan', 'renminbi', 'cny', 'usd/cnh', 'pboc', 'china'], sym: 'USD/CNH' },
+    { kw: ['ethereum', 'eth'], sym: 'ETHEREUM' },
+    { kw: ['peso', 'usd/mxn', 'mexico', 'banxico'], sym: 'USD/MXN' },
+    { kw: ['real', 'usd/brl', 'brazil', 'bcb'], sym: 'USD/BRL' }
   ];
   
   for (const match of assetMatches) {
@@ -4289,7 +4336,8 @@ function getMarketLabel(symbol) {
 function formatValue(symbol, value) {
   if (symbol.includes('USD=X') || symbol.includes('JPY=X') || symbol.includes('GBP=X')) {
     return value.toFixed(4);
-  } else if (symbol.startsWith('^T')) {
+  } else if (symbol.startsWith('^T') || symbol === '2YY=F') {
+    // Yield symbols: ^TYX, ^TNX, ^FVX, 2YY=F - format as percentage
     return value.toFixed(3) + '%';
   } else if (symbol.includes('=F') && !symbol.includes('VIX')) {
     return '$' + value.toFixed(2);
@@ -4298,7 +4346,8 @@ function formatValue(symbol, value) {
 }
 
 function formatChange(symbol, change, changePercent) {
-  if (symbol.startsWith('^T')) {
+  if (symbol.startsWith('^T') || symbol === '2YY=F') {
+    // Yield symbols: format change in basis points
     const bps = change * 100;
     return (bps > 0 ? '+' : '') + bps.toFixed(1) + 'bp';
   }
